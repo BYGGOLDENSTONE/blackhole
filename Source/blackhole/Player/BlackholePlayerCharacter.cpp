@@ -7,6 +7,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "Components/StaticMeshComponent.h"
 #include "../Components/Attributes/IntegrityComponent.h"
 #include "../Components/Attributes/StaminaComponent.h"
 #include "../Components/Attributes/WillPowerComponent.h"
@@ -48,6 +49,13 @@ ABlackholePlayerCharacter::ABlackholePlayerCharacter()
 
 	bIsFirstPerson = false;
 	FirstPersonCameraOffset = 70.0f;
+	HeadBoneName = "head"; // Default head bone name - adjust in Blueprint if different
+	
+	// Create maze weapon mesh component
+	MazeWeaponMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MazeWeapon"));
+	MazeWeaponMesh->SetupAttachment(GetMesh(), FName("weaponsocket"));
+	MazeWeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	MazeWeaponMesh->SetCastShadow(true);
 }
 
 void ABlackholePlayerCharacter::BeginPlay()
@@ -163,15 +171,41 @@ void ABlackholePlayerCharacter::ToggleCamera()
 	if (bIsFirstPerson)
 	{
 		// Switch to first person
-		SpringArmComponent->TargetArmLength = 0.0f;
-		SpringArmComponent->bUsePawnControlRotation = true;
+		// Detach camera from spring arm and attach directly to mesh
+		CameraComponent->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
 		
-		// Position camera at character's eye level
-		FVector FirstPersonLocation(FirstPersonCameraOffset, 0.0f, 60.0f);
-		SpringArmComponent->SocketOffset = FirstPersonLocation;
+		// Attach camera to head socket if it exists, otherwise use relative position
+		FName HeadSocket = "camerasocket"; // Your custom socket name
+		if (GetMesh()->DoesSocketExist(HeadSocket))
+		{
+			CameraComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, HeadSocket);
+			// Position camera slightly forward and up from head socket to avoid clipping
+			CameraComponent->SetRelativeLocation(FVector(15.0f, 0.0f, 5.0f));
+			CameraComponent->SetRelativeRotation(FRotator(0.0f, 0.0f, 0.0f));
+		}
+		else
+		{
+			// Fallback: attach to mesh at approximate head height
+			CameraComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform);
+			// Adjust these values based on your character model
+			CameraComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 160.0f)); // Approximate head height
+			CameraComponent->SetRelativeRotation(FRotator(-10.0f, 90.0f, 0.0f)); // Look slightly down, face forward
+		}
 		
-		// Hide character mesh in first person
-		GetMesh()->SetOwnerNoSee(true);
+		// Make camera use controller rotation directly
+		CameraComponent->bUsePawnControlRotation = true;
+		
+		// Disable spring arm influence
+		SpringArmComponent->bUsePawnControlRotation = false;
+		SpringArmComponent->bInheritPitch = false;
+		SpringArmComponent->bInheritYaw = false;
+		SpringArmComponent->bInheritRoll = false;
+		
+		// Don't hide character mesh in first person - we want to see arms/legs
+		GetMesh()->SetOwnerNoSee(false);
+		
+		// Hide the head bone to avoid seeing inside it
+		SetHeadVisibility(false);
 		
 		// Adjust movement to feel better in first person
 		bUseControllerRotationYaw = true;
@@ -180,15 +214,38 @@ void ABlackholePlayerCharacter::ToggleCamera()
 	else
 	{
 		// Switch to third person
-		SpringArmComponent->TargetArmLength = 400.0f;
+		// Reattach camera to spring arm
+		CameraComponent->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+		CameraComponent->AttachToComponent(SpringArmComponent, FAttachmentTransformRules::KeepRelativeTransform, USpringArmComponent::SocketName);
+		CameraComponent->SetRelativeLocation(FVector::ZeroVector);
+		CameraComponent->SetRelativeRotation(FRotator::ZeroRotator);
+		CameraComponent->bUsePawnControlRotation = false;
+		
+		// Re-enable spring arm
 		SpringArmComponent->bUsePawnControlRotation = true;
+		SpringArmComponent->bInheritPitch = true;
+		SpringArmComponent->bInheritYaw = true;
+		SpringArmComponent->bInheritRoll = true;
+		SpringArmComponent->TargetArmLength = 400.0f;
 		SpringArmComponent->SocketOffset = FVector::ZeroVector;
 		
-		// Show character mesh in third person
+		// Ensure character mesh is visible in third person
 		GetMesh()->SetOwnerNoSee(false);
+		
+		// Show the head bone again
+		SetHeadVisibility(true);
 		
 		// Reset movement settings
 		bUseControllerRotationYaw = false;
 		GetCharacterMovement()->bOrientRotationToMovement = true;
+	}
+}
+
+void ABlackholePlayerCharacter::SetHeadVisibility(bool bVisible)
+{
+	if (GetMesh() && !HeadBoneName.IsNone())
+	{
+		// Hide/show the head bone and all its children
+		GetMesh()->HideBoneByName(HeadBoneName, bVisible ? EPhysBodyOp::PBO_None : EPhysBodyOp::PBO_Term);
 	}
 }

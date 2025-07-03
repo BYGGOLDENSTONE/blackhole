@@ -5,6 +5,7 @@
 #include "BaseEnemy.generated.h"
 
 class UIntegrityComponent;
+class UStaticMeshComponent;
 
 UCLASS()
 class BLACKHOLE_API ABaseEnemy : public ACharacter
@@ -33,9 +34,13 @@ protected:
 	AActor* TargetActor;
 
 	UFUNCTION()
-	void OnDeath();
+	virtual void OnDeath();
 
 	bool bIsDead;
+	
+	// Weapon mesh component - all enemies carry swords
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	UStaticMeshComponent* SwordMesh;
 
 public:
 	virtual void Tick(float DeltaTime) override;

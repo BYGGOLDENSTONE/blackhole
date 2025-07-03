@@ -3,6 +3,7 @@
 #include "../Components/Abilities/SmashAbilityComponent.h"
 #include "../Components/Abilities/BlockComponent.h"
 #include "../Components/Abilities/DodgeComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
@@ -15,6 +16,13 @@ ACombatEnemy::ACombatEnemy()
 
 	AttackRange = 150.0f;
 	ChaseRange = 1000.0f;
+	
+	// Create shield mesh component
+	ShieldMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Shield"));
+	ShieldMesh->SetupAttachment(GetMesh(), FName("shieldsocket"));
+	ShieldMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	ShieldMesh->SetCastShadow(true);
+	ShieldMesh->SetVisibility(false); // Initially hidden
 }
 
 void ACombatEnemy::BeginPlay()

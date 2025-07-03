@@ -124,3 +124,15 @@ float AHackerEnemy::GetDistanceToTarget() const
 
 	return FVector::Dist(GetActorLocation(), TargetActor->GetActorLocation());
 }
+
+void AHackerEnemy::OnDeath()
+{
+	// Stop mindmeld before calling parent death function
+	if (MindmeldAbility && MindmeldAbility->bIsMindmeldActive)
+	{
+		MindmeldAbility->StopMindmeld();
+	}
+	
+	// Call parent implementation for ragdoll and cleanup
+	Super::OnDeath();
+}

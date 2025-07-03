@@ -2,6 +2,7 @@
 #include "../Components/Attributes/IntegrityComponent.h"
 #include "../Components/Abilities/SmashAbilityComponent.h"
 #include "../Components/Abilities/BlockComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
@@ -19,6 +20,13 @@ ATankEnemy::ATankEnemy()
 
 	// Make tank enemy slower
 	GetCharacterMovement()->MaxWalkSpeed = 400.0f; // Default is usually 600
+	
+	// Create shield mesh component
+	ShieldMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Shield"));
+	ShieldMesh->SetupAttachment(GetMesh(), FName("shieldsocket"));
+	ShieldMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	ShieldMesh->SetCastShadow(true);
+	ShieldMesh->SetVisibility(false); // Initially hidden
 }
 
 void ATankEnemy::BeginPlay()

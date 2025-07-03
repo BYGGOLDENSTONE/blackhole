@@ -15,6 +15,7 @@ class USystemFreezeAbilityComponent;
 class UKillAbilityComponent;
 class UInputMappingContext;
 class UInputAction;
+class UStaticMeshComponent;
 
 UCLASS()
 class BLACKHOLE_API ABlackholePlayerCharacter : public ACharacter
@@ -91,7 +92,23 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
 	float FirstPersonCameraOffset;
+	
+	// Weapon mesh components
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	UStaticMeshComponent* MazeWeaponMesh;
+	
+	// Head bone name for hiding in first person
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FirstPerson")
+	FName HeadBoneName;
+	
+private:
+	// Hide/show head bone for first person
+	void SetHeadVisibility(bool bVisible);
 
 public:
 	virtual void Tick(float DeltaTime) override;
+	
+	// Getter for camera component - used by abilities for camera-based aiming
+	UFUNCTION(BlueprintCallable, Category = "Camera")
+	UCameraComponent* GetCameraComponent() const { return CameraComponent; }
 };

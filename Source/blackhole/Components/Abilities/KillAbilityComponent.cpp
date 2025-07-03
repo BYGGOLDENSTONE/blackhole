@@ -5,6 +5,8 @@
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
 #include "../../Enemy/BaseEnemy.h"
+#include "../../Player/BlackholePlayerCharacter.h"
+#include "Camera/CameraComponent.h"
 
 UKillAbilityComponent::UKillAbilityComponent()
 {
@@ -54,8 +56,31 @@ void UKillAbilityComponent::Execute()
 	
 	if (AActor* Owner = GetOwner())
 	{
-		FVector Start = Owner->GetActorLocation();
-		FVector Forward = Owner->GetActorForwardVector();
+		FVector Start;
+		FVector Forward;
+		
+		// Use camera for aiming if this is the player
+		if (ABlackholePlayerCharacter* PlayerOwner = Cast<ABlackholePlayerCharacter>(Owner))
+		{
+			if (UCameraComponent* Camera = PlayerOwner->GetCameraComponent())
+			{
+				Start = Camera->GetComponentLocation();
+				Forward = Camera->GetForwardVector();
+			}
+			else
+			{
+				// Fallback to character location
+				Start = Owner->GetActorLocation();
+				Forward = Owner->GetActorForwardVector();
+			}
+		}
+		else
+		{
+			// Non-player owners use their actor location
+			Start = Owner->GetActorLocation();
+			Forward = Owner->GetActorForwardVector();
+		}
+		
 		FVector End = Start + (Forward * Range);
 		
 		FHitResult HitResult;
@@ -78,7 +103,11 @@ void UKillAbilityComponent::Execute()
 		}
 		
 		#if WITH_EDITOR
-		DrawDebugLine(GetWorld(), Start, End, FColor::Black, false, 1.0f, 0, 3.0f);
+		// Only draw debug line for non-player owners (enemies)
+		if (!Owner->IsA<ABlackholePlayerCharacter>())
+		{
+			DrawDebugLine(GetWorld(), Start, End, FColor::Black, false, 1.0f, 0, 3.0f);
+		}
 		#endif
 	}
 }

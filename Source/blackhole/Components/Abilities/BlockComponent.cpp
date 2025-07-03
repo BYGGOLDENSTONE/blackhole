@@ -1,6 +1,8 @@
 #include "BlockComponent.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
+#include "GameFramework/Actor.h"
+#include "Components/StaticMeshComponent.h"
 
 UBlockComponent::UBlockComponent()
 {
@@ -27,10 +29,36 @@ void UBlockComponent::Execute()
 	
 	bIsBlocking = true;
 	
+	// Show shield mesh if available
+	if (AActor* Owner = GetOwner())
+	{
+		if (UStaticMeshComponent* ShieldMesh = Owner->FindComponentByClass<UStaticMeshComponent>())
+		{
+			// Check if this is actually a shield mesh by checking its name
+			if (ShieldMesh->GetName().Contains("Shield"))
+			{
+				ShieldMesh->SetVisibility(true);
+			}
+		}
+	}
+	
 	GetWorld()->GetTimerManager().SetTimer(BlockTimerHandle, this, &UBlockComponent::StopBlocking, BlockDuration, false);
 }
 
 void UBlockComponent::StopBlocking()
 {
 	bIsBlocking = false;
+	
+	// Hide shield mesh if available
+	if (AActor* Owner = GetOwner())
+	{
+		if (UStaticMeshComponent* ShieldMesh = Owner->FindComponentByClass<UStaticMeshComponent>())
+		{
+			// Check if this is actually a shield mesh by checking its name
+			if (ShieldMesh->GetName().Contains("Shield"))
+			{
+				ShieldMesh->SetVisibility(false);
+			}
+		}
+	}
 }

@@ -7,6 +7,7 @@
 class USmashAbilityComponent;
 class UBlockComponent;
 class UDodgeComponent;
+class UStaticMeshComponent;
 
 UCLASS()
 class BLACKHOLE_API ACombatEnemy : public ABaseEnemy
@@ -34,6 +35,10 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
 	float ChaseRange;
+	
+	// Shield mesh component - visible when blocking
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	UStaticMeshComponent* ShieldMesh;
 
 private:
 	void MoveTowardsTarget(float DeltaTime);

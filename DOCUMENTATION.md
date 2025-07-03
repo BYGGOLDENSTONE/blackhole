@@ -146,7 +146,9 @@ Character (AActor)
   - Base attribute system with regeneration support
   - Base ability system with cooldowns
   - Enhanced Input System integration
-  - First/Third person camera toggle
+  - First/Third person camera toggle with body visibility
+  - Camera-based aiming for player abilities
+  - Socket-based weapon/shield attachment system
   
 - **Attributes:**
   - Integrity (Health) - No regeneration, supports blocking
@@ -154,10 +156,10 @@ Character (AActor)
   - WillPower - No regeneration
   
 - **Player Abilities:**
-  - Slash (LMB) - Physical melee attack
-  - System Freeze (1) - Stuns enemies only
-  - Kill (2) - Instant kill enemies only
-  - Camera Toggle (H) - Switch between 1st/3rd person
+  - Slash (LMB) - Physical melee attack (camera-aimed)
+  - System Freeze (1) - Stuns enemies only (camera-aimed)
+  - Kill (2) - Instant kill enemies only (camera-aimed)
+  - Camera Toggle (H) - Switch between 1st/3rd person (body visible in FP)
   
 - **Enemy Types:**
   - Base Enemy - Ragdoll physics on death
@@ -181,6 +183,13 @@ Character (AActor)
 - **Game Mode:**
   - Default player and HUD setup
 
+- **Visual Features:**
+  - Weapon attachment via sockets (weaponsocket for swords/maze)
+  - Shield attachment for blocking enemies (shieldsocket)
+  - Dynamic shield visibility during block
+  - Head bone hiding in first person view
+  - Debug trace lines only for enemy abilities
+
 ### 🔧 Implementation Notes:
 - All numeric values are exposed as `UPROPERTY(EditAnywhere)`
 - Proper UE5.5 naming conventions followed
@@ -188,6 +197,10 @@ Character (AActor)
 - Debug visualization and logging included
 - Hack abilities restricted to enemy targets only
 - All enemies tagged with "Enemy" for identification
+- Player abilities use camera-based aiming for accuracy
+- Mindmeld ability properly stops on enemy death
+- First person camera attaches to "camerasocket" on head bone
+- Head bone can be configured in Blueprint (HeadBoneName property)
 
 ## Future Features Placeholder
 

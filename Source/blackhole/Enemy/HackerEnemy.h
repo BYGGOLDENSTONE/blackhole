@@ -17,6 +17,7 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void UpdateAIBehavior(float DeltaTime) override;
+	virtual void OnDeath() override;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	UMindmeldComponent* MindmeldAbility;

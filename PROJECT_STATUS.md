@@ -1,4 +1,4 @@
-# Blackhole Project Status - Last Updated: 2025-01-02
+# Blackhole Project Status - Last Updated: 2025-01-03
 
 ## Project Overview
 Unreal Engine 5.5 C++ third-person action game with component-based architecture. Features hack-based abilities, multiple enemy types, and dynamic camera switching.
@@ -101,26 +101,34 @@ All enemies inherit from **ABaseEnemy** which provides:
 - Bodies cleaned up after 10 seconds
 - All AI behavior stops on death
 
-## Recent Fixes & Updates
+## Recent Fixes & Updates (January 3, 2025)
 
-1. **Fixed Mindmeld Not Working**:
-   - Added `PrimaryComponentTick.bCanEverTick = true`
-   - Fixed line of sight calculations
-   - Added debug logging for troubleshooting
+1. **Fixed Mindmeld Continuing After Death**:
+   - HackerEnemy now properly stops mindmeld in OnDeath()
+   - Made BaseEnemy::OnDeath() virtual for proper inheritance
+   - Mindmeld component cleans up when owner dies
 
-2. **Enhanced Input System**:
-   - Replaced old input with Enhanced Input
-   - Added camera toggle functionality
-   - Prepared for runtime remapping
+2. **First Person Camera Improvements**:
+   - Camera now attaches to "camerasocket" on skeletal mesh
+   - Player body remains visible in first person
+   - Head bone is hidden to prevent seeing inside head
+   - HeadBoneName configurable in Blueprint
 
-3. **Hack Ability Restrictions**:
-   - SystemFreeze and Kill only work on enemies
-   - Check for "Enemy" tag or ABaseEnemy inheritance
+3. **Camera-Based Aiming**:
+   - Player abilities (Slash, SystemFreeze, Kill) now aim from camera
+   - More accurate targeting in both first and third person
+   - Enemies still use character-based aiming
 
-4. **Enemy Variants**:
-   - Created AgileEnemy and TankEnemy
-   - Each has unique ability combinations
-   - Different stats and behaviors
+4. **Socket-Based Equipment System**:
+   - Player maze weapon attaches to "weaponsocket"
+   - All enemies have sword meshes on "weaponsocket"
+   - Combat/Tank enemies have shields on "shieldsocket"
+   - Shields dynamically show/hide when blocking
+
+5. **Debug Improvements**:
+   - Player abilities no longer show debug trace lines
+   - Enemy abilities still show traces for debugging
+   - Cleaner visual experience during gameplay
 
 ## Blueprint Setup Required
 
@@ -140,10 +148,18 @@ All enemies inherit from **ABaseEnemy** which provides:
 ### Player Blueprint:
 - Set all Input Action references
 - Set DefaultMappingContext
+- Configure HeadBoneName property (e.g., "head", "neck_01")
+
+### Socket Setup:
+- Add "camerasocket" to head bone for first person camera
+- Add "weaponsocket" to right hand for weapons
+- Add "shieldsocket" to left forearm for shields
 
 ### Enemy Setup:
 - Ensure skeletal meshes have Physics Assets
 - Configure collision properly for ragdoll
+- Assign sword meshes to all enemy blueprints
+- Assign shield meshes to Combat/Tank enemy blueprints
 
 ## Known Issues & Considerations
 

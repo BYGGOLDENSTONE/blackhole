@@ -1,6 +1,7 @@
 #include "BaseEnemy.h"
 #include "../Components/Attributes/IntegrityComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
 ABaseEnemy::ABaseEnemy()
@@ -13,6 +14,12 @@ ABaseEnemy::ABaseEnemy()
 	Tags.Add(FName("Enemy"));
 	
 	bIsDead = false;
+	
+	// Create sword mesh component - all enemies have swords
+	SwordMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Sword"));
+	SwordMesh->SetupAttachment(GetMesh(), FName("weaponsocket"));
+	SwordMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	SwordMesh->SetCastShadow(true);
 }
 
 void ABaseEnemy::BeginPlay()
