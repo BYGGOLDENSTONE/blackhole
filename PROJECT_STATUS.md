@@ -1,218 +1,163 @@
-# Blackhole Project Status - Last Updated: 2025-01-03
+# Blackhole Project Status
+**Engine**: Unreal Engine 5.5  
+**Language**: C++ with Blueprint integration  
+**Genre**: Hybrid hacker-forge warrior action game  
+**Date**: 2025-07-04
 
 ## Project Overview
-Unreal Engine 5.5 C++ third-person action game with component-based architecture. Features hack-based abilities, multiple enemy types, and dynamic camera switching.
+A tactical action game featuring dual-path combat where players choose between Hacker and Forge modes before each level, each with unique abilities and resource systems. Core gameplay revolves around resource management, combo chaining, and adaptive combat as abilities are dynamically lost based on Willpower thresholds.
 
-## Core Systems Implemented
+## 🎯 Core Systems Status
 
-### 1. Component Architecture
+### ✅ Fully Implemented
+- **Dual Resource System**: Stamina + WP corruption (Hacker) / Stamina + Heat (Forge)
+- **Path System**: Players choose Hacker or Forge path before entering each level
+- **11 Combat Abilities**: All path-specific abilities with correct resource consumption
+- **WP Corruption System**: 0% = good state, higher WP = fewer abilities
+- **Hacker Enemy Mindmeld**: Continuously adds WP corruption to player with line of sight
+- **Threshold Manager**: WP corruption-based ability loss (inverted thresholds)
+- **Combo System**: 2-second chain window with Mini Combo and Combo Surge rewards
+- **Enhanced Input System**: UE5 input actions with runtime remapping support
+- **HUD Integration**: Real-time resource bars, path indicators, cooldown displays
+- **Cheat Manager**: Console commands for testing (SetWP, SetHeat, SetPath, etc.)
 
-#### Base Components
-- **UAttributeComponent**: Base class for all attributes
-  - Manages current/max values
-  - Handles regeneration (configurable per attribute)
-  - Provides percentage calculations for UI
-  
-- **UAbilityComponent**: Base class for all abilities
-  - Manages cooldowns
-  - Tracks resource costs
-  - Defines ability range
-  - Virtual Execute() function for implementation
-
-#### Attribute Components
-- **UIntegrityComponent** (Health)
-  - No regeneration
-  - TakeDamage() function
-  - Respects blocking (50% damage reduction when blocking)
-  
-- **UStaminaComponent**
-  - 10/sec regeneration rate
-  - Used by physical abilities (Slash)
-  
-- **UWillPowerComponent**
-  - No regeneration
-  - Used by hack abilities (SystemFreeze, Kill)
-  - Can be drained by Mindmeld
-
-#### Ability Components
-- **USlashAbilityComponent**: 20 damage, 10 stamina cost, 2s cooldown, 200 range
-- **USystemFreezeAbilityComponent**: 10 will power, 2s stun, 3s cooldown, 3000 range (enemies only)
-- **UKillAbilityComponent**: 40 will power, instant kill, 5s cooldown, 3000 range (enemies only)
-- **USmashAbilityComponent**: 10 damage, 1.5s cooldown, 200 range
-- **UBlockComponent**: Blocks physical damage (50% reduction), 2s cooldown
-- **UDodgeComponent**: Quick movement dash, 2s cooldown
-- **UMindmeldComponent**: 1 will/sec drain on sight, no cooldown
-
-### 2. Character Classes
-
-#### Player Character (ABlackholePlayerCharacter)
-- **Components**: All 3 attributes + Slash, SystemFreeze, Kill abilities
-- **Enhanced Input System** implemented with actions for:
-  - Movement (WASD)
-  - Looking (Mouse)
-  - Jumping (Spacebar)
-  - Abilities (LMB, 1, 2)
-  - Camera Toggle (H)
-- **Camera System**:
-  - Third-person view (default)
-  - First-person view (toggle with H)
-  - Smooth transitions between views
-
-#### Enemy Types
-All enemies inherit from **ABaseEnemy** which provides:
-- Integrity component
-- "Enemy" tag for ability targeting
-- Ragdoll physics on death
-- Auto-cleanup after 10 seconds
-
-**Enemy Variants:**
-1. **ACombatEnemy**: Smash + Block + Dodge (balanced fighter)
-2. **AAgileEnemy**: Smash + Dodge only (fast, can't block)
-3. **ATankEnemy**: Smash + Block only (slow, high health, can't dodge)
-4. **AHackerEnemy**: Mindmeld only (drains player's will power)
-
-### 3. UI System (ABlackholeHUD)
-- Player attribute bars (Integrity/Stamina/WillPower)
-- Ability cooldown indicators
-- Crosshair
-- Target enemy information
-- Color-coded displays
-
-### 4. Game Mode (ABlackholeGameMode)
-- Sets default player class
-- Sets default HUD
-
-## Key Features & Mechanics
-
-### Combat System
-- **Physical Abilities**: Use stamina, blocked by BlockComponent
-- **Hack Abilities**: Use will power, only work on enemies
-- **Line of Sight**: Required for ranged abilities
-- **Cooldown Management**: Prevents ability spam
-
-### Enemy AI Behaviors
-- **Combat/Tank**: Chase and attack when in range
-- **Agile**: Dodge when player is close
-- **Hacker**: Maintain optimal distance for Mindmeld
-
-### Death System
-- Enemies ragdoll when Integrity reaches 0
-- Physics impulse applied for dramatic effect
-- Bodies cleaned up after 10 seconds
-- All AI behavior stops on death
-
-## Recent Fixes & Updates (January 3, 2025)
-
-1. **Fixed Mindmeld Continuing After Death**:
-   - HackerEnemy now properly stops mindmeld in OnDeath()
-   - Made BaseEnemy::OnDeath() virtual for proper inheritance
-   - Mindmeld component cleans up when owner dies
-
-2. **First Person Camera Improvements**:
-   - Camera now attaches to "camerasocket" on skeletal mesh
-   - Player body remains visible in first person
-   - Head bone is hidden to prevent seeing inside head
-   - HeadBoneName configurable in Blueprint
-
-3. **Camera-Based Aiming**:
-   - Player abilities (Slash, SystemFreeze, Kill) now aim from camera
-   - More accurate targeting in both first and third person
-   - Enemies still use character-based aiming
-
-4. **Socket-Based Equipment System**:
-   - Player maze weapon attaches to "weaponsocket"
-   - All enemies have sword meshes on "weaponsocket"
-   - Combat/Tank enemies have shields on "shieldsocket"
-   - Shields dynamically show/hide when blocking
-
-5. **Debug Improvements**:
-   - Player abilities no longer show debug trace lines
-   - Enemy abilities still show traces for debugging
-   - Cleaner visual experience during gameplay
-
-## Blueprint Setup Required
-
-### Input Actions to Create:
-- `IA_Jump` (Digital)
-- `IA_Move` (Axis2D)
-- `IA_Look` (Axis2D)
-- `IA_Slash` (Digital)
-- `IA_SystemFreeze` (Digital)
-- `IA_Kill` (Digital)
-- `IA_ToggleCamera` (Digital)
-
-### Input Mapping Context:
-- Create `IMC_Default`
-- Map all actions to appropriate keys
-
-### Player Blueprint:
-- Set all Input Action references
-- Set DefaultMappingContext
-- Configure HeadBoneName property (e.g., "head", "neck_01")
-
-### Socket Setup:
-- Add "camerasocket" to head bone for first person camera
-- Add "weaponsocket" to right hand for weapons
-- Add "shieldsocket" to left forearm for shields
-
-### Enemy Setup:
-- Ensure skeletal meshes have Physics Assets
-- Configure collision properly for ragdoll
-- Assign sword meshes to all enemy blueprints
-- Assign shield meshes to Combat/Tank enemy blueprints
-
-## Known Issues & Considerations
-
-1. **Performance**: Multiple enemies using Mindmeld may impact performance due to tick updates
-2. **Balance**: Will power has no regeneration - players can get permanently drained
-3. **Visual Feedback**: Abilities need particle effects and animations
-4. **Audio**: No sound effects implemented yet
-
-## Next Steps Suggestions
-
-1. **Polish**:
-   - Add particle effects for abilities
-   - Implement hit reactions and animations
-   - Add sound effects
-
-2. **Gameplay**:
-   - Add will power regeneration pickups
-   - Implement enemy spawning system
-   - Create objectives/win conditions
-
-3. **Technical**:
-   - Implement save/load system
-   - Add network replication for multiplayer
-   - Optimize with object pooling
-
-## File Structure
+### 🔧 Core Architecture
 ```
-Source/Blackhole/
-├── Components/
-│   ├── Attributes/
-│   │   ├── AttributeComponent.*
-│   │   ├── IntegrityComponent.*
-│   │   ├── StaminaComponent.*
-│   │   └── WillPowerComponent.*
-│   └── Abilities/
-│       ├── AbilityComponent.*
-│       ├── SlashAbilityComponent.*
-│       ├── SystemFreezeAbilityComponent.*
-│       ├── KillAbilityComponent.*
-│       ├── SmashAbilityComponent.*
-│       ├── BlockComponent.*
-│       ├── DodgeComponent.*
-│       └── MindmeldComponent.*
-├── Player/
-│   └── BlackholePlayerCharacter.*
-├── Enemy/
-│   ├── BaseEnemy.*
-│   ├── CombatEnemy.*
-│   ├── AgileEnemy.*
-│   ├── TankEnemy.*
-│   └── HackerEnemy.*
-├── UI/
-│   └── BlackholeHUD.*
-└── Core/
-    └── BlackholeGameMode.*
+Component Hierarchy:
+├── ResourceManager (GameInstance Subsystem)
+├── ThresholdManager (World Subsystem)  
+├── ComboTracker (Component)
+├── 11 Ability Components (Path-organized)
+└── 4 Attribute Components (Health, Stamina, WP, Heat)
 ```
+
+## 🎮 Gameplay Features
+
+### Path System
+**Hacker Path** (Cyan theme):
+- Focus: Speed, precision, technical mastery
+- Resources: Stamina + WP corruption (WP increases with use)
+- Abilities: Gravity Pull, Pulse Hack, Firewall Breach
+- Utilities: Dash/jump for mobility (stamina cost only)
+
+**Forge Path** (Orange theme):
+- Focus: Power, impact, destructive force  
+- Resources: Stamina + Heat consumption (combat abilities only)
+- Abilities: Molten Mace, Heat Shield, Blast Charge, Hammer Strike
+- Utilities: Damaging dash/jump with stamina cost only
+
+### Ability Loss System (WP Corruption)
+- **0-10% WP**: All abilities available (good state)
+- **10-30% WP**: Lose 1 random ability (system strain)
+- **30-60% WP**: Lose 2 random abilities (system overload)
+- **>60% WP**: Lose 3 abilities (critical corruption)
+
+**Survivor Buffs**: +25% damage, -15% cooldown, -5 WP corruption per lost ability
+
+## 🗂️ File Organization
+
+### Source Structure
+```
+Source/blackhole/
+├── Public/Components/Abilities/Player/
+│   ├── Basic/      SlashAbility, KillAbility
+│   ├── Hacker/     GravityPull, PulseHack, FirewallBreach
+│   ├── Forge/      MoltenMace, HeatShield, BlastCharge, HammerStrike
+│   └── Utility/    Path-specific Dash/Jump variants
+├── Systems/        ResourceManager, ThresholdManager, ComboTracker
+├── Player/         BlackholePlayerCharacter
+├── UI/             BlackholeHUD
+└── Core/           CheatManager
+```
+
+### Key Classes
+- **ABlackholePlayerCharacter**: Main player class with all components
+- **UResourceManager**: Centralized WP/Heat/Stamina management
+- **UAbilityComponent**: Base class with dual resource consumption
+- **ABlackholeHUD**: Path-aware HUD with conditional resource display
+
+## ⌨️ Input System
+
+### Controls
+| Input | Action | Notes |
+|-------|--------|-------|
+| **WASD** | Movement | Standard FPS controls |
+| **Mouse** | Look | Camera control |
+| **Tab** | Switch Path | Development only - paths chosen pre-level |
+| **H** | Camera Toggle | First/third person |
+| **LMB** | Slash | Universal basic attack |
+| **RMB** | Path Ability | Firewall Breach / Molten Mace |
+| **Q** | Path Ability | Pulse Hack / Heat Shield |
+| **E** | Path Ability | Gravity Pull / Blast Charge |
+| **R** | Path Ability | (Empty) / Hammer Strike |
+| **Shift** | Dash | Path-specific variants |
+| **Space** | Jump | Path-specific variants |
+
+## 🔧 Technical Implementation
+
+### Performance Features
+- **Event-driven updates** instead of polling
+- **Cached component references** for frequent access
+- **Modular component architecture** for easy expansion
+- **No GAS dependency** for full control over ability system
+
+### Testing Infrastructure
+Console commands available:
+```
+SetWP <amount>        - Set WillPower (0-100)
+SetHeat <amount>      - Set Heat (0-100)  
+SetPath <Hacker|Forge> - Switch character path (Development only)
+StartCombat           - Enable threshold tracking
+EndCombat             - Reset disabled abilities
+ResetResources        - Reset all resources to max
+ShowDebugInfo         - Display current status
+```
+
+## 📊 Current Status
+
+### ✅ Completed (100%)
+- All core systems functional
+- 11 abilities implemented with dual resources
+- Path switching with instant UI updates
+- Resource consumption and validation
+- File organization by path hierarchy
+- Console testing commands
+- Blueprint setup documentation
+
+### 🔄 Ready for Next Phase
+- **Balance Tuning**: Resource costs and ability effectiveness
+- **VFX Integration**: Visual effects for all abilities
+- **Audio Implementation**: Sound effects and music
+- **Environment Systems**: Hackable objects and heat vents
+- **Advanced Enemy AI**: Path-aware enemy behaviors
+
+### 📈 Success Metrics
+- **Zero compilation errors** with current implementation
+- **Modular architecture** allows easy ability additions
+- **Resource system** prevents ability spam while enabling combo play
+- **Path selection** creates strategic pre-level decisions
+- **Documentation** complete for handoff to designers/artists
+
+## 🎯 Next Development Priorities
+
+1. **Immediate** (1-2 days):
+   - Resource balance testing
+   - VFX placeholder integration
+   - Enemy interaction testing
+
+2. **Short-term** (1 week):
+   - Environmental object integration
+   - Advanced combo rewards
+   - Audio system hookup
+
+3. **Medium-term** (2-3 weeks):
+   - Level design iteration
+   - Enemy AI enhancement
+   - Ultimate abilities (F key)
+
+## 📋 Dependencies
+- **Unreal Engine 5.5**: Core engine
+- **Enhanced Input System**: Input handling
+- **No external libraries**: Self-contained C++ implementation
+
+The project is architecturally complete and ready for content creation and polish phases.
