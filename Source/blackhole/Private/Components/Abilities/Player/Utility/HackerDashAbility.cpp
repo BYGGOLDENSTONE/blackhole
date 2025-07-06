@@ -11,10 +11,10 @@ UHackerDashAbility::UHackerDashAbility()
 	PathType = ECharacterPath::Hacker;
 	
 	// Override base parameters
-	Cost = 0.0f; // Legacy field - Hacker dash is free
-	StaminaCost = 0.0f; // New dual resource system - free ability
-	WPCost = 0.0f; // New dual resource system - free ability
-	HeatCost = 0.0f; // New dual resource system - free ability
+	Cost = 5.0f; // Legacy field
+	StaminaCost = 5.0f; // Per GDD: 5 stamina cost
+	WPCost = 0.0f; // Utility abilities don't add WP corruption
+	HeatCost = 0.0f; // Hacker abilities don't generate heat
 	Cooldown = 1.0f; // Per GDD: 1s cooldown
 	MovementDuration = DashDuration;
 	

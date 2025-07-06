@@ -1,4 +1,4 @@
-#include "AttributeComponent.h"
+#include "Components/Attributes/AttributeComponent.h"
 
 UAttributeComponent::UAttributeComponent()
 {

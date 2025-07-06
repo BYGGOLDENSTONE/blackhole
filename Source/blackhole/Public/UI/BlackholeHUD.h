@@ -75,4 +75,19 @@ protected:
 
 private:
 	AActor* GetTargetedActor() const;
+	
+	// Draw all abilities with their inputs and cooldowns
+	void DrawAbilityInfo();
+	
+	// Structure to hold ability display info
+	struct FAbilityDisplayInfo
+	{
+		FString Name;
+		FString Input;
+		class UAbilityComponent* Ability;
+		bool bIsActive;
+	};
+	
+	// Get current path abilities
+	TArray<FAbilityDisplayInfo> GetCurrentAbilities() const;
 };

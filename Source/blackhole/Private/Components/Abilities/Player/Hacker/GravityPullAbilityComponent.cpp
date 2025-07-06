@@ -1,6 +1,6 @@
 #include "Components/Abilities/Player/Hacker/GravityPullAbilityComponent.h"
-#include "blackhole/Components/Interaction/HackableComponent.h"
-#include "blackhole/Systems/ResourceManager.h"
+#include "Components/Interaction/HackableComponent.h"
+#include "Systems/ResourceManager.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/Character.h"
 #include "Camera/CameraComponent.h"
@@ -50,16 +50,7 @@ void UGravityPullAbilityComponent::Execute()
         return;
     }
 
-    // Consume will power first
-    if (UResourceManager* ResMgr = GetResourceManager())
-    {
-        if (!ResMgr->ConsumeWillPower(Cost))
-        {
-            return; // Failed to consume WP
-        }
-    }
-    
-    // Start cooldown and add heat
+    // Call base class to handle resource costs (stamina + WP corruption) and cooldown
     Super::Execute();
 
     // Calculate final launch force
@@ -77,15 +68,8 @@ void UGravityPullAbilityComponent::Execute()
 
 bool UGravityPullAbilityComponent::CanExecute() const
 {
-    if (!Super::CanExecute()) return false;
-
-    // Check if we have enough will power and not overheated
-    if (UResourceManager* ResMgr = GetResourceManager())
-    {
-        return ResMgr->HasEnoughWillPower(Cost) && !ResMgr->IsOverheated();
-    }
-
-    return false;
+    // Let base class handle all resource checks
+    return Super::CanExecute();
 }
 
 AActor* UGravityPullAbilityComponent::FindBestHackableTarget() const

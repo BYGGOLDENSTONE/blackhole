@@ -1,4 +1,4 @@
-#include "WillPowerComponent.h"
+#include "Components/Attributes/WillPowerComponent.h"
 
 UWillPowerComponent::UWillPowerComponent()
 {

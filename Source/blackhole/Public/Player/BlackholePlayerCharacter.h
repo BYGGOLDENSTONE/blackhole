@@ -127,8 +127,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputMappingContext* DefaultMappingContext;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* JumpAction;
+	// Basic jump removed - use UtilityJumpAction for path-specific jumps
+	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	// UInputAction* JumpAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* MoveAction;
@@ -216,6 +217,9 @@ protected:
 private:
 	// Hide/show head bone for first person
 	void SetHeadVisibility(bool bVisible);
+	
+	// Unified path-based ability execution
+	void ExecutePathBasedAbility(class UAbilityComponent* HackerAbility, class UAbilityComponent* ForgeAbility);
 
 public:
 	virtual void Tick(float DeltaTime) override;

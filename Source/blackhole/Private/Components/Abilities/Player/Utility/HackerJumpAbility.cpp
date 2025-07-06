@@ -9,12 +9,12 @@ UHackerJumpAbility::UHackerJumpAbility()
 	// Set hacker path
 	PathType = ECharacterPath::Hacker;
 	
-	// Jump has no cost or cooldown
-	Cost = 0.0f; // Legacy field - free ability
-	StaminaCost = 0.0f; // New dual resource system - free ability
-	WPCost = 0.0f; // New dual resource system - free ability
-	HeatCost = 0.0f; // New dual resource system - free ability
-	Cooldown = 0.0f;
+	// Jump costs stamina but no cooldown
+	Cost = 10.0f; // Legacy field
+	StaminaCost = 10.0f; // Per GDD: 10 stamina cost
+	WPCost = 0.0f; // Utility abilities don't add WP corruption
+	HeatCost = 0.0f; // Hacker abilities don't generate heat
+	Cooldown = 0.0f; // No cooldown for jumps
 	HeatGenerationMultiplier = 0.0f; // No heat generation
 	
 	// Jump specifics
@@ -41,20 +41,27 @@ void UHackerJumpAbility::BeginPlay()
 
 bool UHackerJumpAbility::CanExecute() const
 {
-	// Don't check resource requirements for jumps
+	// Don't check additional resource requirements for jumps
 	if (!GetCharacterOwner() || !CachedMovement)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("HackerJump: No owner or movement component"));
 		return false;
 	}
 	
-	// Check if on cooldown (shouldn't happen with 0 cooldown, but just in case)
+	// Check if on cooldown (shouldn't happen with 0 cooldown)
 	if (IsOnCooldown())
 	{
+		UE_LOG(LogTemp, Warning, TEXT("HackerJump: On cooldown"));
 		return false;
 	}
 	
 	// Check jump count
-	return CanJump();
+	bool bCanJump = CanJump();
+	if (!bCanJump)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("HackerJump: CanJump returned false (CurrentJump: %d, Max: %d)"), CurrentJumpCount, MaxJumpCount);
+	}
+	return bCanJump;
 }
 
 void UHackerJumpAbility::ApplyMovement(ACharacter* Character)
@@ -64,36 +71,42 @@ void UHackerJumpAbility::ApplyMovement(ACharacter* Character)
 		return;
 	}
 	
-	// Increment jump count
-	CurrentJumpCount++;
-	
-	// Apply jump velocity
-	FVector JumpVector = FVector(0.0f, 0.0f, JumpVelocity);
-	
-	// For double jump, reset Z velocity first
-	if (CurrentJumpCount > 1)
+	// For first jump, use the character's built-in jump
+	if (CurrentJumpCount == 0 && CachedMovement->IsMovingOnGround())
 	{
-		CachedMovement->Velocity.Z = 0.0f;
+		Character->Jump();
+		CurrentJumpCount = 1;
+		
+		// Boost air control for better maneuverability
+		CachedMovement->AirControl = OriginalAirControl * AirControlBoost;
 	}
-	
-	CachedMovement->Velocity += JumpVector;
-	
-	// Boost air control for better maneuverability
-	CachedMovement->AirControl = OriginalAirControl * AirControlBoost;
-	
-	// Set character jumping state
-	Character->bPressedJump = true;
-	Character->JumpCurrentCount = CurrentJumpCount;
-	
-	#if WITH_EDITOR
-	// Debug visualization
-	FVector CharLocation = Character->GetActorLocation();
-	DrawDebugLine(GetWorld(), CharLocation, CharLocation + JumpVector, FColor::Cyan, false, 1.0f, 0, 3.0f);
-	
-	// Show jump count
-	FString JumpText = FString::Printf(TEXT("Jump %d/%d"), CurrentJumpCount, MaxJumpCount);
-	DrawDebugString(GetWorld(), CharLocation + FVector(0, 0, 100), JumpText, nullptr, FColor::White, 1.0f);
-	#endif
+	else if (CurrentJumpCount < MaxJumpCount)
+	{
+		// For double jump, manually apply velocity
+		CurrentJumpCount++;
+		
+		// Reset Z velocity for clean double jump
+		CachedMovement->Velocity.Z = 0.0f;
+		
+		// Apply jump velocity
+		CachedMovement->Velocity.Z = JumpVelocity;
+		
+		// Notify the movement component
+		CachedMovement->SetMovementMode(MOVE_Falling);
+		
+		// Set character jumping state
+		Character->JumpCurrentCount = CurrentJumpCount;
+		
+		#if WITH_EDITOR
+		// Debug visualization
+		FVector CharLocation = Character->GetActorLocation();
+		DrawDebugLine(GetWorld(), CharLocation, CharLocation + FVector(0, 0, JumpVelocity), FColor::Cyan, false, 1.0f, 0, 3.0f);
+		
+		// Show jump count
+		FString JumpText = FString::Printf(TEXT("Jump %d/%d"), CurrentJumpCount, MaxJumpCount);
+		DrawDebugString(GetWorld(), CharLocation + FVector(0, 0, 100), JumpText, nullptr, FColor::White, 1.0f);
+		#endif
+	}
 }
 
 void UHackerJumpAbility::OnLanded(const FHitResult& Hit)

@@ -1,7 +1,7 @@
 #include "Core/BlackholeCheatManager.h"
 #include "Systems/ResourceManager.h"
 #include "Systems/ThresholdManager.h"
-#include "../Player/BlackholePlayerCharacter.h"
+#include "Player/BlackholePlayerCharacter.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 

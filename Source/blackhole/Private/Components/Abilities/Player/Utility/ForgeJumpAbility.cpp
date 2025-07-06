@@ -110,8 +110,14 @@ void UForgeJumpAbility::ApplyMovement(ACharacter* Character)
 		// Enter slam mode
 		bIsInSlamMode = true;
 		
-		// Apply jump velocity
-		CachedMovement->Velocity.Z = JumpVelocity;
+		// Use character's built-in jump for consistency
+		Character->Jump();
+		
+		// Override the jump velocity if needed
+		if (CachedMovement->Velocity.Z < JumpVelocity)
+		{
+			CachedMovement->Velocity.Z = JumpVelocity;
+		}
 		
 		// Slightly reduced air control for forge jump
 		CachedMovement->AirControl *= 0.7f;

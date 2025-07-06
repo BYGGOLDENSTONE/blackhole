@@ -1,8 +1,8 @@
 #include "Systems/ThresholdManager.h"
 #include "Systems/ResourceManager.h"
-#include "Components/Abilities/Player/AbilityComponent.h"
-#include "Components/Abilities/Player/UtilityAbility.h"
-#include "../Player/BlackholePlayerCharacter.h"
+#include "Components/Abilities/AbilityComponent.h"
+#include "Components/Abilities/UtilityAbility.h"
+#include "Player/BlackholePlayerCharacter.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 

@@ -21,26 +21,12 @@ USlashAbilityComponent::USlashAbilityComponent()
 void USlashAbilityComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	if (AActor* Owner = GetOwner())
-	{
-		StaminaComponent = Owner->FindComponentByClass<UStaminaComponent>();
-	}
 }
 
 bool USlashAbilityComponent::CanExecute() const
 {
-	if (!Super::CanExecute())
-	{
-		return false;
-	}
-	
-	if (StaminaComponent && !StaminaComponent->HasEnoughStamina(Cost))
-	{
-		return false;
-	}
-	
-	return true;
+	// Let base class handle all resource checks
+	return Super::CanExecute();
 }
 
 void USlashAbilityComponent::Execute()
@@ -50,12 +36,8 @@ void USlashAbilityComponent::Execute()
 		return;
 	}
 	
+	// Base class handles resource costs (stamina + WP) and cooldown
 	Super::Execute();
-	
-	if (StaminaComponent)
-	{
-		StaminaComponent->UseStamina(Cost);
-	}
 	
 	if (AActor* Owner = GetOwner())
 	{

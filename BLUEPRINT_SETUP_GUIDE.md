@@ -8,11 +8,10 @@
 Create Input Actions in `Content/Input/Actions/`:
 - **IA_Move** (Vector2D) - WASD movement
 - **IA_Look** (Vector2D) - Mouse look
-- **IA_Jump** (Digital) - Space key
 - **IA_CameraToggle** (Digital) - H key
 - **IA_SwitchPath** (Digital) - Tab key (Development only)
 - **IA_Dash** (Digital) - Shift key
-- **IA_UtilityJump** (Digital) - Space key
+- **IA_UtilityJump** (Digital) - Space key (Path-specific jumps only)
 - **IA_AbilitySlot1** (Digital) - Left Mouse Button
 - **IA_AbilitySlot2** (Digital) - Right Mouse Button
 - **IA_AbilitySlot3** (Digital) - Q key

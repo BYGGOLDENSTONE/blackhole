@@ -37,16 +37,10 @@ void UUtilityAbility::Execute()
 		return;
 	}
 	
-	// Consume WP first
-	if (UResourceManager* ResMgr = GetResourceManager())
-	{
-		if (!ResMgr->ConsumeWillPower(Cost))
-		{
-			return; // Failed to consume WP
-		}
-	}
+	// Utility abilities only consume stamina, not WP or Heat
+	// The parent class will handle stamina consumption
 	
-	// Call parent to handle cooldown and heat generation
+	// Call parent to handle stamina consumption and cooldown
 	Super::Execute();
 	
 	// Apply the movement
@@ -67,18 +61,9 @@ void UUtilityAbility::Execute()
 
 bool UUtilityAbility::CanExecute() const
 {
-	if (!Super::CanExecute())
-	{
-		return false;
-	}
-	
-	// Check resource manager for WP and overheat
-	if (UResourceManager* ResMgr = GetResourceManager())
-	{
-		return ResMgr->HasEnoughWillPower(Cost) && !ResMgr->IsOverheated();
-	}
-	
-	return false;
+	// Let the parent class handle resource checks (stamina)
+	// Utility abilities don't have additional WP/Heat requirements
+	return Super::CanExecute();
 }
 
 void UUtilityAbility::ApplyMovement(ACharacter* Character)

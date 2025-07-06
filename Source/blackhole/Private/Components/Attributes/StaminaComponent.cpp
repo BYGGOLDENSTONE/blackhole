@@ -1,4 +1,4 @@
-#include "StaminaComponent.h"
+#include "Components/Attributes/StaminaComponent.h"
 
 UStaminaComponent::UStaminaComponent()
 {

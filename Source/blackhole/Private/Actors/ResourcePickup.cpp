@@ -2,7 +2,7 @@
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Systems/ResourceManager.h"
-#include "../Player/BlackholePlayerCharacter.h"
+#include "Player/BlackholePlayerCharacter.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
 #include "Particles/ParticleSystemComponent.h"

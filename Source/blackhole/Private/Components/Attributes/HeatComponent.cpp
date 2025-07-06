@@ -1,4 +1,4 @@
-#include "HeatComponent.h"
+#include "Components/Attributes/HeatComponent.h"
 
 UHeatComponent::UHeatComponent()
 {

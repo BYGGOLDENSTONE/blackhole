@@ -1,6 +1,6 @@
-#include "IntegrityComponent.h"
-#include "../Abilities/BlockComponent.h"
-#include "../Abilities/HeatShieldAbility.h"
+#include "Components/Attributes/IntegrityComponent.h"
+#include "Components/Abilities/Enemy/BlockComponent.h"
+#include "Components/Abilities/Player/Forge/HeatShieldAbility.h"
 #include "GameFramework/Actor.h"
 
 UIntegrityComponent::UIntegrityComponent()

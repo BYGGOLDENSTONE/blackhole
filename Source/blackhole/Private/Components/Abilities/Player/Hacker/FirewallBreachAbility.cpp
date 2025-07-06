@@ -26,17 +26,8 @@ void UFirewallBreachAbility::BeginPlay()
 
 bool UFirewallBreachAbility::CanExecute() const
 {
-	if (!Super::CanExecute())
-	{
-		return false;
-	}
-	
-	if (UResourceManager* ResMgr = GetResourceManager())
-	{
-		return ResMgr->HasEnoughWillPower(Cost) && !ResMgr->IsOverheated();
-	}
-	
-	return false;
+	// Let base class handle all resource checks
+	return Super::CanExecute();
 }
 
 void UFirewallBreachAbility::Execute()
@@ -46,16 +37,8 @@ void UFirewallBreachAbility::Execute()
 		return;
 	}
 	
-	// Consume WP first
-	if (UResourceManager* ResMgr = GetResourceManager())
-	{
-		if (!ResMgr->ConsumeWillPower(Cost))
-		{
-			return;
-		}
-	}
-	
-	Super::Execute(); // Adds heat and starts cooldown
+	// Call base class to handle resource costs and cooldown
+	Super::Execute();
 	
 	if (AActor* Owner = GetOwner())
 	{

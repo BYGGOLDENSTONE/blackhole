@@ -1,0 +1,191 @@
+BLACKHOLE - ENVIRONMENTAL INTERACTION SYSTEM PLAN
+=================================================
+Date: 2025-07-06
+Engine: Unreal Engine 5.5
+
+This document outlines planned environmental interactions for the dual-path (Hacker/Forge) gameplay system.
+
+=================================================
+1. CORE INTERACTABLE OBJECTS (Start Here)
+=================================================
+
+EXPLOSIVE BARRELS (Works for both paths)
+- Hacker: Gravity Pull to launch at enemies, hack to delay explosion
+- Forge: Molten Mace ignites instantly, Blast Charge for chain reactions
+- Gameplay: Strategic positioning, combo potential
+
+ENERGY CORES (Dual-purpose objects)
+- Hacker: Hack to overload and create EMP burst (disables enemy shields)
+- Forge: Heat Shield absorbs core energy for extended duration
+- Placement: Near tough enemy encounters
+
+PHYSICS CRATES/DEBRIS
+- Primary targets for Gravity Pull
+- Different weights = different pull speeds
+- Can be used as improvised shields or weapons
+
+=================================================
+2. HACKER-SPECIFIC INTERACTIONS
+=================================================
+
+SECURITY TURRETS
+- Hack with Firewall Breach to turn against enemies
+- Limited ammo/duration to maintain balance
+- Visual: Changes from red to blue when hacked
+
+DATA TERMINALS
+- Pulse Hack near terminals = area buff (reduced ability cooldowns)
+- Creates "safe zones" where WP corruption decreases slowly
+- Encourages exploration
+
+ELECTRONIC BARRIERS
+- Hack to disable for 10 seconds
+- Creates alternate routes only Hackers can access
+- Can trap enemies by re-enabling
+
+DRONE DISPENSERS
+- Hack to spawn ally drones for 30 seconds
+- Drones distract enemies, allowing flanking
+
+=================================================
+3. FORGE-SPECIFIC INTERACTIONS
+=================================================
+
+MOLTEN METAL FLOWS
+- Hammer Strike on valves redirects flow
+- Creates damage zones for area denial
+- Heat Shield lets you walk through safely
+
+FORGE STATIONS
+- Blast Charge activates temporary weapon upgrades
+- Next 3 Molten Mace attacks have increased range
+- Visual feedback: Weapon glows brighter
+
+DESTRUCTIBLE WALLS
+- Only Forge abilities can break through
+- Reveals shortcuts or hidden resources
+- Different health levels for variety
+
+HEAT CONDUCTORS
+- Metal pillars that spread heat damage
+- Molten Mace on one end damages all enemies touching connected metal
+- Environmental combo potential
+
+=================================================
+4. RESOURCE MANAGEMENT STATIONS
+=================================================
+
+WP CLEANSING PODS (Hacker healing)
+- Reduce WP corruption by 30%
+- 60-second cooldown per use
+- Vulnerable while using (3-second channel)
+- Placement: After challenging encounters
+
+HEAT DISSIPATION VENTS (Forge cooling)
+- Instant heat reduction to 50%
+- Can "overcharge" to reduce heat below normal for 10 seconds
+- Steam visual effect obscures vision briefly
+
+HYBRID ENERGY WELLS
+- Player must choose: Cleanse WP OR Cool Heat
+- Can't use both effects
+- Forces tactical decisions
+
+=================================================
+5. INTERACTIVE COMBAT ELEMENTS
+=================================================
+
+GRAVITY ANCHORS
+- Fixed points that Gravity Pull can latch onto
+- Pull yourself for rapid repositioning
+- Or pull anchor to crush nearby enemies
+
+HACKABLE/FORGEABLE PLATFORMS
+- Hacker: Hack to move platforms electrically
+- Forge: Hammer Strike to manually rotate/flip
+- Creates verticality in combat
+
+ENVIRONMENTAL TRAPS
+- Electric Grids: Hackable on/off states
+- Furnace Rooms: Forge Dash through safely, enemies take damage
+- Cryo Pipes: Break for area slow (helps both paths)
+
+=================================================
+6. PUZZLE INTEGRATION
+=================================================
+
+POWER REDISTRIBUTION
+- Hack multiple nodes to redirect power
+- Opens doors, activates elevators
+- Requires tactical ability use
+
+WEIGHT-ACTIVATED SWITCHES
+- Use Gravity Pull to move heavy objects
+- Some require multiple objects (co-op potential)
+- Can use enemies as weights!
+
+TEMPERATURE PUZZLES
+- Forge heats elements, Hacker cools with hacked cryo systems
+- Both paths can solve differently
+
+=================================================
+7. DYNAMIC ENVIRONMENTAL HAZARDS
+=================================================
+
+CORRUPTION ZONES
+- Areas that slowly add WP to all characters
+- Hacker enemies are immune, forcing quick combat
+- Pulse Hack temporarily clears a safe bubble
+
+OVERHEAT CHAMBERS
+- Constantly add heat in Forge path
+- Must quickly navigate or find cooling stations
+- Heat Shield provides temporary immunity
+
+UNSTABLE PLATFORMS
+- Collapse after taking damage
+- Can be triggered by abilities for tactical advantage
+- Regenerate after 30 seconds
+
+=================================================
+IMPLEMENTATION PRIORITY
+=================================================
+
+HIGH PRIORITY (Implement First):
+1. HackableObject Component - Base system for all interactions
+2. Explosive Barrels - Immediate fun, works with Gravity Pull
+3. WP/Heat Stations - Essential for resource management gameplay
+
+MEDIUM PRIORITY:
+4. Security Turrets - Adds tactical depth
+5. Destructible Walls - Environmental variety
+6. Gravity Anchors - Movement options
+
+LOW PRIORITY:
+7. Puzzle Systems - After core combat is polished
+8. Dynamic Hazards - Late-game variety
+
+=================================================
+TECHNICAL NOTES
+=================================================
+
+BASE CLASSES NEEDED:
+- AHackableObject: Base actor with HackableComponent
+- AForgeableObject: Base actor for Forge interactions
+- AResourceStation: Base for WP/Heat management stations
+- AEnvironmentalHazard: Base for damage zones
+
+COMPONENT ARCHITECTURE:
+- UHackableComponent: Already exists, extend functionality
+- UForgeableComponent: New component for Forge interactions
+- UInteractableComponent: Generic interaction handler
+
+VISUAL FEEDBACK SYSTEMS:
+- Outline shader for targetable objects
+- Color coding: Blue (Hacker), Orange (Forge), Purple (Both)
+- Particle effects for state changes
+- UI prompts for interaction availability
+
+=================================================
+END OF DOCUMENT
+=================================================

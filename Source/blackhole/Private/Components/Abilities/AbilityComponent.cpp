@@ -3,6 +3,7 @@
 #include "Systems/ThresholdManager.h"
 #include "Engine/World.h"
 #include "Engine/GameInstance.h"
+#include "Components/Attributes/StaminaComponent.h"
 
 UAbilityComponent::UAbilityComponent()
 {
@@ -55,6 +56,7 @@ bool UAbilityComponent::CanExecute() const
 {
 	if (bIsOnCooldown)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Ability %s: Cannot execute - on cooldown"), *GetName());
 		return false;
 	}
 
@@ -64,18 +66,29 @@ bool UAbilityComponent::CanExecute() const
 		// Check stamina availability
 		if (StaminaCost > 0.0f)
 		{
-			// For now, assume stamina is always available - can be extended later
-			// if (!ResMgr->CanConsumeStamina(StaminaCost)) return false;
+			// Check if owner has a stamina component
+			if (AActor* Owner = GetOwner())
+			{
+				if (UStaminaComponent* StaminaComp = Owner->FindComponentByClass<UStaminaComponent>())
+				{
+					if (!StaminaComp->HasEnoughStamina(StaminaCost))
+					{
+						UE_LOG(LogTemp, Warning, TEXT("Ability %s: Cannot execute - not enough stamina (need %.0f)"), *GetName(), StaminaCost);
+						return false;
+					}
+				}
+			}
 		}
 
 		// WP system is inverted: Hacker abilities ADD WP (corruption)
 		// No need to check WP availability since it's added, not consumed
 		// However, we might want to prevent going over 100% in the future
 		
-		// Check Heat availability for Forge abilities
-		if (HeatCost > 0.0f && !ResMgr->CanConsumeHeat(HeatCost))
+		// For Forge abilities, check if adding heat would cause overheat
+		if (HeatCost > 0.0f && ResMgr->IsOverheated())
 		{
-			return false;
+			UE_LOG(LogTemp, Warning, TEXT("Ability %s: Cannot execute - system overheated"), *GetName());
+			return false; // Can't use abilities while overheated
 		}
 	}
 
@@ -84,8 +97,13 @@ bool UAbilityComponent::CanExecute() const
 
 void UAbilityComponent::Execute()
 {
+	UE_LOG(LogTemp, Warning, TEXT("Ability %s: Execute called"), *GetName());
+	
 	if (CanExecute())
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Ability %s: Executing (Stamina: %.0f, WP: %.0f, Heat: %.0f)"), 
+			*GetName(), StaminaCost, WPCost, HeatCost);
+		
 		StartCooldown();
 		
 		// Handle resource costs
@@ -97,14 +115,23 @@ void UAbilityComponent::Execute()
 				ResMgr->AddWillPower(WPCost); // Changed from ConsumeWillPower to AddWillPower
 			}
 
-			// Consume Heat for Forge abilities
+			// ADD Heat for Forge abilities (heat is a penalty resource)
 			if (HeatCost > 0.0f)
 			{
-				ResMgr->ConsumeHeat(HeatCost);
+				ResMgr->AddHeat(HeatCost);
 			}
 
-			// For stamina consumption, we'd add:
-			// if (StaminaCost > 0.0f) ResMgr->ConsumeStamina(StaminaCost);
+			// Consume stamina
+			if (StaminaCost > 0.0f)
+			{
+				if (AActor* Owner = GetOwner())
+				{
+					if (UStaminaComponent* StaminaComp = Owner->FindComponentByClass<UStaminaComponent>())
+					{
+						StaminaComp->UseStamina(StaminaCost);
+					}
+				}
+			}
 			
 			// Legacy heat generation (for abilities that don't use HeatCost)
 			if (HeatCost <= 0.0f)
@@ -123,8 +150,18 @@ float UAbilityComponent::GetCooldownPercentage() const
 
 void UAbilityComponent::StartCooldown()
 {
-	bIsOnCooldown = true;
-	CurrentCooldown = GetCooldownWithReduction();
+	float CooldownDuration = GetCooldownWithReduction();
+	if (CooldownDuration > 0.0f)
+	{
+		bIsOnCooldown = true;
+		CurrentCooldown = CooldownDuration;
+	}
+	else
+	{
+		// No cooldown needed
+		bIsOnCooldown = false;
+		CurrentCooldown = 0.0f;
+	}
 }
 
 void UAbilityComponent::ResetCooldown()

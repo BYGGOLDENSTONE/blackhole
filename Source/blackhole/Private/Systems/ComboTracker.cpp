@@ -1,7 +1,7 @@
 #include "Systems/ComboTracker.h"
 #include "Systems/ResourceManager.h"
-#include "Components/Abilities/Player/AbilityComponent.h"
-#include "Components/Abilities/Player/UtilityAbility.h"
+#include "Components/Abilities/AbilityComponent.h"
+#include "Components/Abilities/UtilityAbility.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
 

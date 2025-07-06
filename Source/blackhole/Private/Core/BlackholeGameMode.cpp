@@ -1,6 +1,6 @@
-#include "BlackholeGameMode.h"
-#include "../Player/BlackholePlayerCharacter.h"
-#include "../UI/BlackholeHUD.h"
+#include "Core/BlackholeGameMode.h"
+#include "Player/BlackholePlayerCharacter.h"
+#include "UI/BlackholeHUD.h"
 
 ABlackholeGameMode::ABlackholeGameMode()
 {

@@ -28,6 +28,7 @@
 #include "Components/Abilities/Player/Forge/BlastChargeAbility.h"
 #include "Components/Abilities/Player/Forge/HammerStrikeAbility.h"
 #include "Systems/ComboTracker.h"
+#include "Components/Abilities/AbilityComponent.h"
 
 ABlackholePlayerCharacter::ABlackholePlayerCharacter()
 {
@@ -41,7 +42,7 @@ ABlackholePlayerCharacter::ABlackholePlayerCharacter()
 
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 540.0f, 0.0f);
-	GetCharacterMovement()->JumpZVelocity = 600.f;
+	GetCharacterMovement()->JumpZVelocity = 600.0f; // Base jump velocity for movement component
 	GetCharacterMovement()->AirControl = 0.2f;
 
 	SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
@@ -138,9 +139,8 @@ void ABlackholePlayerCharacter::SetupPlayerInputComponent(UInputComponent* Playe
 	// Set up action bindings
 	if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
 	{
-		// Jumping
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACharacter::Jump);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
+		// Jumping is handled by utility abilities (UseUtilityJump)
+		// Basic jump removed to avoid conflicts with path-specific jumps
 
 		// Moving
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ABlackholePlayerCharacter::Move);
@@ -322,30 +322,41 @@ void ABlackholePlayerCharacter::SetHeadVisibility(bool bVisible)
 	}
 }
 
+void ABlackholePlayerCharacter::ExecutePathBasedAbility(UAbilityComponent* HackerAbility, UAbilityComponent* ForgeAbility)
+{
+	// Unified path checker for ability execution
+	UAbilityComponent* AbilityToExecute = nullptr;
+	
+	if (CurrentPath == ECharacterPath::Hacker && HackerAbility)
+	{
+		AbilityToExecute = HackerAbility;
+	}
+	else if (CurrentPath == ECharacterPath::Forge && ForgeAbility)
+	{
+		AbilityToExecute = ForgeAbility;
+	}
+	
+	// Execute the ability and register it with combo tracker
+	if (AbilityToExecute)
+	{
+		AbilityToExecute->Execute();
+		if (ComboTracker)
+		{
+			ComboTracker->RegisterAbilityUse(AbilityToExecute);
+		}
+	}
+}
+
 void ABlackholePlayerCharacter::UseDash()
 {
-	// Use the appropriate dash based on current path
-	if (CurrentPath == ECharacterPath::Hacker && HackerDashAbility)
-	{
-		HackerDashAbility->Execute();
-	}
-	else if (CurrentPath == ECharacterPath::Forge && ForgeDashAbility)
-	{
-		ForgeDashAbility->Execute();
-	}
+	// Use unified path checker for dash abilities
+	ExecutePathBasedAbility(HackerDashAbility, ForgeDashAbility);
 }
 
 void ABlackholePlayerCharacter::UseUtilityJump()
 {
-	// Use the appropriate jump based on current path
-	if (CurrentPath == ECharacterPath::Hacker && HackerJumpAbility)
-	{
-		HackerJumpAbility->Execute();
-	}
-	else if (CurrentPath == ECharacterPath::Forge && ForgeJumpAbility)
-	{
-		ForgeJumpAbility->Execute();
-	}
+	// Use unified path checker for jump abilities
+	ExecutePathBasedAbility(HackerJumpAbility, ForgeJumpAbility);
 }
 
 void ABlackholePlayerCharacter::SwitchPath()
@@ -420,129 +431,44 @@ FString ABlackholePlayerCharacter::GetCurrentPathName() const
 
 void ABlackholePlayerCharacter::UseAbilitySlot1()
 {
-	// Left Mouse Button - Basic attack (Slash)
-	if (SlashAbility)
-	{
-		SlashAbility->Execute();
-		if (ComboTracker)
-		{
-			ComboTracker->RegisterAbilityUse(SlashAbility);
-		}
-	}
+	// Left Mouse Button - Basic attack
+	// Currently: Slash (shared) | Future: Katana Slash (Hacker) / Forge Slam (Forge)
+	// For now, use the shared Slash ability for both paths
+	ExecutePathBasedAbility(SlashAbility, SlashAbility);
 }
 
 void ABlackholePlayerCharacter::UseAbilitySlot2()
 {
 	// Right Mouse Button - Secondary attack
-	if (CurrentPath == ECharacterPath::Hacker)
-	{
-		// Firewall Breach for Hacker path
-		if (FirewallBreachAbility)
-		{
-			FirewallBreachAbility->Execute();
-			if (ComboTracker)
-			{
-				ComboTracker->RegisterAbilityUse(FirewallBreachAbility);
-			}
-		}
-	}
-	else if (CurrentPath == ECharacterPath::Forge)
-	{
-		// Molten Mace Slash for Forge path
-		if (MoltenMaceSlashAbility)
-		{
-			MoltenMaceSlashAbility->Execute();
-			if (ComboTracker)
-			{
-				ComboTracker->RegisterAbilityUse(MoltenMaceSlashAbility);
-			}
-		}
-	}
+	// Hacker: Firewall Breach | Forge: Molten Mace Slash
+	ExecutePathBasedAbility(FirewallBreachAbility, MoltenMaceSlashAbility);
 }
 
 void ABlackholePlayerCharacter::UseAbilitySlot3()
 {
 	// Q key
-	if (CurrentPath == ECharacterPath::Hacker)
-	{
-		// Pulse Hack for Hacker path
-		if (PulseHackAbility)
-		{
-			PulseHackAbility->Execute();
-			if (ComboTracker)
-			{
-				ComboTracker->RegisterAbilityUse(PulseHackAbility);
-			}
-		}
-	}
-	else if (CurrentPath == ECharacterPath::Forge)
-	{
-		// Heat Shield for Forge path
-		if (HeatShieldAbility)
-		{
-			HeatShieldAbility->Execute();
-			if (ComboTracker)
-			{
-				ComboTracker->RegisterAbilityUse(HeatShieldAbility);
-			}
-		}
-	}
+	// Hacker: Pulse Hack | Forge: Heat Shield
+	ExecutePathBasedAbility(PulseHackAbility, HeatShieldAbility);
 }
 
 void ABlackholePlayerCharacter::UseAbilitySlot4()
 {
 	// E key
-	if (CurrentPath == ECharacterPath::Hacker)
-	{
-		// Gravity Pull for Hacker path
-		if (GravityPullAbility)
-		{
-			GravityPullAbility->Execute();
-			if (ComboTracker)
-			{
-				ComboTracker->RegisterAbilityUse(GravityPullAbility);
-			}
-		}
-	}
-	else if (CurrentPath == ECharacterPath::Forge)
-	{
-		// Blast Charge for Forge path
-		if (BlastChargeAbility)
-		{
-			BlastChargeAbility->Execute();
-			if (ComboTracker)
-			{
-				ComboTracker->RegisterAbilityUse(BlastChargeAbility);
-			}
-		}
-	}
+	// Hacker: Gravity Pull | Forge: Blast Charge
+	ExecutePathBasedAbility(GravityPullAbility, BlastChargeAbility);
 }
 
 void ABlackholePlayerCharacter::UseAbilitySlot5()
 {
 	// R key
-	if (CurrentPath == ECharacterPath::Hacker)
-	{
-		// Reserved for future Hacker ability
-		// TODO: Add another hacker ability
-	}
-	else if (CurrentPath == ECharacterPath::Forge)
-	{
-		// Hammer Strike for Forge path
-		if (HammerStrikeAbility)
-		{
-			HammerStrikeAbility->Execute();
-			if (ComboTracker)
-			{
-				ComboTracker->RegisterAbilityUse(HammerStrikeAbility);
-			}
-		}
-	}
+	// Hacker: Reserved | Forge: Hammer Strike
+	ExecutePathBasedAbility(nullptr, HammerStrikeAbility);
 }
 
 void ABlackholePlayerCharacter::UseAbilitySlot6()
 {
-	// F key - Reserved for both paths
-	// This could be for ultimate abilities or special moves
+	// F key - Reserved for ultimate abilities
+	// Hacker: Reserved | Forge: Reserved
 	// TODO: Implement ultimate abilities
+	ExecutePathBasedAbility(nullptr, nullptr);
 }
