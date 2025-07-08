@@ -8,14 +8,17 @@
 UENUM(BlueprintType)
 enum class EResourceThreshold : uint8
 {
-	Normal        UMETA(DisplayName = "Normal (>60%)"),
-	Warning       UMETA(DisplayName = "Warning (30-60%)"),
-	Critical      UMETA(DisplayName = "Critical (10-30%)"),
-	Emergency     UMETA(DisplayName = "Emergency (<10%)")
+	Normal        UMETA(DisplayName = "Normal (0-50%)"),
+	Buffed        UMETA(DisplayName = "Buffed (50-100%)"),
+	Critical      UMETA(DisplayName = "Critical (100%)"),
+	// Legacy values kept for compatibility
+	Warning       UMETA(DisplayName = "Warning (Legacy)"),
+	Emergency     UMETA(DisplayName = "Emergency (Legacy)")
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnResourceChanged, float, NewValue, float, MaxValue);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnThresholdReached, EResourceThreshold, Threshold);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnWPMaxReached, int32, TimesReached);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnOverheatShutdown);
 
 UCLASS()
@@ -37,6 +40,9 @@ public:
 	
 	UPROPERTY(BlueprintAssignable, Category = "Resource Events")
 	FOnThresholdReached OnWillPowerThresholdReached;
+	
+	UPROPERTY(BlueprintAssignable, Category = "Resource Events")
+	FOnWPMaxReached OnWPMaxReached;
 	
 	UPROPERTY(BlueprintAssignable, Category = "Resource Events")
 	FOnOverheatShutdown OnOverheatShutdown;
@@ -112,6 +118,14 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Resources")
 	bool IsHeatSystemActive() const { return CurrentPath == ECharacterPath::Forge; }
 	
+	// Get how many times WP has reached 100%
+	UFUNCTION(BlueprintPure, Category = "Resources")
+	int32 GetWPMaxReachedCount() const { return WPMaxReachedCount; }
+	
+	// Reset WP to 0 (called after reaching 100%)
+	UFUNCTION(BlueprintCallable, Category = "Resources")
+	void ResetWPAfterMax();
+	
 private:
 	// Resource values
 	UPROPERTY()
@@ -143,6 +157,10 @@ private:
 	// Current character path
 	UPROPERTY()
 	ECharacterPath CurrentPath;
+	
+	// Track how many times WP has reached 100%
+	UPROPERTY()
+	int32 WPMaxReachedCount;
 	
 	// Helper functions
 	void CheckWPThreshold();

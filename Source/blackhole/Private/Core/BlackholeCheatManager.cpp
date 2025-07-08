@@ -229,3 +229,39 @@ void UBlackholeCheatManager::ToggleDebugDisplay()
 	
 	// TODO: Implement persistent debug display in HUD
 }
+
+void UBlackholeCheatManager::ForceUltimateMode()
+{
+	if (UThresholdManager* ThresholdMgr = GetWorld()->GetSubsystem<UThresholdManager>())
+	{
+		// First ensure combat is started so abilities are cached
+		if (!ThresholdMgr->IsInCombat())
+		{
+			ThresholdMgr->StartCombat();
+		}
+		
+		// Force activate ultimate mode
+		ThresholdMgr->ActivateUltimateMode();
+		
+		UE_LOG(LogTemp, Log, TEXT("Cheat: Forced ultimate mode activation"));
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Red, TEXT("Ultimate Mode Activated!"));
+		}
+	}
+}
+
+void UBlackholeCheatManager::CacheAbilities()
+{
+	if (UThresholdManager* ThresholdMgr = GetWorld()->GetSubsystem<UThresholdManager>())
+	{
+		// Force cache player abilities
+		ThresholdMgr->CachePlayerAbilities();
+		
+		UE_LOG(LogTemp, Log, TEXT("Cheat: Cached player abilities"));
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Green, TEXT("Player abilities cached"));
+		}
+	}
+}

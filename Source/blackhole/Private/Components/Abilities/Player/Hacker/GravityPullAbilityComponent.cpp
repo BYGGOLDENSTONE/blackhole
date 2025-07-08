@@ -183,3 +183,97 @@ bool UGravityPullAbilityComponent::IsWithinTargetingAngle(const FVector& CameraD
     
     return AngleDegrees <= MaxTargetingAngle;
 }
+
+void UGravityPullAbilityComponent::ExecuteUltimate()
+{
+    // Ultimate Gravity Pull - "Singularity"
+    // Creates a black hole that pulls ALL enemies to a central point
+    UE_LOG(LogTemp, Warning, TEXT("ULTIMATE GRAVITY PULL: Singularity!"));
+    
+    Super::ExecuteUltimate();
+    
+    AActor* Owner = GetOwner();
+    if (!Owner) return;
+    
+    FVector CameraLocation, CameraDirection;
+    GetCameraLocationAndDirection(CameraLocation, CameraDirection);
+    
+    // Create singularity point ahead of player
+    float SingularityDistance = 1000.0f;
+    FVector SingularityPoint = CameraLocation + (CameraDirection * SingularityDistance);
+    
+    // Ultimate version: Pull ALL enemies in massive radius
+    float UltimateRadius = Range * 3.0f; // 6000 units
+    float UltimatePullForce = BaseLaunchForce * 5.0f; // 5x pull force
+    
+    // Find all actors in massive radius
+    TArray<AActor*> ActorsToIgnore;
+    ActorsToIgnore.Add(Owner);
+    
+    TArray<AActor*> OutActors;
+    UKismetSystemLibrary::SphereOverlapActors(
+        GetWorld(),
+        SingularityPoint,
+        UltimateRadius,
+        TArray<TEnumAsByte<EObjectTypeQuery>>(),
+        nullptr,
+        ActorsToIgnore,
+        OutActors
+    );
+    
+    int32 EntitiesPulled = 0;
+    
+    // Pull everything to the singularity point
+    for (AActor* Actor : OutActors)
+    {
+        if (!Actor) continue;
+        
+        // Check if it's an enemy or physics object
+        bool bIsEnemy = Actor->ActorHasTag("Enemy") || Actor->IsA<ACharacter>();
+        bool bIsPhysicsObject = Actor->ActorHasTag("Hackable") || Actor->FindComponentByClass<UPrimitiveComponent>();
+        
+        if (!bIsEnemy && !bIsPhysicsObject) continue;
+        
+        // Calculate pull direction (towards singularity)
+        FVector PullDirection = (SingularityPoint - Actor->GetActorLocation()).GetSafeNormal();
+        
+        // Apply pull force
+        if (ACharacter* Character = Cast<ACharacter>(Actor))
+        {
+            // For characters, use launch
+            Character->LaunchCharacter(PullDirection * UltimatePullForce, true, true);
+            EntitiesPulled++;
+            
+            UE_LOG(LogTemp, Warning, TEXT("Singularity pulled character %s!"), *Actor->GetName());
+        }
+        else if (UPrimitiveComponent* PrimComp = Actor->FindComponentByClass<UPrimitiveComponent>())
+        {
+            // For physics objects
+            if (PrimComp->IsSimulatingPhysics())
+            {
+                PrimComp->AddImpulse(PullDirection * UltimatePullForce * PrimComp->GetMass());
+                EntitiesPulled++;
+                
+                UE_LOG(LogTemp, Warning, TEXT("Singularity pulled object %s!"), *Actor->GetName());
+            }
+        }
+    }
+    
+    UE_LOG(LogTemp, Warning, TEXT("Ultimate Gravity Pull: Created singularity, pulled %d entities!"), EntitiesPulled);
+    
+    // Visual effect at singularity point
+    #if WITH_EDITOR
+    // Draw debug sphere at singularity
+    DrawDebugSphere(GetWorld(), SingularityPoint, 200.0f, 32, FColor::Purple, false, 3.0f, 0, 5.0f);
+    
+    // Draw pull lines
+    for (AActor* Actor : OutActors)
+    {
+        if (Actor && (Actor->ActorHasTag("Enemy") || Actor->ActorHasTag("Hackable")))
+        {
+            DrawDebugLine(GetWorld(), Actor->GetActorLocation(), SingularityPoint, 
+                FColor::Purple, false, 2.0f, 0, 2.0f);
+        }
+    }
+    #endif
+}

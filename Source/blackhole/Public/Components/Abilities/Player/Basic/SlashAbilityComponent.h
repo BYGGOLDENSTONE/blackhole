@@ -20,6 +20,9 @@ public:
 
 	virtual void Execute() override;
 	virtual bool CanExecute() const override;
+	
+	// Basic abilities don't have ultimate versions
+	virtual void ExecuteUltimate() override { Execute(); }
 
 protected:
 	virtual void BeginPlay() override;

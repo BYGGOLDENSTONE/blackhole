@@ -18,6 +18,8 @@ UAbilityComponent::UAbilityComponent()
 	HeatGenerationMultiplier = 0.5f; // Default: generates heat equal to 50% of cost
 	CurrentCooldown = 0.0f;
 	bIsOnCooldown = false;
+	bIsInUltimateMode = false;
+	bIsBasicAbility = false; // Most abilities are not basic
 }
 
 void UAbilityComponent::BeginPlay()
@@ -56,7 +58,7 @@ bool UAbilityComponent::CanExecute() const
 {
 	if (bIsOnCooldown)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Ability %s: Cannot execute - on cooldown"), *GetName());
+		// Don't log cooldown checks - this gets called every tick
 		return false;
 	}
 
@@ -73,7 +75,7 @@ bool UAbilityComponent::CanExecute() const
 				{
 					if (!StaminaComp->HasEnoughStamina(StaminaCost))
 					{
-						UE_LOG(LogTemp, Warning, TEXT("Ability %s: Cannot execute - not enough stamina (need %.0f)"), *GetName(), StaminaCost);
+						// Don't log resource checks - this gets called every tick
 						return false;
 					}
 				}
@@ -87,7 +89,7 @@ bool UAbilityComponent::CanExecute() const
 		// For Forge abilities, check if adding heat would cause overheat
 		if (HeatCost > 0.0f && ResMgr->IsOverheated())
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Ability %s: Cannot execute - system overheated"), *GetName());
+			// Don't log overheat checks - this gets called every tick
 			return false; // Can't use abilities while overheated
 		}
 	}
@@ -97,12 +99,40 @@ bool UAbilityComponent::CanExecute() const
 
 void UAbilityComponent::Execute()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Ability %s: Execute called"), *GetName());
+	// Only log ultimate executions
+	if (bIsInUltimateMode)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Ability %s: ULTIMATE Execute!"), *GetName());
+	}
 	
 	if (CanExecute())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Ability %s: Executing (Stamina: %.0f, WP: %.0f, Heat: %.0f)"), 
-			*GetName(), StaminaCost, WPCost, HeatCost);
+		// If in ultimate mode, execute ultimate version instead
+		if (bIsInUltimateMode)
+		{
+			ExecuteUltimate();
+			
+			// Notify ThresholdManager that this ability was used in ultimate mode
+			if (UWorld* World = GetWorld())
+			{
+				if (UThresholdManager* ThresholdMgr = World->GetSubsystem<UThresholdManager>())
+				{
+					UE_LOG(LogTemp, Warning, TEXT("Ability %s: Notifying ThresholdManager of ultimate execution"), *GetName());
+					ThresholdMgr->OnAbilityExecuted(this);
+				}
+				else
+				{
+					UE_LOG(LogTemp, Error, TEXT("Ability %s: Could not find ThresholdManager!"), *GetName());
+				}
+			}
+			else
+			{
+				UE_LOG(LogTemp, Error, TEXT("Ability %s: No World context!"), *GetName());
+			}
+			return;
+		}
+		
+		// Removed normal execution logging to reduce spam
 		
 		StartCooldown();
 		
@@ -141,6 +171,15 @@ void UAbilityComponent::Execute()
 			}
 		}
 	}
+}
+
+void UAbilityComponent::ExecuteUltimate()
+{
+	// Default implementation - abilities will override this
+	UE_LOG(LogTemp, Warning, TEXT("Ability %s: ExecuteUltimate (base implementation)"), *GetName());
+	
+	// No resource costs for ultimate abilities
+	StartCooldown();
 }
 
 float UAbilityComponent::GetCooldownPercentage() const

@@ -47,6 +47,14 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Ability")
 	bool bIsOnCooldown;
+	
+	// Track if ability is in ultimate mode
+	UPROPERTY(BlueprintReadOnly, Category = "Ability")
+	bool bIsInUltimateMode;
+	
+	// Track if this is a basic ability (not affected by ultimate system)
+	UPROPERTY(EditDefaultsOnly, Category = "Ability")
+	bool bIsBasicAbility;
 
 public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
@@ -56,6 +64,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Ability")
 	virtual void Execute();
+	
+	// Execute the ultimate version of this ability
+	virtual void ExecuteUltimate();
 
 	UFUNCTION(BlueprintCallable, Category = "Ability")
 	float GetCooldownRemaining() const { return CurrentCooldown; }
@@ -80,6 +91,16 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Ability")
 	float GetHeatCost() const { return HeatCost; }
+	
+	// Ultimate mode support
+	UFUNCTION(BlueprintCallable, Category = "Ability")
+	void SetUltimateMode(bool bEnabled) { bIsInUltimateMode = bEnabled; }
+	
+	UFUNCTION(BlueprintPure, Category = "Ability")
+	bool IsInUltimateMode() const { return bIsInUltimateMode; }
+	
+	UFUNCTION(BlueprintPure, Category = "Ability")
+	bool IsBasicAbility() const { return bIsBasicAbility; }
 
 protected:
 	void StartCooldown();

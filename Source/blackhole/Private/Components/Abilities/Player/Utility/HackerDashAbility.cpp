@@ -10,6 +10,9 @@ UHackerDashAbility::UHackerDashAbility()
 	// Set hacker path
 	PathType = ECharacterPath::Hacker;
 	
+	// Mark as basic ability - not affected by ultimate system
+	bIsBasicAbility = true;
+	
 	// Override base parameters
 	Cost = 5.0f; // Legacy field
 	StaminaCost = 5.0f; // Per GDD: 5 stamina cost

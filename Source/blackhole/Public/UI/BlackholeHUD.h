@@ -33,6 +33,9 @@ protected:
 	
 	UPROPERTY()
 	UResourceManager* ResourceManager;
+	
+	UPROPERTY()
+	class UThresholdManager* ThresholdManager;
 
 	void DrawAttribute(const FString& Name, float Current, float Max, float X, float Y, const FColor& Color);
 	void DrawAbilityCooldown(const FString& Name, float CooldownPercent, float X, float Y);
@@ -66,18 +69,28 @@ protected:
 	float CachedHeat;
 	float CachedMaxHeat;
 	
+	// Ultimate mode state
+	bool bUltimateModeActive;
+	
 	// Update methods for resource delegates
 	UFUNCTION()
 	void UpdateWPBar(float NewValue, float MaxValue);
 	
 	UFUNCTION()
 	void UpdateHeatBar(float NewValue, float MaxValue);
+	
+	// Ultimate mode delegate
+	UFUNCTION()
+	void OnUltimateModeChanged(bool bActive);
 
 private:
 	AActor* GetTargetedActor() const;
 	
 	// Draw all abilities with their inputs and cooldowns
 	void DrawAbilityInfo();
+	
+	// Draw debug status panel
+	void DrawDebugStatus();
 	
 	// Structure to hold ability display info
 	struct FAbilityDisplayInfo
@@ -86,6 +99,9 @@ private:
 		FString Input;
 		class UAbilityComponent* Ability;
 		bool bIsActive;
+		bool bIsDisabled;
+		bool bIsInUltimateMode;
+		bool bIsBasicAbility;
 	};
 	
 	// Get current path abilities

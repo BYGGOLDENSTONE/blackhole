@@ -47,6 +47,14 @@ public:
 	UFUNCTION(Exec, Category = "Blackhole Cheats")
 	void ToggleDebugDisplay();
 	
+	// Force ultimate mode activation
+	UFUNCTION(Exec, Category = "Blackhole Cheats")
+	void ForceUltimateMode();
+	
+	// Cache player abilities
+	UFUNCTION(Exec, Category = "Blackhole Cheats")
+	void CacheAbilities();
+	
 private:
 	bool bShowDebugDisplay = false;
 };

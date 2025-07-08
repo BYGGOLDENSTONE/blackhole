@@ -37,6 +37,9 @@ void ACombatEnemy::BeginPlay()
 
 void ACombatEnemy::UpdateAIBehavior(float DeltaTime)
 {
+	// Call parent implementation first to handle combat detection
+	Super::UpdateAIBehavior(DeltaTime);
+	
 	if (!TargetActor || !IntegrityComponent->IsAlive())
 	{
 		return;

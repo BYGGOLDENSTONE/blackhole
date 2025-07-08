@@ -15,6 +15,7 @@ public:
 	UKillAbilityComponent();
 
 	virtual void Execute() override;
+	virtual void ExecuteUltimate() override;
 	virtual bool CanExecute() const override;
 
 protected:

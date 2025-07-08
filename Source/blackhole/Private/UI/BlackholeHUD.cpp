@@ -13,6 +13,7 @@
 #include "Components/Abilities/Player/Utility/ForgeDashAbility.h"
 #include "Components/Abilities/Player/Utility/HackerJumpAbility.h"
 #include "Components/Abilities/Player/Utility/ForgeJumpAbility.h"
+#include "Components/Abilities/UtilityAbility.h"
 #include "Components/Abilities/Player/Hacker/PulseHackAbility.h"
 #include "Components/Abilities/Player/Hacker/FirewallBreachAbility.h"
 #include "Components/Abilities/Player/Forge/MoltenMaceSlashAbility.h"
@@ -20,6 +21,7 @@
 #include "Components/Abilities/Player/Forge/BlastChargeAbility.h"
 #include "Components/Abilities/Player/Forge/HammerStrikeAbility.h"
 #include "Components/Abilities/AbilityComponent.h"
+#include "Systems/ThresholdManager.h"
 #include "Engine/Canvas.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
@@ -41,6 +43,7 @@ ABlackholeHUD::ABlackholeHUD()
 	CachedMaxWP = 100.0f;
 	CachedHeat = 0.0f;
 	CachedMaxHeat = 100.0f;
+	bUltimateModeActive = false;
 }
 
 void ABlackholeHUD::BeginPlay()
@@ -63,6 +66,16 @@ void ABlackholeHUD::BeginPlay()
 			CachedMaxWP = ResourceManager->GetMaxWillPower();
 			CachedHeat = ResourceManager->GetCurrentHeat();
 			CachedMaxHeat = ResourceManager->GetMaxHeat();
+		}
+		
+		// Get ThresholdManager (it's a WorldSubsystem, not GameInstanceSubsystem)
+		if (UWorld* World = GetWorld())
+		{
+			ThresholdManager = World->GetSubsystem<UThresholdManager>();
+			if (ThresholdManager)
+			{
+				ThresholdManager->OnUltimateModeActivated.AddDynamic(this, &ABlackholeHUD::OnUltimateModeChanged);
+			}
 		}
 	}
 }
@@ -122,6 +135,9 @@ void ABlackholeHUD::DrawHUD()
 
 	// Draw all abilities
 	DrawAbilityInfo();
+	
+	// Draw debug status on the right
+	DrawDebugStatus();
 
 	DrawTargetInfo();
 }
@@ -136,7 +152,49 @@ void ABlackholeHUD::DrawAttribute(const FString& Name, float Current, float Max,
 
 	DrawRect(FColor::Black, BarX - 2, BarY - 2, AttributeBarWidth + 4, AttributeBarHeight + 4);
 	DrawRect(FColor(64, 64, 64), BarX, BarY, AttributeBarWidth, AttributeBarHeight);
-	DrawRect(Color, BarX, BarY, FilledWidth, AttributeBarHeight);
+	
+	// Special handling for WP bar with thresholds
+	if (Name == "Will Power")
+	{
+		// Draw the filled portion
+		if (FilledWidth > 0)
+		{
+			// Different colors for different thresholds
+			FColor WPColor = Color;
+			float Percent = Current / Max;
+			
+			if (Percent >= 1.0f)
+			{
+				// Ultimate mode - pulsing red/white
+				WPColor = FMath::Sin(GetWorld()->GetTimeSeconds() * 4.0f) > 0 ? FColor::Red : FColor::White;
+			}
+			else if (Percent >= 0.5f)
+			{
+				// Buffed state - bright cyan
+				WPColor = FColor::Cyan;
+			}
+			
+			DrawRect(WPColor, BarX, BarY, FilledWidth, AttributeBarHeight);
+		}
+		
+		// Draw threshold markers
+		float Threshold50 = BarX + (0.5f * AttributeBarWidth);
+		DrawLine(Threshold50, BarY - 2, Threshold50, BarY + AttributeBarHeight + 2, FColor::Yellow, 2.0f);
+		
+		// Draw threshold text
+		if (Current >= Max)
+		{
+			DrawText(TEXT("ULTIMATE!"), FColor::Red, BarX + AttributeBarWidth / 2 - 30, BarY - 15);
+		}
+		else if (Current >= Max * 0.5f)
+		{
+			DrawText(TEXT("BUFFED"), FColor::Cyan, BarX + AttributeBarWidth / 2 - 20, BarY - 15);
+		}
+	}
+	else
+	{
+		DrawRect(Color, BarX, BarY, FilledWidth, AttributeBarHeight);
+	}
 
 	FString ValueText = FString::Printf(TEXT("%.0f/%.0f"), Current, Max);
 	DrawText(ValueText, FColor::White, BarX + AttributeBarWidth + 10, Y);
@@ -257,12 +315,18 @@ TArray<ABlackholeHUD::FAbilityDisplayInfo> ABlackholeHUD::GetCurrentAbilities() 
 	// Always available abilities
 	if (auto* Slash = PlayerCharacter->FindComponentByClass<USlashAbilityComponent>())
 	{
-		Abilities.Add({TEXT("Slash"), TEXT("LMB"), Slash, true});
+		bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(Slash) : false;
+		bool bUltimate = Slash->IsInUltimateMode();
+		bool bBasic = Slash->IsBasicAbility();
+		Abilities.Add({TEXT("Slash"), TEXT("LMB"), Slash, true, bDisabled, bUltimate, bBasic});
 	}
 	
 	if (auto* Kill = PlayerCharacter->FindComponentByClass<UKillAbilityComponent>())
 	{
-		Abilities.Add({TEXT("Kill (Debug)"), TEXT("K"), Kill, true});
+		bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(Kill) : false;
+		bool bUltimate = Kill->IsInUltimateMode();
+		bool bBasic = Kill->IsBasicAbility();
+		Abilities.Add({TEXT("Kill (Debug)"), TEXT("K"), Kill, true, bDisabled, bUltimate, bBasic});
 	}
 	
 	// Path-specific abilities
@@ -271,68 +335,104 @@ TArray<ABlackholeHUD::FAbilityDisplayInfo> ABlackholeHUD::GetCurrentAbilities() 
 		// Hacker abilities
 		if (auto* FirewallBreach = PlayerCharacter->FindComponentByClass<UFirewallBreachAbility>())
 		{
-			Abilities.Add({TEXT("Firewall Breach"), TEXT("RMB"), FirewallBreach, true});
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(FirewallBreach) : false;
+			bool bUltimate = FirewallBreach->IsInUltimateMode();
+			bool bBasic = FirewallBreach->IsBasicAbility();
+			FString Name = bUltimate ? TEXT("TOTAL SYSTEM COMPROMISE") : TEXT("Firewall Breach");
+			Abilities.Add({Name, TEXT("RMB"), FirewallBreach, true, bDisabled, bUltimate, bBasic});
 		}
 		
 		if (auto* PulseHack = PlayerCharacter->FindComponentByClass<UPulseHackAbility>())
 		{
-			Abilities.Add({TEXT("Pulse Hack"), TEXT("Q"), PulseHack, true});
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(PulseHack) : false;
+			bool bUltimate = PulseHack->IsInUltimateMode();
+			bool bBasic = PulseHack->IsBasicAbility();
+			FString Name = bUltimate ? TEXT("SYSTEM OVERLOAD") : TEXT("Pulse Hack");
+			Abilities.Add({Name, TEXT("Q"), PulseHack, true, bDisabled, bUltimate, bBasic});
 		}
 		
 		if (auto* GravityPull = PlayerCharacter->FindComponentByClass<UGravityPullAbilityComponent>())
 		{
-			Abilities.Add({TEXT("Gravity Pull"), TEXT("E"), GravityPull, true});
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(GravityPull) : false;
+			bool bUltimate = GravityPull->IsInUltimateMode();
+			bool bBasic = GravityPull->IsBasicAbility();
+			FString Name = bUltimate ? TEXT("SINGULARITY") : TEXT("Gravity Pull");
+			Abilities.Add({Name, TEXT("E"), GravityPull, true, bDisabled, bUltimate, bBasic});
 		}
 		
 		if (auto* HackerDash = PlayerCharacter->FindComponentByClass<UHackerDashAbility>())
 		{
-			Abilities.Add({TEXT("Hacker Dash"), TEXT("Shift"), HackerDash, true});
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(HackerDash) : false;
+			bool bUltimate = HackerDash->IsInUltimateMode();
+			bool bBasic = HackerDash->IsBasicAbility();
+			Abilities.Add({TEXT("Hacker Dash"), TEXT("Shift"), HackerDash, true, bDisabled, bUltimate, bBasic});
 		}
 		
 		if (auto* HackerJump = PlayerCharacter->FindComponentByClass<UHackerJumpAbility>())
 		{
-			Abilities.Add({TEXT("Hacker Jump"), TEXT("Space"), HackerJump, true});
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(HackerJump) : false;
+			bool bUltimate = HackerJump->IsInUltimateMode();
+			bool bBasic = HackerJump->IsBasicAbility();
+			Abilities.Add({TEXT("Hacker Jump"), TEXT("Space"), HackerJump, true, bDisabled, bUltimate, bBasic});
 		}
 		
 		// R slot reserved for Hacker
-		Abilities.Add({TEXT("(Reserved)"), TEXT("R"), nullptr, false});
+		Abilities.Add({TEXT("(Reserved)"), TEXT("R"), nullptr, false, false, false, false});
 	}
 	else
 	{
 		// Forge abilities
 		if (auto* MoltenMace = PlayerCharacter->FindComponentByClass<UMoltenMaceSlashAbility>())
 		{
-			Abilities.Add({TEXT("Molten Mace"), TEXT("RMB"), MoltenMace, true});
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(MoltenMace) : false;
+			bool bUltimate = MoltenMace->IsInUltimateMode();
+			bool bBasic = MoltenMace->IsBasicAbility();
+			Abilities.Add({TEXT("Molten Mace"), TEXT("RMB"), MoltenMace, true, bDisabled, bUltimate, bBasic});
 		}
 		
 		if (auto* HeatShield = PlayerCharacter->FindComponentByClass<UHeatShieldAbility>())
 		{
-			Abilities.Add({TEXT("Heat Shield"), TEXT("Q"), HeatShield, true});
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(HeatShield) : false;
+			bool bUltimate = HeatShield->IsInUltimateMode();
+			bool bBasic = HeatShield->IsBasicAbility();
+			Abilities.Add({TEXT("Heat Shield"), TEXT("Q"), HeatShield, true, bDisabled, bUltimate, bBasic});
 		}
 		
 		if (auto* BlastCharge = PlayerCharacter->FindComponentByClass<UBlastChargeAbility>())
 		{
-			Abilities.Add({TEXT("Blast Charge"), TEXT("E"), BlastCharge, true});
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(BlastCharge) : false;
+			bool bUltimate = BlastCharge->IsInUltimateMode();
+			bool bBasic = BlastCharge->IsBasicAbility();
+			Abilities.Add({TEXT("Blast Charge"), TEXT("E"), BlastCharge, true, bDisabled, bUltimate, bBasic});
 		}
 		
 		if (auto* HammerStrike = PlayerCharacter->FindComponentByClass<UHammerStrikeAbility>())
 		{
-			Abilities.Add({TEXT("Hammer Strike"), TEXT("R"), HammerStrike, true});
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(HammerStrike) : false;
+			bool bUltimate = HammerStrike->IsInUltimateMode();
+			bool bBasic = HammerStrike->IsBasicAbility();
+			Abilities.Add({TEXT("Hammer Strike"), TEXT("R"), HammerStrike, true, bDisabled, bUltimate, bBasic});
 		}
 		
 		if (auto* ForgeDash = PlayerCharacter->FindComponentByClass<UForgeDashAbility>())
 		{
-			Abilities.Add({TEXT("Forge Dash"), TEXT("Shift"), ForgeDash, true});
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(ForgeDash) : false;
+			bool bUltimate = ForgeDash->IsInUltimateMode();
+			bool bBasic = ForgeDash->IsBasicAbility();
+			Abilities.Add({TEXT("Forge Dash"), TEXT("Shift"), ForgeDash, true, bDisabled, bUltimate, bBasic});
 		}
 		
 		if (auto* ForgeJump = PlayerCharacter->FindComponentByClass<UForgeJumpAbility>())
 		{
-			Abilities.Add({TEXT("Forge Jump"), TEXT("Space"), ForgeJump, true});
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(ForgeJump) : false;
+			bool bUltimate = ForgeJump->IsInUltimateMode();
+			bool bBasic = ForgeJump->IsBasicAbility();
+			Abilities.Add({TEXT("Forge Jump"), TEXT("Space"), ForgeJump, true, bDisabled, bUltimate, bBasic});
 		}
 	}
 	
 	// F slot reserved for both paths
-	Abilities.Add({TEXT("(Ultimate)"), TEXT("F"), nullptr, false});
+	Abilities.Add({TEXT("(Ultimate)"), TEXT("F"), nullptr, false, false, false, false});
 	
 	return Abilities;
 }
@@ -353,12 +453,14 @@ void ABlackholeHUD::DrawAbilityInfo()
 	float BoxHeight = 80.0f;
 	float Spacing = 10.0f;
 	
-	// Also draw a debug info panel on the right side
-	float DebugX = Canvas->SizeX - 300.0f;
-	float DebugY = 200.0f;
-	
-	DrawText(TEXT("=== ABILITY DEBUG INFO ==="), FColor::Yellow, DebugX, DebugY);
-	DebugY += 20.0f;
+	// Draw ultimate mode indicator if active
+	if (bUltimateModeActive)
+	{
+		float UltX = Canvas->SizeX / 2 - 100;
+		float UltY = 150;
+		DrawText(TEXT("ULTIMATE MODE ACTIVE"), FColor::Red, UltX, UltY, nullptr, 2.0f);
+		DrawText(TEXT("Use an ability to sacrifice it!"), FColor::White, UltX - 20, UltY + 25);
+	}
 	
 	for (int32 i = 0; i < Abilities.Num(); i++)
 	{
@@ -367,72 +469,227 @@ void ABlackholeHUD::DrawAbilityInfo()
 		float X = StartX + (i % 6) * (BoxWidth + Spacing);
 		float Y = StartY + (i / 6) * (BoxHeight + Spacing);
 		
-		// Draw ability box
-		FColor BoxColor = AbilityInfo.bIsActive ? FColor(32, 32, 32) : FColor(16, 16, 16);
+		// Draw ability box with different colors for states
+		FColor BoxColor = FColor(32, 32, 32); // Default
+		FColor NameColor = FColor::White;
+		
+		if (AbilityInfo.bIsDisabled)
+		{
+			BoxColor = FColor(16, 16, 16); // Darker for disabled
+			NameColor = FColor(128, 128, 128); // Gray text
+		}
+		else if (AbilityInfo.bIsInUltimateMode)
+		{
+			// Pulsing effect for ultimate abilities
+			float Pulse = FMath::Sin(GetWorld()->GetTimeSeconds() * 3.0f) * 0.5f + 0.5f;
+			BoxColor = FColor(
+				FMath::Lerp(128, 255, Pulse),
+				FMath::Lerp(0, 128, Pulse),
+				FMath::Lerp(0, 128, Pulse)
+			);
+			NameColor = FColor::Yellow;
+		}
+		else if (!AbilityInfo.bIsActive)
+		{
+			BoxColor = FColor(16, 16, 16);
+			NameColor = FColor(128, 128, 128);
+		}
+		
 		DrawRect(FColor::Black, X - 2, Y - 2, BoxWidth + 4, BoxHeight + 4);
 		DrawRect(BoxColor, X, Y, BoxWidth, BoxHeight);
 		
 		// Draw ability name
-		DrawText(AbilityInfo.Name, FColor::White, X + 5, Y + 5);
+		DrawText(AbilityInfo.Name, NameColor, X + 5, Y + 5);
+		
+		// Draw disabled overlay
+		if (AbilityInfo.bIsDisabled)
+		{
+			// Draw X over disabled abilities
+			DrawLine(X, Y, X + BoxWidth, Y + BoxHeight, FColor::Red, 3.0f);
+			DrawLine(X + BoxWidth, Y, X, Y + BoxHeight, FColor::Red, 3.0f);
+			DrawText(TEXT("DISABLED"), FColor::Red, X + 20, Y + 35);
+		}
+		
+		// Draw ultimate indicator
+		if (AbilityInfo.bIsInUltimateMode && !AbilityInfo.bIsDisabled)
+		{
+			DrawText(TEXT("ULTIMATE!"), FColor::Yellow, X + 20, Y + 60);
+		}
+		
+		// Draw basic ability indicator
+		if (AbilityInfo.bIsBasicAbility)
+		{
+			DrawText(TEXT("[Basic]"), FColor(100, 100, 255), X + 65, Y + 5);
+		}
 		
 		// Draw input key
-		FColor InputColor = AbilityInfo.bIsActive ? FColor::Green : FColor(128, 128, 128);
+		FColor InputColor = AbilityInfo.bIsActive && !AbilityInfo.bIsDisabled ? FColor::Green : FColor(128, 128, 128);
 		DrawText(FString::Printf(TEXT("[%s]"), *AbilityInfo.Input), InputColor, X + 5, Y + 25);
 		
 		// Draw cooldown and resource cost if ability is active
 		if (AbilityInfo.bIsActive && AbilityInfo.Ability)
 		{
-			float CooldownPercent = AbilityInfo.Ability->GetCooldownPercentage();
-			
-			// Draw cooldown bar
-			if (CooldownPercent > 0.0f)
+			// Special handling for HackerJump - show jump cooldown
+			if (UHackerJumpAbility* HackerJump = Cast<UHackerJumpAbility>(AbilityInfo.Ability))
 			{
-				float CooldownWidth = BoxWidth - 10;
-				float CooldownHeight = 5.0f;
-				DrawRect(FColor(64, 64, 64), X + 5, Y + 50, CooldownWidth, CooldownHeight);
-				DrawRect(FColor::Red, X + 5, Y + 50, CooldownWidth * CooldownPercent, CooldownHeight);
-				
-				// Draw cooldown time
-				float TimeRemaining = AbilityInfo.Ability->GetCooldownRemaining();
-				DrawText(FString::Printf(TEXT("%.1fs"), TimeRemaining), FColor::Red, X + 5, Y + 60);
+				// Check if in air and has jumped
+				if (HackerJump->GetCurrentJumpCount() > 0 && HackerJump->GetCurrentJumpCount() < HackerJump->GetMaxJumpCount())
+				{
+					float JumpCooldownRemaining = HackerJump->GetJumpCooldown() - HackerJump->GetTimeSinceLastJump();
+					if (JumpCooldownRemaining > 0.0f)
+					{
+						// Show jump cooldown
+						float CooldownWidth = BoxWidth - 10;
+						float CooldownHeight = 5.0f;
+						float CooldownPercent = JumpCooldownRemaining / HackerJump->GetJumpCooldown();
+						DrawRect(FColor(64, 64, 64), X + 5, Y + 50, CooldownWidth, CooldownHeight);
+						DrawRect(FColor::Orange, X + 5, Y + 50, CooldownWidth * CooldownPercent, CooldownHeight);
+						DrawText(FString::Printf(TEXT("Jump CD: %.1fs"), JumpCooldownRemaining), FColor::Orange, X + 5, Y + 60);
+					}
+					else
+					{
+						DrawText(TEXT("Jump Ready!"), FColor::Cyan, X + 5, Y + 50);
+					}
+				}
+				else
+				{
+					DrawText(TEXT("Ready"), FColor::Green, X + 5, Y + 50);
+				}
 			}
 			else
 			{
-				DrawText(TEXT("Ready"), FColor::Green, X + 5, Y + 50);
+				// Normal cooldown display for other abilities
+				float CooldownPercent = AbilityInfo.Ability->GetCooldownPercentage();
+				
+				// Draw cooldown bar
+				if (CooldownPercent > 0.0f)
+				{
+					float CooldownWidth = BoxWidth - 10;
+					float CooldownHeight = 5.0f;
+					DrawRect(FColor(64, 64, 64), X + 5, Y + 50, CooldownWidth, CooldownHeight);
+					DrawRect(FColor::Red, X + 5, Y + 50, CooldownWidth * CooldownPercent, CooldownHeight);
+					
+					// Draw cooldown time
+					float TimeRemaining = AbilityInfo.Ability->GetCooldownRemaining();
+					DrawText(FString::Printf(TEXT("%.1fs"), TimeRemaining), FColor::Red, X + 5, Y + 60);
+				}
+				else
+				{
+					DrawText(TEXT("Ready"), FColor::Green, X + 5, Y + 50);
+				}
+			}
+		}
+	}
+}
+
+void ABlackholeHUD::OnUltimateModeChanged(bool bActive)
+{
+	bUltimateModeActive = bActive;
+}
+
+void ABlackholeHUD::DrawDebugStatus()
+{
+	if (!Canvas || !PlayerCharacter)
+	{
+		return;
+	}
+	
+	float X = Canvas->SizeX - 400.0f;
+	float Y = 250.0f;
+	float LineHeight = 18.0f;
+	
+	// Title
+	DrawText(TEXT("=== ABILITY STATUS ==="), FColor::Yellow, X, Y);
+	Y += LineHeight * 1.5f;
+	
+	// Ultimate mode status
+	FString UltimateStatus = bUltimateModeActive ? TEXT("ACTIVE") : TEXT("INACTIVE");
+	FColor UltimateColor = bUltimateModeActive ? FColor::Red : FColor::White;
+	DrawText(FString::Printf(TEXT("Ultimate Mode: %s"), *UltimateStatus), UltimateColor, X, Y);
+	Y += LineHeight;
+	
+	// Combat status
+	if (ThresholdManager)
+	{
+		bool bInCombat = ThresholdManager->IsInCombat();
+		FString CombatStatus = bInCombat ? TEXT("IN COMBAT") : TEXT("NOT IN COMBAT");
+		FColor CombatColor = bInCombat ? FColor::Orange : FColor(128, 128, 128);
+		DrawText(FString::Printf(TEXT("Combat: %s"), *CombatStatus), CombatColor, X, Y);
+		Y += LineHeight;
+		
+		// Disabled abilities count
+		int32 DisabledCount = ThresholdManager->GetDisabledAbilityCount();
+		DrawText(FString::Printf(TEXT("Disabled Abilities: %d"), DisabledCount), FColor::Red, X, Y);
+		Y += LineHeight * 1.5f;
+	}
+	
+	// Individual ability status
+	DrawText(TEXT("Abilities:"), FColor::Cyan, X, Y);
+	Y += LineHeight;
+	
+	TArray<FAbilityDisplayInfo> Abilities = GetCurrentAbilities();
+	for (const FAbilityDisplayInfo& AbilityInfo : Abilities)
+	{
+		if (AbilityInfo.Ability)
+		{
+			FString Status;
+			FColor StatusColor = FColor::White;
+			
+			if (AbilityInfo.bIsDisabled)
+			{
+				Status = TEXT("DISABLED");
+				StatusColor = FColor::Red;
+			}
+			else if (AbilityInfo.bIsInUltimateMode)
+			{
+				Status = TEXT("ULTIMATE");
+				StatusColor = FColor::Yellow;
+			}
+			else if (AbilityInfo.bIsBasicAbility)
+			{
+				Status = TEXT("BASIC");
+				StatusColor = FColor(100, 100, 255);
+			}
+			else
+			{
+				// Check if abilities are buffed (50-99% WP)
+				if (ResourceManager && ResourceManager->GetWillPowerPercent() >= 0.5f && 
+					ResourceManager->GetWillPowerPercent() < 1.0f)
+				{
+					Status = TEXT("BUFFED");
+					StatusColor = FColor::Cyan;
+				}
+				else
+				{
+					Status = TEXT("NORMAL");
+					StatusColor = FColor::Green;
+				}
 			}
 			
-			// Draw debug info on the right panel
-			FString DebugInfo = FString::Printf(TEXT("%s: CD %.1fs (%.0f%%)"), 
+			DrawText(FString::Printf(TEXT("[%s] %s - %s"), 
+				*AbilityInfo.Input, 
 				*AbilityInfo.Name, 
-				AbilityInfo.Ability->GetCooldownRemaining(),
-				CooldownPercent * 100.0f);
-			DrawText(DebugInfo, FColor::White, DebugX, DebugY);
-			DebugY += 18.0f;
-			
-			// Draw resource costs
-			float StaminaCost = AbilityInfo.Ability->GetCost();
-			float WPCost = AbilityInfo.Ability->GetWPCost();
-			float HeatCost = AbilityInfo.Ability->GetHeatCost();
-			
-			FString CostText;
-			if (StaminaCost > 0)
-			{
-				CostText += FString::Printf(TEXT("Stamina: %.0f "), StaminaCost);
-			}
-			if (WPCost > 0)
-			{
-				CostText += FString::Printf(TEXT("WP: +%.0f "), WPCost);
-			}
-			if (HeatCost > 0)
-			{
-				CostText += FString::Printf(TEXT("Heat: +%.0f"), HeatCost);
-			}
-			
-			if (!CostText.IsEmpty())
-			{
-				DrawText(CostText, FColor(200, 200, 200), DebugX + 20, DebugY);
-				DebugY += 18.0f;
-			}
+				*Status), 
+				StatusColor, X + 10, Y);
+			Y += LineHeight;
+		}
+	}
+	
+	// WP Status
+	Y += LineHeight;
+	if (ResourceManager)
+	{
+		int32 WPPercent = (int32)(ResourceManager->GetWillPowerPercent() * 100.0f);
+		DrawText(FString::Printf(TEXT("WP: %d%%"), WPPercent), WillPowerColor, X, Y);
+		Y += LineHeight;
+		
+		if (WPPercent >= 100)
+		{
+			DrawText(TEXT("USE ABILITY TO SACRIFICE!"), FColor::Red, X, Y);
+		}
+		else if (WPPercent >= 50)
+		{
+			DrawText(TEXT("ABILITIES BUFFED"), FColor::Cyan, X, Y);
 		}
 	}
 }

@@ -7,12 +7,14 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "Engine/Engine.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/Attributes/IntegrityComponent.h"
 #include "Components/Attributes/StaminaComponent.h"
 #include "Components/Attributes/WillPowerComponent.h"
 #include "Components/Attributes/HeatComponent.h"
 #include "Systems/ResourceManager.h"
+#include "Systems/ThresholdManager.h"
 #include "Components/Abilities/Player/Basic/SlashAbilityComponent.h"
 // #include "Components/Abilities/Player/SystemFreezeAbilityComponent.h" // Removed
 #include "Components/Abilities/Player/Basic/KillAbilityComponent.h"
@@ -87,12 +89,19 @@ ABlackholePlayerCharacter::ABlackholePlayerCharacter()
 	bIsFirstPerson = false;
 	FirstPersonCameraOffset = 70.0f;
 	HeadBoneName = "head"; // Default head bone name - adjust in Blueprint if different
+	WeaponSocketName = "weaponsocket"; // Default socket name - adjust in Blueprint if different
 	
-	// Create maze weapon mesh component
+	// Create maze weapon mesh component (Forge path)
 	MazeWeaponMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MazeWeapon"));
-	MazeWeaponMesh->SetupAttachment(GetMesh(), FName("weaponsocket"));
+	MazeWeaponMesh->SetupAttachment(GetMesh());
 	MazeWeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	MazeWeaponMesh->SetCastShadow(true);
+	
+	// Create katana weapon mesh component (Hacker path)
+	KatanaWeaponMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("KatanaWeapon"));
+	KatanaWeaponMesh->SetupAttachment(GetMesh());
+	KatanaWeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	KatanaWeaponMesh->SetCastShadow(true);
 }
 
 void ABlackholePlayerCharacter::BeginPlay()
@@ -116,11 +125,42 @@ void ABlackholePlayerCharacter::BeginPlay()
 			ResourceMgr->SetCurrentPath(CurrentPath);
 		}
 	}
+	
+	// Attach weapons to the specified socket
+	if (GetMesh() && !WeaponSocketName.IsNone())
+	{
+		if (MazeWeaponMesh)
+		{
+			MazeWeaponMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponSocketName);
+		}
+		if (KatanaWeaponMesh)
+		{
+			KatanaWeaponMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponSocketName);
+		}
+	}
+	
+	// Set initial weapon visibility based on current path
+	UpdateWeaponVisibility();
+	
+	// Bind to ThresholdManager death event
+	if (UWorld* World = GetWorld())
+	{
+		if (UThresholdManager* ThresholdMgr = World->GetSubsystem<UThresholdManager>())
+		{
+			ThresholdMgr->OnPlayerDeath.AddDynamic(this, &ABlackholePlayerCharacter::OnThresholdDeath);
+		}
+	}
 }
 
 void ABlackholePlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	
+	// Check if player should die
+	if (!bIsDead)
+	{
+		CheckIntegrity();
+	}
 	
 	// Dissipate heat through ResourceManager
 	if (UGameInstance* GameInstance = GetGameInstance())
@@ -311,6 +351,9 @@ void ABlackholePlayerCharacter::ToggleCamera()
 		bUseControllerRotationYaw = false;
 		GetCharacterMovement()->bOrientRotationToMovement = true;
 	}
+	
+	// Update weapon visibility based on camera mode
+	UpdateWeaponVisibility();
 }
 
 void ABlackholePlayerCharacter::SetHeadVisibility(bool bVisible)
@@ -388,6 +431,9 @@ void ABlackholePlayerCharacter::SwitchPath()
 		}
 	}
 	
+	// Update weapon visibility
+	UpdateWeaponVisibility();
+	
 	// Optional: Broadcast an event for UI updates
 	if (GEngine)
 	{
@@ -414,6 +460,9 @@ void ABlackholePlayerCharacter::SetCurrentPath(ECharacterPath NewPath)
 			}
 		}
 	}
+	
+	// Update weapon visibility when path is set
+	UpdateWeaponVisibility();
 }
 
 FString ABlackholePlayerCharacter::GetCurrentPathName() const
@@ -471,4 +520,90 @@ void ABlackholePlayerCharacter::UseAbilitySlot6()
 	// Hacker: Reserved | Forge: Reserved
 	// TODO: Implement ultimate abilities
 	ExecutePathBasedAbility(nullptr, nullptr);
+}
+
+void ABlackholePlayerCharacter::UpdateWeaponVisibility()
+{
+	// Show/hide weapons based on current path
+	if (MazeWeaponMesh && KatanaWeaponMesh)
+	{
+		if (CurrentPath == ECharacterPath::Hacker)
+		{
+			// Hacker path uses Katana
+			KatanaWeaponMesh->SetVisibility(true);
+			MazeWeaponMesh->SetVisibility(false);
+		}
+		else // Forge path
+		{
+			// Forge path uses Maze weapon
+			MazeWeaponMesh->SetVisibility(true);
+			KatanaWeaponMesh->SetVisibility(false);
+		}
+	}
+}
+
+void ABlackholePlayerCharacter::Die()
+{
+	if (bIsDead)
+	{
+		return;
+	}
+	
+	bIsDead = true;
+	
+	UE_LOG(LogTemp, Error, TEXT("PLAYER DEATH!"));
+	
+	// Disable all abilities
+	TArray<UActorComponent*> AllComponents = GetComponents().Array();
+	TArray<UActorComponent*> AbilityComponents = AllComponents.FilterByPredicate([](UActorComponent* Component)
+	{
+		return Component && Component->IsA<UAbilityComponent>();
+	});
+	
+	for (UActorComponent* Component : AbilityComponents)
+	{
+		if (UAbilityComponent* Ability = Cast<UAbilityComponent>(Component))
+		{
+			Ability->SetComponentTickEnabled(false);
+		}
+	}
+	
+	// Disable movement
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		DisableInput(PC);
+	}
+	
+	// Stop character movement
+	if (UCharacterMovementComponent* MovementComp = GetCharacterMovement())
+	{
+		MovementComp->DisableMovement();
+		MovementComp->StopMovementImmediately();
+	}
+	
+	// Play death animation/effects here
+	// For now, just make the character fall
+	GetMesh()->SetSimulatePhysics(true);
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	
+	// Show death message
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("YOU DIED!"));
+		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("Press ESC to quit"));
+	}
+}
+
+void ABlackholePlayerCharacter::CheckIntegrity()
+{
+	if (IntegrityComponent && IntegrityComponent->GetCurrentValue() <= 0.0f)
+	{
+		Die();
+	}
+}
+
+void ABlackholePlayerCharacter::OnThresholdDeath()
+{
+	UE_LOG(LogTemp, Error, TEXT("Player death triggered by ThresholdManager!"));
+	Die();
 }

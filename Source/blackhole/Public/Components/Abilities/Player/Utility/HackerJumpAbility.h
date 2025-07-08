@@ -22,8 +22,17 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Jump")
 	int32 MaxJumpCount = 2; // Allows double jump
 	
+	UPROPERTY(EditDefaultsOnly, Category = "Jump")
+	float JumpCooldown = 0.5f; // Cooldown between jumps
+	
 	// Override CanExecute to check jump count
 	virtual bool CanExecute() const override;
+	
+	// Public getters for UI
+	int32 GetCurrentJumpCount() const { return CurrentJumpCount; }
+	int32 GetMaxJumpCount() const { return MaxJumpCount; }
+	float GetJumpCooldown() const { return JumpCooldown; }
+	float GetTimeSinceLastJump() const { return TimeSinceLastJump; }
 	
 protected:
 	// Override from UtilityAbility
@@ -37,10 +46,16 @@ private:
 	// Original air control value
 	float OriginalAirControl = 0.0f;
 	
+	// Time since last jump (for cooldown between jumps)
+	float TimeSinceLastJump = 0.0f;
+	
 	// Reset jump count when landing
 	UFUNCTION()
 	void OnLanded(const FHitResult& Hit);
 	
 	// Check if character can jump
 	bool CanJump() const;
+	
+	// Override tick to track jump cooldown
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 };

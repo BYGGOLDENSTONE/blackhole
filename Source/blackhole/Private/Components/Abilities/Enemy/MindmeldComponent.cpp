@@ -33,7 +33,7 @@ void UMindmeldComponent::Execute()
 		StopMindmeld();
 	}
 	
-	UE_LOG(LogTemp, Warning, TEXT("Mindmeld Execute: Active = %s"), bIsMindmeldActive ? TEXT("TRUE") : TEXT("FALSE"));
+	// Removed execute logging to reduce spam
 }
 
 void UMindmeldComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -66,28 +66,35 @@ void UMindmeldComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAc
 						}
 						#endif
 						
-						UE_LOG(LogTemp, Log, TEXT("Mindmeld: Adding %.2f WP corruption to player"), DrainRate * DeltaTime);
+						// Removed tick logging to reduce spam
 					}
 					else
 					{
-						UE_LOG(LogTemp, Warning, TEXT("Mindmeld: ResourceManager not found!"));
+						// Only log once
+						static bool bLoggedOnce = false;
+						if (!bLoggedOnce)
+						{
+							UE_LOG(LogTemp, Warning, TEXT("Mindmeld: ResourceManager not found!"));
+							bLoggedOnce = true;
+						}
 					}
 				}
 			}
 			else
 			{
-				UE_LOG(LogTemp, Warning, TEXT("Mindmeld: Target is not a player!"));
+				// Target is not a player - stop mindmeld
+				StopMindmeld();
 			}
 		}
 		else
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Mindmeld: No line of sight!"));
+			// Lost line of sight - stop mindmeld
 			StopMindmeld();
 		}
 	}
 	else if (bIsMindmeldActive)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Mindmeld: No target actor!"));
+		// No target - stop mindmeld
 		StopMindmeld();
 	}
 }

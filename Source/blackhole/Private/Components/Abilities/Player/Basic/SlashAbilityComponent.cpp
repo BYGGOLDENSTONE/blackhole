@@ -16,6 +16,9 @@ USlashAbilityComponent::USlashAbilityComponent()
 	HeatCost = 0.0f; // Slash doesn't use heat
 	Cooldown = 2.0f;
 	Range = 200.0f;
+	
+	// Mark as basic ability - not affected by ultimate system
+	bIsBasicAbility = true;
 }
 
 void USlashAbilityComponent::BeginPlay()
@@ -94,3 +97,4 @@ void USlashAbilityComponent::Execute()
 		#endif
 	}
 }
+

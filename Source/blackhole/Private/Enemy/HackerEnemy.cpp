@@ -5,6 +5,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
+#include "Systems/ResourceManager.h"
 
 AHackerEnemy::AHackerEnemy()
 {
@@ -26,6 +27,9 @@ void AHackerEnemy::BeginPlay()
 
 void AHackerEnemy::UpdateAIBehavior(float DeltaTime)
 {
+	// Call parent implementation first to handle combat detection
+	Super::UpdateAIBehavior(DeltaTime);
+	
 	if (!TargetActor || !IntegrityComponent->IsAlive())
 	{
 		return;
@@ -50,21 +54,14 @@ void AHackerEnemy::UpdateAIBehavior(float DeltaTime)
 	{
 		if (!MindmeldAbility->bIsMindmeldActive)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("HackerEnemy: Starting Mindmeld on %s"), *TargetActor->GetName());
+			// Start Mindmeld without logging
 			MindmeldAbility->SetTarget(TargetActor);
 			MindmeldAbility->Execute();
 		}
 	}
 	else if (MindmeldAbility->bIsMindmeldActive)
 	{
-		if (Distance > MindmeldRange)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("HackerEnemy: Target out of range (%.1f > %.1f)"), Distance, MindmeldRange);
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("HackerEnemy: Lost line of sight"));
-		}
+		// Stop mindmeld without logging every tick
 		MindmeldAbility->StopMindmeld();
 	}
 }
@@ -131,6 +128,19 @@ void AHackerEnemy::OnDeath()
 	if (MindmeldAbility && MindmeldAbility->bIsMindmeldActive)
 	{
 		MindmeldAbility->StopMindmeld();
+	}
+	
+	// Reduce player's WP when killing a hacker enemy
+	if (UGameInstance* GameInstance = GetWorld()->GetGameInstance())
+	{
+		if (UResourceManager* ResourceMgr = GameInstance->GetSubsystem<UResourceManager>())
+		{
+			// Reduce WP by 10 for killing a hacker enemy
+			float WPReduction = 10.0f;
+			ResourceMgr->AddWillPower(-WPReduction);
+			
+			UE_LOG(LogTemp, Log, TEXT("HackerEnemy killed: Reduced player WP by %.0f"), WPReduction);
+		}
 	}
 	
 	// Call parent implementation for ragdoll and cleanup

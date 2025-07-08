@@ -8,13 +8,14 @@ void UResourceManager::Initialize(FSubsystemCollectionBase& Collection)
 	
 	// Initialize default values
 	MaxWP = DEFAULT_MAX_WP;
-	CurrentWP = 0.0f; // WP starts at 0, gained from hacker enemies
+	CurrentWP = 0.0f; // WP starts at 0, gained from ability usage
 	MaxHeat = DEFAULT_MAX_HEAT;
 	CurrentHeat = 0.0f;
 	HeatDissipationRate = DEFAULT_HEAT_DISSIPATION_RATE;
 	bIsOverheated = false;
 	PreviousWPThreshold = EResourceThreshold::Normal; // Starting at 0% WP = Normal state
 	CurrentPath = ECharacterPath::Hacker; // Default to Hacker
+	WPMaxReachedCount = 0; // Track how many times WP reached 100%
 }
 
 void UResourceManager::Deinitialize()
@@ -62,19 +63,28 @@ bool UResourceManager::ConsumeWillPower(float Amount)
 
 void UResourceManager::AddWillPower(float Amount)
 {
-	if (Amount < 0.0f)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("AddWillPower called with negative amount: %f"), Amount);
-		return;
-	}
-	
+	// Allow negative amounts for WP reduction (killing hacker enemies)
 	float OldWP = CurrentWP;
 	CurrentWP = FMath::Clamp(CurrentWP + Amount, 0.0f, MaxWP);
+	
+	// No need to log WP changes - visible in UI
 	
 	if (CurrentWP != OldWP)
 	{
 		OnWillPowerChanged.Broadcast(CurrentWP, MaxWP);
 		CheckWPThreshold();
+		
+		// Check if WP reached 100%
+		if (CurrentWP >= MaxWP && OldWP < MaxWP)
+		{
+			WPMaxReachedCount++;
+			OnWPMaxReached.Broadcast(WPMaxReachedCount);
+			
+			UE_LOG(LogTemp, Warning, TEXT("WP reached 100%% (Count: %d)"), WPMaxReachedCount);
+			
+			// Automatically reset WP to 0 after reaching 100%
+			// This will be handled by ThresholdManager after ability loss
+		}
 	}
 }
 
@@ -178,22 +188,18 @@ EResourceThreshold UResourceManager::GetCurrentWPThreshold() const
 {
 	float Percent = GetWillPowerPercent();
 	
-	// Inverted system: Higher WP = More ability loss
-	if (Percent <= 0.1f)
+	// New system: 0-50% Normal, 50-100% Buffed, 100% Critical
+	if (Percent >= 1.0f)
 	{
-		return EResourceThreshold::Normal; // 0-10% WP = All abilities available
+		return EResourceThreshold::Critical; // 100% WP = Lose ability and reset
 	}
-	else if (Percent <= 0.3f)
+	else if (Percent >= 0.5f)
 	{
-		return EResourceThreshold::Warning; // 10-30% WP = Lose 1 ability
-	}
-	else if (Percent <= 0.6f)
-	{
-		return EResourceThreshold::Critical; // 30-60% WP = Lose 2 abilities
+		return EResourceThreshold::Buffed; // 50-100% WP = Abilities buffed
 	}
 	else
 	{
-		return EResourceThreshold::Emergency; // >60% WP = Lose 3 abilities
+		return EResourceThreshold::Normal; // 0-50% WP = Normal state
 	}
 }
 
@@ -202,6 +208,7 @@ void UResourceManager::ResetResources()
 	CurrentWP = 0.0f; // Reset to 0 (good state)
 	CurrentHeat = 0.0f;
 	bIsOverheated = false;
+	WPMaxReachedCount = 0; // Reset the counter
 	
 	// Clear overheat timer if active
 	if (GetGameInstance() && GetGameInstance()->GetWorld())
@@ -213,8 +220,20 @@ void UResourceManager::ResetResources()
 	OnWillPowerChanged.Broadcast(CurrentWP, MaxWP);
 	OnHeatChanged.Broadcast(CurrentHeat, MaxHeat);
 	
-	// Reset threshold (Normal = 0-10% WP in new system)
+	// Reset threshold
 	PreviousWPThreshold = EResourceThreshold::Normal;
+}
+
+void UResourceManager::ResetWPAfterMax()
+{
+	CurrentWP = 0.0f;
+	OnWillPowerChanged.Broadcast(CurrentWP, MaxWP);
+	
+	// Reset threshold to normal
+	PreviousWPThreshold = EResourceThreshold::Normal;
+	CheckWPThreshold();
+	
+	UE_LOG(LogTemp, Warning, TEXT("ResourceManager: WP RESET TO 0 after ultimate ability use!"));
 }
 
 void UResourceManager::CheckWPThreshold()

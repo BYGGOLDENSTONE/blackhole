@@ -49,6 +49,13 @@ public:
 	// Get current path name for UI
 	UFUNCTION(BlueprintPure, Category = "Character")
 	FString GetCurrentPathName() const;
+	
+	// Death handling
+	UFUNCTION(BlueprintCallable, Category = "Character")
+	void Die();
+	
+	UFUNCTION(BlueprintPure, Category = "Character")
+	bool IsDead() const { return bIsDead; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -210,9 +217,16 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	UStaticMeshComponent* MazeWeaponMesh;
 	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	UStaticMeshComponent* KatanaWeaponMesh;
+	
 	// Head bone name for hiding in first person
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FirstPerson")
 	FName HeadBoneName;
+	
+	// Weapon socket name
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	FName WeaponSocketName;
 	
 private:
 	// Hide/show head bone for first person
@@ -220,6 +234,19 @@ private:
 	
 	// Unified path-based ability execution
 	void ExecutePathBasedAbility(class UAbilityComponent* HackerAbility, class UAbilityComponent* ForgeAbility);
+	
+	// Update weapon visibility based on current path
+	void UpdateWeaponVisibility();
+	
+	// Death state
+	bool bIsDead = false;
+	
+	// Handle integrity-based death
+	void CheckIntegrity();
+	
+	// Handle ThresholdManager death event
+	UFUNCTION()
+	void OnThresholdDeath();
 
 public:
 	virtual void Tick(float DeltaTime) override;

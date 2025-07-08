@@ -167,3 +167,110 @@ void UPulseHackAbility::RestoreEnemySpeed(ABaseEnemy* Enemy, float OriginalSpeed
 		Movement->MaxWalkSpeed = OriginalSpeed;
 	}
 }
+
+void UPulseHackAbility::ExecuteUltimate()
+{
+	// Ultimate Pulse Hack - "System Overload"
+	// Massive pulse that stuns all enemies on screen and cleanses 50 WP
+	UE_LOG(LogTemp, Warning, TEXT("ULTIMATE PULSE HACK: System Overload!"));
+	
+	Super::ExecuteUltimate();
+	
+	ACharacter* Character = Cast<ACharacter>(GetOwner());
+	if (!Character)
+	{
+		return;
+	}
+	
+	// Ultimate version: Massive radius and full stun
+	float UltimateRadius = HackRadius * 4.0f; // 4x radius (2000 units)
+	float StunDuration = 3.0f; // Full stun instead of slow
+	float UltimateWPCleanse = 50.0f; // Massive WP cleanse
+	
+	// Get all actors in massive radius
+	TArray<FHitResult> HitResults;
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(Character);
+	
+	FVector CharacterLocation = Character->GetActorLocation();
+	
+	GetWorld()->SweepMultiByChannel(
+		HitResults,
+		CharacterLocation,
+		CharacterLocation,
+		FQuat::Identity,
+		ECC_Pawn,
+		FCollisionShape::MakeSphere(UltimateRadius),
+		QueryParams
+	);
+	
+	// Stun all enemies in radius
+	int32 EnemiesAffected = 0;
+	for (const FHitResult& Result : HitResults)
+	{
+		AActor* HitActor = Result.GetActor();
+		if (!HitActor || (!HitActor->ActorHasTag("Enemy") && !HitActor->IsA<ABaseEnemy>()))
+		{
+			continue;
+		}
+		
+		if (ABaseEnemy* Enemy = Cast<ABaseEnemy>(HitActor))
+		{
+			// Full stun - set movement speed to 0
+			UCharacterMovementComponent* Movement = Enemy->GetCharacterMovement();
+			if (Movement)
+			{
+				float OriginalSpeed = Movement->MaxWalkSpeed;
+				Movement->MaxWalkSpeed = 0.0f; // Complete stun
+				
+				// Set timer to restore movement
+				FTimerHandle RestoreHandle;
+				FTimerDelegate RestoreDelegate;
+				RestoreDelegate.BindUObject(this, &UPulseHackAbility::RestoreEnemySpeed, Enemy, OriginalSpeed);
+				
+				GetWorld()->GetTimerManager().SetTimer(
+					RestoreHandle,
+					RestoreDelegate,
+					StunDuration,
+					false
+				);
+				
+				EnemiesAffected++;
+				
+				UE_LOG(LogTemp, Warning, TEXT("Ultimate Pulse stunned %s for %.1f seconds!"), 
+					*Enemy->GetName(), StunDuration);
+			}
+		}
+	}
+	
+	// Apply massive WP cleanse
+	if (UResourceManager* ResourceMgr = GetWorld()->GetGameInstance()->GetSubsystem<UResourceManager>())
+	{
+		ResourceMgr->AddWillPower(-UltimateWPCleanse);
+		UE_LOG(LogTemp, Warning, TEXT("Ultimate Pulse Hack: Cleansed %.0f WP, stunned %d enemies!"), 
+			UltimateWPCleanse, EnemiesAffected);
+	}
+	
+	// Spawn massive visual effect
+	if (PulseEffect)
+	{
+		UGameplayStatics::SpawnEmitterAtLocation(
+			GetWorld(),
+			PulseEffect,
+			CharacterLocation,
+			FRotator::ZeroRotator,
+			FVector(4.0f) // Larger effect
+		);
+	}
+	
+	// Play enhanced sound
+	if (PulseSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(GetWorld(), PulseSound, CharacterLocation, 2.0f); // Louder
+	}
+	
+	// Debug visualization
+#if WITH_EDITOR
+	DrawDebugSphere(GetWorld(), CharacterLocation, UltimateRadius, 64, FColor::Purple, false, 2.0f);
+#endif
+}

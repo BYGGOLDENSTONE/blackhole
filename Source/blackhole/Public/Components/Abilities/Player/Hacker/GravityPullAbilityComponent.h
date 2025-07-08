@@ -14,6 +14,7 @@ public:
 
     virtual void Execute() override;
     virtual bool CanExecute() const override;
+    virtual void ExecuteUltimate() override;
 
 protected:
     virtual void BeginPlay() override;

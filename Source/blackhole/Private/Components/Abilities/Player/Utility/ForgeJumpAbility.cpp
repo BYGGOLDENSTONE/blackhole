@@ -18,6 +18,9 @@ UForgeJumpAbility::UForgeJumpAbility()
 	// Set forge path
 	PathType = ECharacterPath::Forge;
 	
+	// Mark as basic ability - not affected by ultimate system
+	bIsBasicAbility = true;
+	
 	// Jump costs and cooldown
 	Cost = 10.0f; // Legacy field
 	StaminaCost = 10.0f; // New dual resource system

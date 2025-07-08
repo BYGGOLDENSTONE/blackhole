@@ -6,10 +6,16 @@
 
 UHackerJumpAbility::UHackerJumpAbility()
 {
+	// Enable ticking for jump cooldown
+	PrimaryComponentTick.bCanEverTick = true;
+	
 	// Set hacker path
 	PathType = ECharacterPath::Hacker;
 	
-	// Jump costs stamina but no cooldown
+	// Mark as basic ability - not affected by ultimate system
+	bIsBasicAbility = true;
+	
+	// Jump costs stamina but no cooldown for the ability itself
 	Cost = 10.0f; // Legacy field
 	StaminaCost = 10.0f; // Per GDD: 10 stamina cost
 	WPCost = 0.0f; // Utility abilities don't add WP corruption
@@ -21,6 +27,7 @@ UHackerJumpAbility::UHackerJumpAbility()
 	JumpVelocity = 1200.0f;
 	AirControlBoost = 2.0f;
 	MaxJumpCount = 2;
+	JumpCooldown = 0.5f; // Half second between jumps
 }
 
 void UHackerJumpAbility::BeginPlay()
@@ -76,14 +83,16 @@ void UHackerJumpAbility::ApplyMovement(ACharacter* Character)
 	{
 		Character->Jump();
 		CurrentJumpCount = 1;
+		TimeSinceLastJump = 0.0f; // Reset jump timer
 		
 		// Boost air control for better maneuverability
 		CachedMovement->AirControl = OriginalAirControl * AirControlBoost;
 	}
-	else if (CurrentJumpCount < MaxJumpCount)
+	else if (CurrentJumpCount < MaxJumpCount && TimeSinceLastJump >= JumpCooldown)
 	{
 		// For double jump, manually apply velocity
 		CurrentJumpCount++;
+		TimeSinceLastJump = 0.0f; // Reset jump timer
 		
 		// Reset Z velocity for clean double jump
 		CachedMovement->Velocity.Z = 0.0f;
@@ -111,8 +120,9 @@ void UHackerJumpAbility::ApplyMovement(ACharacter* Character)
 
 void UHackerJumpAbility::OnLanded(const FHitResult& Hit)
 {
-	// Reset jump count when landing
+	// Reset jump count and timer when landing
 	CurrentJumpCount = 0;
+	TimeSinceLastJump = 0.0f;
 	
 	// Restore normal air control
 	if (CachedMovement)
@@ -138,6 +148,23 @@ bool UHackerJumpAbility::CanJump() const
 		return true;
 	}
 	
-	// Can jump if in air and haven't exceeded max jumps
-	return CurrentJumpCount < MaxJumpCount;
+	// For double jump, check both jump count and cooldown
+	if (CurrentJumpCount < MaxJumpCount)
+	{
+		// Must wait for cooldown between jumps
+		return TimeSinceLastJump >= JumpCooldown;
+	}
+	
+	return false;
+}
+
+void UHackerJumpAbility::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	
+	// Update time since last jump
+	if (CurrentJumpCount > 0)
+	{
+		TimeSinceLastJump += DeltaTime;
+	}
 }

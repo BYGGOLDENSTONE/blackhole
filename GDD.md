@@ -1,196 +1,330 @@
 # Blackhole - Game Design Document
-**Version**: 2.0  
+**Version**: 3.1  
 **Engine**: Unreal Engine 5.5  
-**Date**: 2025-07-04
+**Language**: C++ with Blueprint integration  
+**Date**: 2025-07-08
 
-## Vision & Core Pillars
+> **📚 Note**: For detailed ability information, see [ABILITIES_DOCUMENTATION.md](ABILITIES_DOCUMENTATION.md)
 
-**Player Role**: A hybrid hacker-forge warrior navigating dangerous environments through close combat and environmental manipulation.
+## 🎮 Game Overview
 
-**Core Pillars**:
-1. **Dual Resource Management**: Balance Willpower (WP) and Heat with Stamina for tactical ability usage
-2. **Path-Based Combat**: Choose between Hacker and Forge paths before each level, each with distinct ability sets
-3. **Environmental Interaction**: Hack and forge objects to create tactical advantages
-4. **Adaptive Gameplay**: Dynamic ability loss creates escalating risk/reward scenarios
+### Core Concept
+A tactical action game where players embody a hybrid hacker-forge warrior, choosing between two distinct paths before each level. Navigate dangerous environments through close combat and environmental manipulation while managing unique resource systems.
 
-## Resource System
+### Core Pillars
+1. **Dual Path System**: Pre-level choice between Hacker (speed/precision) and Forge (power/destruction)
+2. **Resource Risk/Reward**: Balance aggression with conservation through WP corruption or Heat buildup
+3. **Dynamic Difficulty**: Ability loss creates escalating challenge with compensatory buffs
+4. **Environmental Mastery**: Interact with world objects differently based on chosen path
+
+## ⚡ Resource System
 
 ### Primary Resources
-- **Stamina**: Universal resource consumed by all abilities
-- **Willpower (WP)**: Corruption system - starts at 0% (good), increases with Hacker abilities and enemy attacks
-- **Heat**: Consumed by Forge path abilities, causes overheat lockout at 100%
+| Resource | Path | Start | Max | Mechanic |
+|----------|------|-------|-----|----------|
+| **Stamina** | Both | 100 | 100 | Universal resource, 10/sec regen |
+| **Willpower** | Hacker | 0% | 100% | Corruption increases with ability use (bad) |
+| **Heat** | Forge | 0 | 100 | Combat abilities only, 5/sec dissipation |
 
-### Resource Mechanics
-- **Hacker Path**: Abilities consume Stamina + ADD WP (corruption cost)
-- **Forge Path**: Abilities consume Stamina + Heat
-- **WP Corruption**: Higher WP = More ability loss (0% WP = all abilities available)
-- **Hacker Enemies**: Mindmeld ability continuously adds WP corruption to player
-- **Heat System**: Only active in Forge path
-- **Combo Rewards**: Ability chains reduce WP corruption or reduce Heat
-- **Environmental Pickups**: WP cleansing stations and Heat vents for resource management
+### Resource Interactions
+- **Hacker**: Abilities cost Stamina + ADD WP corruption
+- **Forge**: Combat abilities cost Stamina + Heat (utility uses stamina only)
+- **Enemy Mindmeld**: Adds 1.0 WP/sec while maintaining line of sight
+- **Combo Rewards**: Reduce WP by 2-10 or Heat by 3 based on chain length
 
-## Path System
+## 🔀 Path System
 
 ### Hacker Path
-**Theme**: Speed, precision, and technical mastery  
-**Visual**: Cyan/blue color scheme  
-**Resource**: Stamina + WP consumption
+- **Theme**: Speed, precision, technical mastery
+- **Visual**: Cyan/blue effects
+- **Playstyle**: Hit-and-run, environmental manipulation, ability combos
+- **Risk**: WP corruption leads to ability loss
 
-**Abilities**:
-1. **Katana Slash** (LMB): 10 Stamina + 15 WP corruption - Quick precision strike with bleed effect
-2. **Firewall Breach** (RMB): 15 Stamina + 20 WP corruption - Armor shred over time
-3. **Pulse Hack** (Q): 5 Stamina + 10 WP corruption - Area slow with WP cleansing (reduces 5 WP per enemy)
-4. **Gravity Pull** (E): 10 Stamina + 15 WP corruption - Pull objects and enemies
+### Forge Path  
+- **Theme**: Power, impact, destructive force
+- **Visual**: Red/orange effects
+- **Playstyle**: Tank through damage, area control, burst damage
+- **Risk**: Heat overload causes temporary lockout
 
-**Utility Abilities**:
-- **Hacker Dash** (Shift): Stamina only - Fast repositioning, no damage
-- **Hacker Jump** (Space): Stamina only - Enhanced air control, double jump
+## ⚔️ Combat Abilities
 
-### Forge Path
-**Theme**: Power, impact, and destructive force  
-**Visual**: Red/orange color scheme  
-**Resource**: Stamina + Heat consumption
+### Hacker Abilities
+| Ability | Key | Stamina | WP | Cooldown | Effect |
+|---------|-----|---------|-----|----------|---------|
+| **Katana Slash** | LMB | 10 | +15 | 2s | Quick strike with bleed DoT |
+| **Firewall Breach** | RMB | 15 | +20 | 4s | 30% armor reduction for 5s |
+| **Pulse Hack** | Q | 5 | +10 | 8s | AoE slow + cleanses 5 WP per enemy |
+| **Gravity Pull** | E | 10 | +15 | 3s | Pull enemies/objects (2000 unit range) |
+| **[Data Spike]** | R | - | - | - | *To be implemented* |
+| **[System Override]** | F | - | - | - | *Ultimate - To be implemented* |
 
-**Abilities**:
-1. **Forge Slam** (LMB): 15 Stamina + 20 Heat - Heavy destructive strike (planned)
-2. **Molten Mace Slash** (RMB): 20 Stamina + 30 Heat - Heavy damage with burn DoT
-3. **Heat Shield** (Q): 15 Stamina + 20 Heat - Damage absorption shield
-4. **Blast Charge** (E): 20 Stamina + 25 Heat - Explosive knockback attack
-5. **Hammer Strike** (R): 15 Stamina + 20 Heat - Stunning melee combo
-
-**Utility Abilities**:
-- **Forge Dash** (Shift): 5 Stamina only - Damaging charge with stagger
-- **Forge Jump** (Space): 10 Stamina only - Ground slam with area damage
-
-## Ability Loss & Buff System
-
-### WP Corruption Thresholds
-- **0-10% WP**: All abilities available (good state)
-- **10-30% WP**: Disable 1 random ability (system strain)
-- **30-60% WP**: Disable 2 random abilities (system overload)
-- **>60% WP**: Disable 3 abilities (critical corruption)
-
-### Survivor Buffs
-When abilities are lost, remaining abilities gain:
-- **+25% damage** per lost ability
-- **-15% cooldown** per lost ability
-- **-5 WP corruption** on next cast (reduces corruption)
-
-### Rules
-- One-time trigger per combat encounter
-- Permanent loss until combat ends
-- Utility abilities (Dash/Jump) never disabled
-
-## Combo System
-
-### Chain Mechanics
-- **Chain Window**: 2 seconds between distinct abilities
-- **Mini Combo** (3+ abilities): +2 WP or -3 Heat reward
-- **Combo Surge** (5+ abilities): +10 WP + 50% next ability damage
-
-### Requirements
-- Must use distinct abilities (no repeating same ability)
-- Combo resets if window expires
-- Rewards scale with combo length
-
-## Input Mapping
-
-### Core Controls
-- **WASD**: Movement
-- **Mouse**: Look around
-- **Tab**: Switch between Hacker/Forge paths (Development only - path is chosen pre-level)
-- **H**: Toggle first/third person camera
-
-### Path-Specific Basic Attacks
-- **LMB**: Katana Slash (Hacker) / Forge Slam (Forge - planned)
-- **K**: Kill (debug ability)
-
-### Path-Specific Slots
-- **LMB**: Katana Slash (Hacker) / Forge Slam (Forge - planned)
-- **RMB**: Firewall Breach (Hacker) / Molten Mace (Forge)
-- **Q**: Pulse Hack (Hacker) / Heat Shield (Forge)
-- **E**: Gravity Pull (Hacker) / Blast Charge (Forge)
-- **R**: Reserved (Hacker) / Hammer Strike (Forge)
-- **F**: Reserved for ultimate abilities
+### Forge Abilities
+| Ability | Key | Stamina | Heat | Cooldown | Effect |
+|---------|-----|---------|------|----------|---------|
+| **[Forge Slam]** | LMB | 15 | 20 | 2s | *Heavy ground strike - To be implemented* |
+| **Molten Mace** | RMB | 20 | 30 | 5s | Cone attack with burn DoT |
+| **Heat Shield** | Q | 15 | 20 | 12s | 100 HP absorption barrier |
+| **Blast Charge** | E | 20 | 25 | 10s | Explosion with knockback |
+| **Hammer Strike** | R | 15 | 20 | 6s | 3-hit stun combo |
+| **[Volcanic Eruption]** | F | - | - | - | *Ultimate - To be implemented* |
 
 ### Utility Abilities
-- **Shift**: Hacker Dash / Forge Dash
-- **Space**: Hacker Jump / Forge Jump
+| Path | Dash (Shift) | Jump (Space) |
+|------|--------------|--------------|
+| **Hacker** | 5 Stamina, 1000 units, i-frames | 10 Stamina, double jump (0.5s cooldown between jumps) |
+| **Forge** | 5 Stamina, damages on impact | 10 Stamina, ground slam on landing |
 
-## Technical Implementation
+## 🎯 Ability Loss System
 
-### Architecture
-- **Engine**: Unreal Engine 5.5 with C++ core systems
-- **No GAS Dependency**: Custom ability system for full control
-- **Component-Based**: Modular ability and attribute components
-- **Event-Driven**: Delegates for UI updates and system communication
+### WP System (Hacker Path)
+| WP Range | Effect |
+|----------|--------|
+| 0-50% | Normal state - all abilities available |
+| 50-99% | Buffed state - +20% damage, +15% cooldown reduction, +25% attack speed |
+| 100% | **ULTIMATE MODE** - All abilities become ultimate versions |
 
-### Key Systems
-- **ResourceManager**: Centralized WP/Heat/Stamina management
-- **ThresholdManager**: WP percentage monitoring and ability loss
-- **ComboTracker**: Chain detection and reward calculation
-- **Custom Ability System**: Polymorphic ability components
+**Ultimate Mode Mechanics**:
+- When WP reaches 100%, non-basic abilities transform into powerful ultimate versions
+- Basic abilities (Slash, Jump, Dash) remain normal and cannot be sacrificed
+- Player can use ONE ultimate ability (from non-basic abilities)
+- The ability used is permanently disabled for that combat
+- WP resets to 0 after ultimate use
+- Process can repeat until death conditions are met
 
-### Performance Considerations
-- Event-driven updates over polling
-- Object pooling for VFX and projectiles
-- Cached component references
-- Minimal Blueprint-C++ transitions
+**Death Conditions**:
+- **Integrity reaches 0**: Standard combat death from damage
+- **After losing 3 abilities**: If WP reaches 100% again → instant death
+- **4th time reaching 100% WP**: Death (regardless of abilities lost)
 
-## Enemy Design
+### Ultimate Abilities (100% WP)
+**Hacker Ultimate Abilities** (Non-Basic Only):
+- **System Overload** (Pulse Hack): Screen-wide stun, cleanses 50 WP
+- **Singularity** (Gravity Pull): Black hole pulls all enemies to center
+- **Total System Compromise** (Firewall Breach): 100% armor removal on all enemies
+
+**Basic Abilities** (Not Ultimate):
+- **Slash**: Maintains normal function, only receives 50% WP buffs
+- **Jump**: Maintains normal function, always available for mobility
+- **Dash**: Maintains normal function, always available for repositioning
+
+**Player Choice**: Use one ultimate ability, lose it permanently, reset to 0 WP
+
+**Heat at 100% (Forge)**:
+- *Meltdown*: AoE explosion dealing 50 damage to all nearby
+- 5-second ability lockout (current implementation)
+- Visible heat distortion effects
+- Emergency vent animation
+
+## 🌍 Environmental Interactions
+
+### Hacker Interactions
+| Object Type | Interaction | Effect |
+|-------------|-------------|---------|
+| **Data Terminals** | Hack (2s channel) | Reveal enemy positions, disable security |
+| **Corrupted Nodes** | Cleanse (E ability) | -20 WP, creates safe zone |
+| **Energy Barriers** | Bypass | Phase through for 3 seconds |
+| **Turrets** | Override | Turn against enemies for 10s |
+
+### Forge Interactions
+| Object Type | Interaction | Effect |
+|-------------|-------------|---------|
+| **Metal Barriers** | Melt (3s channel) | Create new pathways |
+| **Scrap Piles** | Forge | Craft temporary weapon upgrades |
+| **Heat Vents** | Activate | -30 Heat instantly |
+| **Destructibles** | Smash | Area damage + resource drops |
+
+### Shared Interactions
+- **Resource Stations**: Restore 25 Stamina
+- **Combo Shrines**: Next combo grants double rewards
+- **Path Beacons**: Preview path-specific routes
+
+## 👾 Enemy Design
 
 ### Enemy Types
-- **Hacker Enemies**: Use Mindmeld ability to continuously corrupt player's WP
-- **Forge Enemies**: Focus on direct damage and area control
-- **Hybrid Enemies**: Combine multiple threat types
-- **Environmental Integration**: Enemies interact with hackable/forgeable objects
-
-### Hacker Enemy - Mindmeld Ability
-- **Range**: 50 meter maximum range
-- **Line of Sight**: Requires clear visual connection to player
-- **Corruption Rate**: 1.0 WP corruption per second (configurable)
-- **Visual Feedback**: Purple debug line shows active connection
-- **Counterplay**: Break line of sight or eliminate enemy to stop corruption
+| Type | Health | Behavior | Special Ability |
+|------|--------|----------|-----------------|
+| **Hacker Scout** | 50 | Maintains distance | Mindmeld (1 WP/sec) |
+| **Forge Brute** | 150 | Aggressive melee | Smash (40 damage + stun) |
+| **Agile Assassin** | 75 | Hit and run | 30% dodge chance |
+| **Tank Guardian** | 200 | Defensive | 50% damage reduction when blocking |
+| **Hybrid Elite** | 100 | Adaptive AI | Switches tactics based on player path |
 
 ### AI Behaviors
-- **Adaptive Tactics**: Enemies respond to player's current path
-- **Environmental Usage**: AI uses hackable objects and cover
-- **Threat Assessment**: Prioritize based on player's active abilities
-- **Hacker Enemy Strategy**: Maintain line of sight for continuous WP corruption
+- **Path Awareness**: Enemies adapt tactics to player's chosen path
+- **Environmental Usage**: Use cover, activate traps, call reinforcements
+- **Coordination**: Flanking maneuvers, combo attacks
+- **Retreat Mechanics**: Low health enemies seek cover/healing
 
-## Progression System
+## ⚖️ Balance Framework
 
-### Onboarding Flow
-1. **Basic Combat**: Slash and movement tutorial
-2. **Path Selection**: Choose between Hacker or Forge before entering level
-3. **Path Mastery**: Master your chosen path's abilities and resource management
-4. **Combo Mastery**: Chain abilities for maximum effectiveness
-5. **Resource Crisis**: Handle ability loss scenarios
+### Resource Economy
+```
+Stamina Costs (per ability tier):
+- Basic: 5-10
+- Standard: 10-20  
+- Ultimate: 30-50
 
-### Skill Expression
-- **Path Selection**: Choose the right path for each level's challenges
-- **Resource Management**: Balance aggressive plays with conservation
-- **Combo Optimization**: Maximize chain rewards and damage
-- **Crisis Adaptation**: Effective play when abilities are disabled
+WP Corruption (per ability):
+- Low impact: 5-10
+- Medium impact: 10-20
+- High impact: 20-30
 
-## Implementation Status
+Heat Generation:
+- Light abilities: 10-20
+- Heavy abilities: 20-30
+- Ultimate: 40-50
+```
 
-### ✅ Completed Systems
-- Dual resource consumption (Stamina + WP/Heat)
-- Path-based ability switching
-- All 11 core abilities implemented
-- Threshold manager and ability loss
-- Combo tracking and rewards
-- Complete HUD with path-appropriate resource display
-- Console commands for testing
+### Damage Scaling
+```
+Base Damage:
+- Light attacks: 10-20
+- Medium attacks: 20-40
+- Heavy attacks: 40-60
+- DoT effects: 5-10/sec
 
-### 🔄 Current Focus
-- Resource balance tuning
-- VFX and audio integration
-- Environment interaction polish
+Combo Multipliers:
+- 3-chain: 1.25x
+- 5-chain: 1.5x
+- 7-chain: 2x
+```
 
-### 🎯 Future Enhancements
-- Ultimate abilities (F key)
-- Environmental destruction
-- Advanced enemy AI
-- Narrative integration
+### Cooldown Guidelines
+- Spam abilities: 1-2s
+- Tactical abilities: 3-5s
+- Strategic abilities: 8-12s
+- Ultimates: 60-90s
+
+## 🎨 Visual Design
+
+### Path Identity
+**Hacker Path**:
+- Colors: Cyan, electric blue, white
+- Effects: Digital glitches, data streams, holographic projections
+- Audio: Electronic, synthetic, glitch sounds
+
+**Forge Path**:
+- Colors: Orange, red, molten yellow
+- Effects: Heat distortion, sparks, molten metal
+- Audio: Industrial, metal impacts, furnace sounds
+
+### Environmental Themes
+1. **Corrupted Datacenters**: Hacker-favored with hackable infrastructure
+2. **Industrial Foundries**: Forge-favored with destructible elements
+3. **Hybrid Zones**: Balanced opportunities for both paths
+
+## 📈 Progression & Meta
+
+### Skill Mastery
+- **Combo Efficiency**: Maximize ability chains
+- **Resource Management**: Optimal WP/Heat thresholds
+- **Path Specialization**: Master unique mechanics
+- **Environmental Exploitation**: Creative object usage
+
+### Planned Features
+1. **Ability Upgrades**: Enhance existing abilities with modifiers
+2. **Path Synergies**: Unlock hybrid abilities for repeated playthroughs
+3. **Environmental Mastery**: New interactions based on player skill
+4. **Endless Mode**: Survival with escalating ability loss
+
+## 🔧 Technical Implementation
+
+### Architecture
+- **Component-Based**: Modular ability system
+- **Event-Driven**: Efficient delegate communication
+- **No GAS**: Custom implementation for full control
+- **Performance**: Object pooling, cached references
+
+### Key Systems
+| System | Purpose | Status |
+|--------|---------|---------|
+| ResourceManager | Central resource handling | ✅ Complete |
+| ThresholdManager | Ability loss logic | ✅ Complete |
+| ComboTracker | Chain detection | ✅ Complete |
+| EnvironmentInteractor | Object interactions | 🔄 In Development |
+| PathMechanics | 100% threshold events | 🔄 In Development |
+
+### Console Commands
+```
+SetWP <0-100>          - Set Willpower corruption
+SetHeat <0-100>        - Set Heat level
+SetPath <Hacker|Forge> - Switch paths (dev only)
+SetStamina <0-100>     - Set Stamina
+StartCombat/EndCombat  - Toggle combat state
+ShowDebugInfo          - Display all resources
+SpawnEnemy <type>      - Spawn specific enemy
+ForceUltimateMode      - Force activate ultimate mode
+CacheAbilities         - Refresh ability tracking
+ForceAbilityLoss <n>   - Disable n abilities for testing
+```
+
+## 📊 Metrics & KPIs
+
+### Core Metrics
+- **Average Combat Duration**: Target 60-90 seconds
+- **Ability Usage Rate**: 1 ability per 3-5 seconds
+- **WP/Heat Critical Events**: 1-2 per combat
+- **Environmental Interactions**: 3-5 per level
+
+### Balance Targets
+- **Path Win Rate**: 48-52% for each path
+- **Ability Usage Distribution**: No ability >30% of total
+- **Resource Depletion**: Reach critical once per level
+- **Death Distribution**: 40% resource management, 60% combat
+
+## 🚀 Development Roadmap
+
+### Phase 1: Core Polish (Current)
+- ✅ All abilities implemented
+- ✅ Resource system complete
+- ✅ Basic enemy AI
+- 🔄 VFX and audio integration
+
+### Phase 2: Environmental Systems (Next)
+- [ ] Hackable/Forgeable objects
+- [ ] Path-specific routes
+- [ ] Environmental hazards
+- [ ] Interactive set pieces
+
+### Phase 3: Advanced Features
+- [ ] Missing abilities (R/F keys)
+- [ ] 100% threshold mechanics
+- [ ] Advanced enemy behaviors
+- [ ] Boss encounters
+
+### Phase 4: Content & Balance
+- [ ] 5 unique levels
+- [ ] Ability upgrades
+- [ ] Endless mode
+- [ ] Final balance pass
+
+## 📝 Design Notes
+
+### Critical Decisions
+1. **No Path Switching**: Commitment creates meaningful choice
+2. **Corruption vs Heat**: Different risk profiles for variety
+3. **Ability Loss**: Creates dynamic difficulty within combat
+4. **Environmental Focus**: Rewards exploration and creativity
+
+### Open Questions
+1. Should ultimate abilities have unique threshold interactions?
+2. How do environmental interactions scale with player progression?
+3. Should there be permanent upgrades between runs?
+4. What happens when both paths are mastered - hybrid mode?
+
+## 📝 Version History
+
+### v3.1 (2025-07-08)
+- Added death conditions: integrity=0, 3 abilities lost, 4th 100% WP
+- Implemented Hacker jump cooldown (0.5s between jumps)
+- Added automatic combat detection when enemies see player
+- Consolidated all ability documentation into ABILITIES_DOCUMENTATION.md
+- Added new console commands for testing ultimate system
+
+### v3.0 (2025-07-07)
+- Ultimate ability system implementation
+- Basic abilities system (always available)
+- Strategic ability sacrifice mechanic
+
+---
+*This document represents the complete game design. All systems marked ✅ are implemented and functional.*

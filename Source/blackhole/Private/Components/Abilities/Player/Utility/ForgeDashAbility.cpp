@@ -14,6 +14,9 @@ UForgeDashAbility::UForgeDashAbility()
 	// Set forge path
 	PathType = ECharacterPath::Forge;
 	
+	// Mark as basic ability - not affected by ultimate system
+	bIsBasicAbility = true;
+	
 	// Override base parameters
 	Cost = 5.0f; // Legacy field
 	StaminaCost = 5.0f; // New dual resource system

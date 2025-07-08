@@ -3,6 +3,9 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Systems/ThresholdManager.h"
+#include "Engine/World.h"
+#include "Kismet/GameplayStatics.h"
 
 ABaseEnemy::ABaseEnemy()
 {
@@ -25,6 +28,19 @@ ABaseEnemy::ABaseEnemy()
 void ABaseEnemy::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	// Try to find player if no target set
+	if (!TargetActor)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			TargetActor = UGameplayStatics::GetPlayerCharacter(World, 0);
+			if (TargetActor)
+			{
+				UE_LOG(LogTemp, Log, TEXT("%s: Found player target in BeginPlay"), *GetName());
+			}
+		}
+	}
 }
 
 void ABaseEnemy::Tick(float DeltaTime)
@@ -47,6 +63,49 @@ void ABaseEnemy::Tick(float DeltaTime)
 
 void ABaseEnemy::UpdateAIBehavior(float DeltaTime)
 {
+	// Check if we can see the player and start combat if needed
+	if (TargetActor && !bHasStartedCombat)
+	{
+		UE_LOG(LogTemp, VeryVerbose, TEXT("%s: Checking combat start - Has target"), *GetName());
+		// Check both distance and line of sight
+		float Distance = FVector::Dist(GetActorLocation(), TargetActor->GetActorLocation());
+		if (Distance < 2500.0f) // Within detection range
+		{
+			// Check line of sight
+			FHitResult HitResult;
+			FCollisionQueryParams QueryParams;
+			QueryParams.AddIgnoredActor(this);
+			QueryParams.AddIgnoredActor(TargetActor);
+			
+			FVector Start = GetActorLocation() + FVector(0, 0, 50);
+			FVector End = TargetActor->GetActorLocation() + FVector(0, 0, 50);
+			
+			bool bHasLineOfSight = !GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, QueryParams);
+			
+			if (bHasLineOfSight)
+			{
+				// Start combat when first enemy sees player
+				if (UWorld* World = GetWorld())
+				{
+					if (UThresholdManager* ThresholdMgr = World->GetSubsystem<UThresholdManager>())
+					{
+						if (!ThresholdMgr->IsInCombat())
+						{
+							ThresholdMgr->StartCombat();
+							UE_LOG(LogTemp, Warning, TEXT("Combat Started - %s detected player!"), *GetName());
+							
+							// Show on screen message
+							if (GEngine)
+							{
+								GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Red, TEXT("COMBAT STARTED!"));
+							}
+						}
+					}
+				}
+				bHasStartedCombat = true;
+			}
+		}
+	}
 }
 
 AActor* ABaseEnemy::GetTargetActor() const

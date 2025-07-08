@@ -38,6 +38,9 @@ protected:
 
 	bool bIsDead;
 	
+	// Track if this enemy has started combat
+	bool bHasStartedCombat = false;
+	
 	// Weapon mesh component - all enemies carry swords
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	UStaticMeshComponent* SwordMesh;
