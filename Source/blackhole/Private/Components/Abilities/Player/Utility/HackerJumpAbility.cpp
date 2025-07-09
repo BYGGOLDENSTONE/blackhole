@@ -3,6 +3,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
+#include "Player/BlackholePlayerCharacter.h"
+#include "Systems/ComboSystem.h"
 
 UHackerJumpAbility::UHackerJumpAbility()
 {
@@ -69,6 +71,21 @@ bool UHackerJumpAbility::CanExecute() const
 		UE_LOG(LogTemp, Warning, TEXT("HackerJump: CanJump returned false (CurrentJump: %d, Max: %d)"), CurrentJumpCount, MaxJumpCount);
 	}
 	return bCanJump;
+}
+
+void UHackerJumpAbility::Execute()
+{
+	// Call parent implementation
+	Super::Execute();
+	
+	// Register with combo system after successful execution
+	if (ABlackholePlayerCharacter* PlayerOwner = Cast<ABlackholePlayerCharacter>(GetOwner()))
+	{
+		if (UComboSystem* ComboSystem = PlayerOwner->GetComboSystem())
+		{
+			ComboSystem->RegisterInput(EComboInputType::Jump);
+		}
+	}
 }
 
 void UHackerJumpAbility::ApplyMovement(ACharacter* Character)

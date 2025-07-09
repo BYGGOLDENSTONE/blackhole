@@ -44,7 +44,19 @@ protected:
 	// Weapon mesh component - all enemies carry swords
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	UStaticMeshComponent* SwordMesh;
+	
+	// Timer for AI updates
+	FTimerHandle AIUpdateTimer;
+	
+	// AI update rate
+	UPROPERTY(EditDefaultsOnly, Category = "AI")
+	float AIUpdateRate;
+	
+	// Timer-based AI update
+	void TimerUpdateAI();
 
 public:
 	virtual void Tick(float DeltaTime) override;
+	
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 };

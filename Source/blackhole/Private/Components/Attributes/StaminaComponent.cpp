@@ -1,10 +1,11 @@
 #include "Components/Attributes/StaminaComponent.h"
+#include "Config/GameplayConfig.h"
 
 UStaminaComponent::UStaminaComponent()
 {
-	MaxValue = 100.0f;
-	CurrentValue = 100.0f;
-	RegenRate = 10.0f;
+	MaxValue = GameplayConfig::Attributes::Stamina::MAX_VALUE;
+	CurrentValue = GameplayConfig::Attributes::Stamina::MAX_VALUE;
+	RegenRate = GameplayConfig::Attributes::Stamina::REGEN_RATE;
 }
 
 void UStaminaComponent::BeginPlay()

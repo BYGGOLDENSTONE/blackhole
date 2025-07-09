@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Components/Abilities/AbilityComponent.h"
 #include "blackhole.h"
+#include "Config/GameplayConfig.h"
 #include "PulseHackAbility.generated.h"
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
@@ -20,19 +21,19 @@ public:
 protected:
 	// Ability parameters
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
-	float HackRadius = 500.0f;
+	float HackRadius = GameplayConfig::Abilities::PulseHack::RADIUS;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
-	float SlowDuration = 3.0f;
+	float SlowDuration = GameplayConfig::Abilities::PulseHack::SLOW_DURATION;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
-	float SlowAmount = 0.3f; // 70% slow
+	float SlowAmount = GameplayConfig::Abilities::PulseHack::SLOW_AMOUNT; // 70% slow
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
-	float WPRefundPerEnemy = 3.0f;
+	float WPRefundPerEnemy = GameplayConfig::Abilities::PulseHack::WP_REFUND_PER_ENEMY;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
-	float MaxWPRefund = 15.0f;
+	float MaxWPRefund = GameplayConfig::Abilities::PulseHack::MAX_WP_REFUND;
 
 	// Visual effect
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effects")

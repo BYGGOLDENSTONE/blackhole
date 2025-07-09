@@ -6,6 +6,8 @@
 #include "blackhole.h"
 #include "BlackholePlayerCharacter.generated.h"
 
+struct FComboSequence;
+
 class USpringArmComponent;
 class UCameraComponent;
 class UIntegrityComponent;
@@ -27,6 +29,8 @@ class UHeatShieldAbility;
 class UBlastChargeAbility;
 class UHammerStrikeAbility;
 class UComboTracker;
+class UComboSystem;
+class UComboComponent;
 class UInputMappingContext;
 class UInputAction;
 class UStaticMeshComponent;
@@ -57,8 +61,17 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Character")
 	bool IsDead() const { return bIsDead; }
 
+	// Get combo system for abilities to register inputs
+	UFUNCTION(BlueprintPure, Category = "Systems")
+	UComboSystem* GetComboSystem() const { return ComboSystem; }
+	
+	// Get component-based combo system
+	UFUNCTION(BlueprintPure, Category = "Systems")
+	UComboComponent* GetComboComponent() const { return ComboComponent; }
+
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
@@ -129,6 +142,14 @@ protected:
 	// Combo tracking
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Systems")
 	UComboTracker* ComboTracker;
+
+	// New combo system
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Systems")
+	UComboSystem* ComboSystem;
+	
+	// New component-based combo system
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Systems")
+	UComboComponent* ComboComponent;
 
 	// Enhanced Input
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
@@ -215,7 +236,7 @@ protected:
 	
 	// Weapon mesh components
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
-	UStaticMeshComponent* MazeWeaponMesh;
+	UStaticMeshComponent* MaceWeaponMesh;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	UStaticMeshComponent* KatanaWeaponMesh;
@@ -241,12 +262,13 @@ private:
 	// Death state
 	bool bIsDead = false;
 	
-	// Handle integrity-based death
-	void CheckIntegrity();
-	
 	// Handle ThresholdManager death event
 	UFUNCTION()
 	void OnThresholdDeath();
+	
+	// Handle combo execution
+	UFUNCTION()
+	void OnComboPerformed(const FComboSequence& Combo);
 
 public:
 	virtual void Tick(float DeltaTime) override;

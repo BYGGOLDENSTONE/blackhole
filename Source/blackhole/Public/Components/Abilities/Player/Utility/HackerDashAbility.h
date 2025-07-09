@@ -19,6 +19,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Dash")
 	float DashDuration = 0.15f;
 	
+public:
+	// Override Execute to register with combo system
+	virtual void Execute() override;
+
 protected:
 	// Override from UtilityAbility
 	virtual void ApplyMovement(ACharacter* Character) override;

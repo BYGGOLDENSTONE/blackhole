@@ -28,6 +28,9 @@ public:
 	// Override CanExecute to check jump count
 	virtual bool CanExecute() const override;
 	
+	// Override Execute to register with combo system
+	virtual void Execute() override;
+	
 	// Public getters for UI
 	int32 GetCurrentJumpCount() const { return CurrentJumpCount; }
 	int32 GetMaxJumpCount() const { return MaxJumpCount; }

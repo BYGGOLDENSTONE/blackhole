@@ -1,17 +1,18 @@
 #include "Systems/ResourceManager.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
+#include "Config/GameplayConfig.h"
 
 void UResourceManager::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 	
-	// Initialize default values
-	MaxWP = DEFAULT_MAX_WP;
+	// Initialize default values from config
+	MaxWP = GameplayConfig::Resources::MAX_WILLPOWER;
 	CurrentWP = 0.0f; // WP starts at 0, gained from ability usage
-	MaxHeat = DEFAULT_MAX_HEAT;
+	MaxHeat = GameplayConfig::Resources::MAX_HEAT;
 	CurrentHeat = 0.0f;
-	HeatDissipationRate = DEFAULT_HEAT_DISSIPATION_RATE;
+	HeatDissipationRate = GameplayConfig::Resources::HEAT_DISSIPATION_RATE;
 	bIsOverheated = false;
 	PreviousWPThreshold = EResourceThreshold::Normal; // Starting at 0% WP = Normal state
 	CurrentPath = ECharacterPath::Hacker; // Default to Hacker
@@ -25,6 +26,13 @@ void UResourceManager::Deinitialize()
 	{
 		GetGameInstance()->GetWorld()->GetTimerManager().ClearTimer(OverheatCooldownTimer);
 	}
+	
+	// Clear all delegate bindings to prevent crashes
+	OnWillPowerChanged.Clear();
+	OnHeatChanged.Clear();
+	OnWillPowerThresholdReached.Clear();
+	OnWPMaxReached.Clear();
+	OnOverheatShutdown.Clear();
 	
 	Super::Deinitialize();
 }
@@ -40,12 +48,14 @@ bool UResourceManager::ConsumeWillPower(float Amount)
 	// Check if we have enough WP
 	if (CurrentWP < Amount)
 	{
+		UE_LOG(LogTemp, Verbose, TEXT("ConsumeWillPower: Insufficient WP (%.1f/%.1f required)"), CurrentWP, Amount);
 		return false;
 	}
 	
 	// Check if we're overheated (abilities disabled) - only in Forge path
 	if (IsHeatSystemActive() && bIsOverheated)
 	{
+		UE_LOG(LogTemp, Verbose, TEXT("ConsumeWillPower: Cannot consume while overheated"));
 		return false;
 	}
 	
@@ -110,7 +120,7 @@ void UResourceManager::AddHeat(float Amount)
 		OnHeatChanged.Broadcast(CurrentHeat, MaxHeat);
 		
 		// Check for overheat
-		if (!bIsOverheated && GetHeatPercent() >= HEAT_OVERHEAT_THRESHOLD)
+		if (!bIsOverheated && GetHeatPercent() >= GameplayConfig::Resources::HEAT_WARNING_PERCENT)
 		{
 			bIsOverheated = true;
 			OnOverheatShutdown.Broadcast();
@@ -122,7 +132,7 @@ void UResourceManager::AddHeat(float Amount)
 					OverheatCooldownTimer,
 					this,
 					&UResourceManager::EndOverheatShutdown,
-					OVERHEAT_SHUTDOWN_DURATION,
+					GameplayConfig::Resources::OVERHEAT_DURATION,
 					false
 				);
 			}
@@ -193,7 +203,7 @@ EResourceThreshold UResourceManager::GetCurrentWPThreshold() const
 	{
 		return EResourceThreshold::Critical; // 100% WP = Lose ability and reset
 	}
-	else if (Percent >= 0.5f)
+	else if (Percent >= GameplayConfig::Resources::WP_BUFFED_THRESHOLD)
 	{
 		return EResourceThreshold::Buffed; // 50-100% WP = Abilities buffed
 	}
@@ -252,4 +262,29 @@ void UResourceManager::EndOverheatShutdown()
 	bIsOverheated = false;
 	// Optionally broadcast an event for UI to show overheat ended
 	UE_LOG(LogTemp, Log, TEXT("Overheat shutdown ended"));
+}
+
+bool UResourceManager::WouldAddingWPCauseOverflow(float Amount) const
+{
+	// For Hacker path, we want to allow reaching 100% WP to trigger ultimate mode
+	// Only block if it would go OVER 100%
+	float ResultingWP = CurrentWP + Amount;
+	
+	// Allow abilities that would bring us exactly to 100% or less
+	return ResultingWP > MaxWP;
+}
+
+bool UResourceManager::WouldAddingHeatCauseOverflow(float Amount) const
+{
+	// Check if adding this amount would exceed max or warning threshold
+	float ResultingHeat = CurrentHeat + Amount;
+	
+	// Prevent abilities at 80% or higher (warning threshold)
+	if (CurrentHeat >= GetHeatWarningThreshold())
+	{
+		return true;
+	}
+	
+	// Check if it would exceed max
+	return ResultingHeat > MaxHeat;
 }

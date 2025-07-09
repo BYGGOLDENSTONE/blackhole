@@ -118,7 +118,13 @@ public:
 	// Force cache player abilities (for testing)
 	void CachePlayerAbilities();
 	
+	// Get random enabled ability
+	UAbilityComponent* GetRandomEnabledAbility() const;
+	UAbilityComponent* GetRandomEnabledAbilityExcludingSlash() const;
+	
 private:
+	// Clean up invalid ability references
+	void CleanupInvalidAbilities();
 	// Current threshold state
 	FThresholdState ThresholdState;
 	
@@ -159,10 +165,4 @@ private:
 	
 	// Update survivor buffs
 	void UpdateSurvivorBuffs();
-	
-	// Helper to get random ability that isn't disabled
-	UAbilityComponent* GetRandomEnabledAbility() const;
-	
-	// Helper to get random ability excluding slash
-	UAbilityComponent* GetRandomEnabledAbilityExcludingSlash() const;
 };

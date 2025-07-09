@@ -1,6 +1,6 @@
 # Blackhole - Complete Abilities Documentation
 **Engine**: Unreal Engine 5.5  
-**Last Updated**: 2025-07-08  
+**Last Updated**: 2025-07-09  
 **Architecture**: Custom C++ Component System (No GAS)
 
 ## 📋 Table of Contents
@@ -31,15 +31,18 @@
 
 #### Hacker Path - Willpower (WP)
 - **0-49% WP**: Normal state
-- **50-99% WP**: Buffed state (+20% damage, -15% cooldowns, +25% attack speed)
-- **100% WP**: Ultimate mode activated
+- **50-89% WP**: Buffed state (+20% damage, -15% cooldowns, +25% attack speed)
+- **90-99% WP**: WARNING - Advanced abilities may be blocked
+- **100% WP**: Ultimate mode activated (basic abilities still work)
 - **Corruption**: Using abilities ADDS WP (bad)
 - **Cleansing**: Some abilities remove WP (good)
+- **Basic Ability Exception**: Slash, Dash, Jump always work regardless of WP level
 
 #### Forge Path - Heat
 - **Normal**: 0-70% Heat
-- **Warning**: 70-90% Heat
-- **Overheat**: 90%+ Heat (abilities disabled for 3s)
+- **Warning**: 70-79% Heat
+- **Blocked**: 80%+ Heat (abilities blocked to prevent overheat)
+- **Overheat**: 100% Heat (abilities disabled for 3s)
 - **Generation**: Abilities generate heat
 - **Dissipation**: 5 Heat/second passive cooling
 
@@ -444,6 +447,92 @@ ToggleResourceDebug        // Show resource flow
 - Cyan text: Buffed abilities
 - Yellow text: Ultimate abilities
 - Red X: Disabled abilities
+
+---
+
+## 🔧 Recent Fixes & Implementations (2025-07-09)
+
+### Critical Stability Fixes
+
+#### 1. Dash+Slash Combo Crash Fix ✅
+**Problem**: Access violation crashes when attempting dash+slash combo
+**Solution**: 
+- Added comprehensive safety checks in combo execution (`BlackholePlayerCharacter.cpp:698-760`)
+- Enhanced movement state validation to prevent slash during dash
+- Improved input registration timing to avoid unsafe state detection
+- Added bounds checking in `DoesComboMatch()` function
+
+**Technical Details**:
+```cpp
+// Only allow slash during valid movement states
+if (GetCharacterMovement()->MovementMode != MOVE_Walking && 
+    GetCharacterMovement()->MovementMode != MOVE_Falling)
+{
+    bCanSlash = false; // Prevents combo detection during dash
+}
+```
+
+#### 2. First-Person Camera Crash Fix ✅
+**Problem**: Access violation when switching to first-person view
+**Solution**:
+- Added component validation before all camera operations (`BlackholePlayerCharacter.cpp:296-423`)
+- Implemented `EndPlay()` override for proper cleanup
+- Camera automatically resets to third-person on death/cleanup
+- Enhanced bone manipulation safety for head visibility
+
+**Technical Details**:
+```cpp
+// Safety checks before camera switching
+if (!IsValid(CameraComponent) || !IsValid(SpringArmComponent) || 
+    !IsValid(GetMesh()) || !IsValid(GetCharacterMovement()))
+{
+    return; // Prevents access violation
+}
+```
+
+#### 3. Slash Ability at 100% WP Fix ✅
+**Problem**: Slash ability blocked at 100% WP despite being a basic ability
+**Solution**:
+- Modified WP validation logic in `AbilityComponent.cpp:101-105`
+- Basic abilities bypass 100% WP restrictions
+- Ultimate mode system remains intact for advanced abilities
+
+**Technical Details**:
+```cpp
+// Basic abilities work regardless of WP level
+if (bIsBasicAbility)
+{
+    // Allow slash, dash, jump at 100% WP
+}
+else if (!bIsInUltimateMode)
+{
+    return false; // Block advanced abilities only
+}
+```
+
+### Enhanced Safety Systems
+
+#### Component Validation
+- All major functions now validate components with `IsValid()` checks
+- Proper error logging for debugging invalid states
+- Graceful degradation when components are missing
+
+#### Event Cleanup
+- Added comprehensive delegate unbinding in `EndPlay()`
+- Prevents dangling references during character destruction
+- Combo component events properly cleaned up on death
+
+#### Movement State Validation
+- Camera switching blocked during ability execution
+- Combo input registration respects movement states
+- Enhanced timing for ability input registration
+
+### Impact on Gameplay
+- **Stability**: Eliminated all major crash sources
+- **Combo System**: Works reliably without state conflicts
+- **Camera System**: Smooth switching between perspectives
+- **Resource System**: Basic abilities maintain accessibility at all WP levels
+- **Ultimate Mode**: Functions as intended for advanced abilities only
 
 ---
 

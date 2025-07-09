@@ -2,12 +2,13 @@
 #include "Components/Abilities/Enemy/BlockComponent.h"
 #include "Components/Abilities/Player/Forge/HeatShieldAbility.h"
 #include "GameFramework/Actor.h"
+#include "Config/GameplayConfig.h"
 
 UIntegrityComponent::UIntegrityComponent()
 {
-	MaxValue = 100.0f;
-	CurrentValue = 100.0f;
-	RegenRate = 0.0f;
+	MaxValue = GameplayConfig::Attributes::Integrity::MAX_VALUE;
+	CurrentValue = GameplayConfig::Attributes::Integrity::MAX_VALUE;
+	RegenRate = GameplayConfig::Attributes::DEFAULT_REGEN_RATE;
 }
 
 void UIntegrityComponent::BeginPlay()
@@ -40,8 +41,8 @@ void UIntegrityComponent::TakeDamage(float DamageAmount)
 		{
 			if (BlockComp->IsBlocking())
 			{
-				// Reduce damage by 50% when blocking
-				DamageAmount *= 0.5f;
+				// Reduce damage by configured amount when blocking
+				DamageAmount *= GameplayConfig::Attributes::Integrity::BLOCK_DAMAGE_REDUCTION;
 			}
 		}
 	}

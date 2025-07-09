@@ -16,7 +16,8 @@ public class blackhole : ModuleRules
 			"EnhancedInput",
 			"UMG",
 			"Slate",
-			"SlateCore"
+			"SlateCore",
+			"GameplayTags"
 		});
 
 		// Specify the new directory structure

@@ -2,9 +2,11 @@
 **Version**: 3.1  
 **Engine**: Unreal Engine 5.5  
 **Language**: C++ with Blueprint integration  
-**Date**: 2025-07-08
+**Date**: 2025-07-09
 
 > **📚 Note**: For detailed ability information, see [ABILITIES_DOCUMENTATION.md](ABILITIES_DOCUMENTATION.md)
+> 
+> **🔧 Technical Update**: All critical performance and stability issues have been resolved as of 2025-07-09. See [PROJECT_STATUS.md](PROJECT_STATUS.md) for details.
 
 ## 🎮 Game Overview
 
@@ -73,6 +75,14 @@ A tactical action game where players embody a hybrid hacker-forge warrior, choos
 |------|--------------|--------------|
 | **Hacker** | 5 Stamina, 1000 units, i-frames | 10 Stamina, double jump (0.5s cooldown between jumps) |
 | **Forge** | 5 Stamina, damages on impact | 10 Stamina, ground slam on landing |
+
+### Combat Combos
+| Combo | Input | Effect | Resource Discount |
+|-------|-------|--------|-------------------|
+| **Phantom Strike** | Dash → Slash (0.5s) | Teleport behind for 150% damage backstab | 50% |
+| **Aerial Rave** | Jump → Slash (0.3s) | Downward slash with AoE shockwave | 25% |
+| **Tempest Blade** | Jump → Dash → Slash | Teleport to 3 enemies with 80% damage each | 40% |
+| **Blade Dance** | Slash → Slash → ... | Progressive damage (100/125/150/200%), 5th hit is 360° finisher | 20% |
 
 ## 🎯 Ability Loss System
 
@@ -313,6 +323,13 @@ ForceAbilityLoss <n>   - Disable n abilities for testing
 4. What happens when both paths are mastered - hybrid mode?
 
 ## 📝 Version History
+
+### v3.2 (2025-07-09)
+- Added complete combo system with 4 core combos
+- Implemented combo timing windows and resource discounts
+- Added combo execution methods with unique effects
+- Integrated combo system with existing abilities
+- Added debug commands for combo testing
 
 ### v3.1 (2025-07-08)
 - Added death conditions: integrity=0, 3 abilities lost, 4th 100% WP

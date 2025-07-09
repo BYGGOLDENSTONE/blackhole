@@ -1,0 +1,21 @@
+task 1 combo system,
+
+dash + slash 
+jump + slash 
+jump + dash + slash 
+slash + slash
+
+
+task 2 gravity pull ability revisit,
+
+
+task 3 remaining abilities for hacker path,
+
+
+task 4 new enemies,
+
+
+task 5 all enemy AI's revisit,
+
+
+task 6 interactable environment creation,

@@ -86,12 +86,15 @@ void UPulseHackAbility::Execute()
 	{
 		float CleansingAmount = FMath::Min(EnemiesHit * WPRefundPerEnemy, MaxWPRefund);
 		
-		if (UResourceManager* ResourceMgr = GetWorld()->GetGameInstance()->GetSubsystem<UResourceManager>())
+		if (UGameInstance* GameInstance = GetWorld()->GetGameInstance())
 		{
-			// Reduce WP corruption (negative value to AddWillPower reduces WP)
-			ResourceMgr->AddWillPower(-CleansingAmount);
-			
-			UE_LOG(LogTemp, Log, TEXT("Pulse Hack: Hit %d enemies, cleansed %.1f WP corruption"), EnemiesHit, CleansingAmount);
+			if (UResourceManager* ResourceMgr = GameInstance->GetSubsystem<UResourceManager>())
+			{
+				// Reduce WP corruption (negative value to AddWillPower reduces WP)
+				ResourceMgr->AddWillPower(-CleansingAmount);
+				
+				UE_LOG(LogTemp, Log, TEXT("Pulse Hack: Hit %d enemies, cleansed %.1f WP corruption"), EnemiesHit, CleansingAmount);
+			}
 		}
 	}
 
@@ -183,9 +186,9 @@ void UPulseHackAbility::ExecuteUltimate()
 	}
 	
 	// Ultimate version: Massive radius and full stun
-	float UltimateRadius = HackRadius * 4.0f; // 4x radius (2000 units)
-	float StunDuration = 3.0f; // Full stun instead of slow
-	float UltimateWPCleanse = 50.0f; // Massive WP cleanse
+	float UltimateRadius = HackRadius * GameplayConfig::Abilities::PulseHack::ULTIMATE_RADIUS_MULT; // Multiplied radius
+	float StunDuration = GameplayConfig::Abilities::PulseHack::ULTIMATE_STUN_DURATION; // Full stun instead of slow
+	float UltimateWPCleanse = GameplayConfig::Abilities::PulseHack::ULTIMATE_WP_CLEANSE; // Massive WP cleanse
 	
 	// Get all actors in massive radius
 	TArray<FHitResult> HitResults;
@@ -244,11 +247,14 @@ void UPulseHackAbility::ExecuteUltimate()
 	}
 	
 	// Apply massive WP cleanse
-	if (UResourceManager* ResourceMgr = GetWorld()->GetGameInstance()->GetSubsystem<UResourceManager>())
+	if (UGameInstance* GameInstance = GetWorld()->GetGameInstance())
 	{
-		ResourceMgr->AddWillPower(-UltimateWPCleanse);
-		UE_LOG(LogTemp, Warning, TEXT("Ultimate Pulse Hack: Cleansed %.0f WP, stunned %d enemies!"), 
-			UltimateWPCleanse, EnemiesAffected);
+		if (UResourceManager* ResourceMgr = GameInstance->GetSubsystem<UResourceManager>())
+		{
+			ResourceMgr->AddWillPower(-UltimateWPCleanse);
+			UE_LOG(LogTemp, Warning, TEXT("Ultimate Pulse Hack: Cleansed %.0f WP, stunned %d enemies!"), 
+				UltimateWPCleanse, EnemiesAffected);
+		}
 	}
 	
 	// Spawn massive visual effect

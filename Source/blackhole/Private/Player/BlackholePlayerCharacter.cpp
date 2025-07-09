@@ -30,26 +30,29 @@
 #include "Components/Abilities/Player/Forge/BlastChargeAbility.h"
 #include "Components/Abilities/Player/Forge/HammerStrikeAbility.h"
 #include "Systems/ComboTracker.h"
+#include "Systems/ComboSystem.h"
+#include "Components/ComboComponent.h"
 #include "Components/Abilities/AbilityComponent.h"
+#include "Config/GameplayConfig.h"
 
 ABlackholePlayerCharacter::ABlackholePlayerCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
+	GetCapsuleComponent()->InitCapsuleSize(GameplayConfig::Movement::CAPSULE_RADIUS, GameplayConfig::Movement::CAPSULE_HEIGHT);
 
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
 
 	GetCharacterMovement()->bOrientRotationToMovement = true;
-	GetCharacterMovement()->RotationRate = FRotator(0.0f, 540.0f, 0.0f);
-	GetCharacterMovement()->JumpZVelocity = 600.0f; // Base jump velocity for movement component
-	GetCharacterMovement()->AirControl = 0.2f;
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, GameplayConfig::Movement::ROTATION_RATE, 0.0f);
+	GetCharacterMovement()->JumpZVelocity = GameplayConfig::Movement::BASE_JUMP_VELOCITY; // Base jump velocity for movement component
+	GetCharacterMovement()->AirControl = GameplayConfig::Movement::AIR_CONTROL;
 
 	SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArmComponent->SetupAttachment(RootComponent);
-	SpringArmComponent->TargetArmLength = 400.0f;
+	SpringArmComponent->TargetArmLength = GameplayConfig::Movement::CAMERA_ARM_LENGTH;
 	SpringArmComponent->bUsePawnControlRotation = true;
 
 	CameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
@@ -85,17 +88,23 @@ ABlackholePlayerCharacter::ABlackholePlayerCharacter()
 	
 	// Create combo tracker
 	ComboTracker = CreateDefaultSubobject<UComboTracker>(TEXT("ComboTracker"));
+	
+	// Create new combo system
+	ComboSystem = CreateDefaultSubobject<UComboSystem>(TEXT("ComboSystem"));
+	
+	// Create component-based combo system
+	ComboComponent = CreateDefaultSubobject<UComboComponent>(TEXT("ComboComponent"));
 
 	bIsFirstPerson = false;
-	FirstPersonCameraOffset = 70.0f;
+	FirstPersonCameraOffset = GameplayConfig::Movement::FIRST_PERSON_OFFSET;
 	HeadBoneName = "head"; // Default head bone name - adjust in Blueprint if different
 	WeaponSocketName = "weaponsocket"; // Default socket name - adjust in Blueprint if different
 	
-	// Create maze weapon mesh component (Forge path)
-	MazeWeaponMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MazeWeapon"));
-	MazeWeaponMesh->SetupAttachment(GetMesh());
-	MazeWeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	MazeWeaponMesh->SetCastShadow(true);
+	// Create mace weapon mesh component (Forge path)
+	MaceWeaponMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MaceWeapon"));
+	MaceWeaponMesh->SetupAttachment(GetMesh());
+	MaceWeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	MaceWeaponMesh->SetCastShadow(true);
 	
 	// Create katana weapon mesh component (Hacker path)
 	KatanaWeaponMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("KatanaWeapon"));
@@ -129,9 +138,9 @@ void ABlackholePlayerCharacter::BeginPlay()
 	// Attach weapons to the specified socket
 	if (GetMesh() && !WeaponSocketName.IsNone())
 	{
-		if (MazeWeaponMesh)
+		if (MaceWeaponMesh)
 		{
-			MazeWeaponMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponSocketName);
+			MaceWeaponMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponSocketName);
 		}
 		if (KatanaWeaponMesh)
 		{
@@ -150,17 +159,71 @@ void ABlackholePlayerCharacter::BeginPlay()
 			ThresholdMgr->OnPlayerDeath.AddDynamic(this, &ABlackholePlayerCharacter::OnThresholdDeath);
 		}
 	}
+	
+	// Bind to integrity component's OnReachedZero event
+	if (IntegrityComponent)
+	{
+		IntegrityComponent->OnReachedZero.AddDynamic(this, &ABlackholePlayerCharacter::Die);
+	}
+	
+	// Bind to combo component events
+	if (IsValid(ComboComponent))
+	{
+		ComboComponent->OnComboPerformed.AddDynamic(this, &ABlackholePlayerCharacter::OnComboPerformed);
+	}
+}
+
+void ABlackholePlayerCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// Reset camera to third person on cleanup to prevent crashes
+	if (bIsFirstPerson && IsValid(CameraComponent) && IsValid(SpringArmComponent))
+	{
+		bIsFirstPerson = false;
+		
+		// Safely reattach camera to spring arm for cleanup
+		CameraComponent->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+		CameraComponent->AttachToComponent(SpringArmComponent, FAttachmentTransformRules::KeepRelativeTransform, USpringArmComponent::SocketName);
+		CameraComponent->SetRelativeLocation(FVector::ZeroVector);
+		CameraComponent->SetRelativeRotation(FRotator::ZeroRotator);
+		CameraComponent->bUsePawnControlRotation = false;
+		
+		// Re-enable spring arm
+		SpringArmComponent->bUsePawnControlRotation = true;
+		SpringArmComponent->bInheritPitch = true;
+		SpringArmComponent->bInheritYaw = true;
+		SpringArmComponent->bInheritRoll = true;
+		
+		// Show head bone again for cleanup
+		SetHeadVisibility(true);
+	}
+	
+	// Unbind from all events to prevent dangling references
+	if (IsValid(ComboComponent))
+	{
+		ComboComponent->OnComboPerformed.RemoveDynamic(this, &ABlackholePlayerCharacter::OnComboPerformed);
+	}
+	
+	if (UWorld* World = GetWorld())
+	{
+		if (UThresholdManager* ThresholdMgr = World->GetSubsystem<UThresholdManager>())
+		{
+			ThresholdMgr->OnPlayerDeath.RemoveDynamic(this, &ABlackholePlayerCharacter::OnThresholdDeath);
+		}
+	}
+	
+	if (IsValid(IntegrityComponent))
+	{
+		IntegrityComponent->OnReachedZero.RemoveDynamic(this, &ABlackholePlayerCharacter::Die);
+	}
+	
+	Super::EndPlay(EndPlayReason);
 }
 
 void ABlackholePlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	
-	// Check if player should die
-	if (!bIsDead)
-	{
-		CheckIntegrity();
-	}
+	// Death is now handled by event from IntegrityComponent
 	
 	// Dissipate heat through ResourceManager
 	if (UGameInstance* GameInstance = GetGameInstance())
@@ -278,78 +341,138 @@ void ABlackholePlayerCharacter::UseKill()
 
 void ABlackholePlayerCharacter::ToggleCamera()
 {
+	// Safety checks - don't switch camera if character is invalid or dead
+	if (!IsValid(this) || bIsDead)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: Cannot toggle camera - character is invalid or dead"));
+		return;
+	}
+	
+	// Check if all required components are valid
+	if (!IsValid(CameraComponent) || !IsValid(SpringArmComponent) || !IsValid(GetMesh()) || !IsValid(GetCharacterMovement()))
+	{
+		UE_LOG(LogTemp, Error, TEXT("PlayerCharacter: Cannot toggle camera - required components are invalid"));
+		return;
+	}
+	
+	// Don't allow camera switching during ability execution or invalid movement states
+	if (IsValid(GetCharacterMovement()))
+	{
+		EMovementMode CurrentMovementMode = GetCharacterMovement()->MovementMode;
+		if (CurrentMovementMode != MOVE_Walking && CurrentMovementMode != MOVE_Falling)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: Cannot toggle camera during movement mode %d - wait until walking or falling"), (int32)CurrentMovementMode);
+			return;
+		}
+	}
+	
 	bIsFirstPerson = !bIsFirstPerson;
 	
 	if (bIsFirstPerson)
 	{
 		// Switch to first person
 		// Detach camera from spring arm and attach directly to mesh
-		CameraComponent->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+		if (IsValid(CameraComponent) && IsValid(SpringArmComponent))
+		{
+			CameraComponent->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+		}
 		
 		// Attach camera to head socket if it exists, otherwise use relative position
 		FName HeadSocket = "camerasocket"; // Your custom socket name
-		if (GetMesh()->DoesSocketExist(HeadSocket))
+		if (IsValid(GetMesh()) && GetMesh()->DoesSocketExist(HeadSocket))
 		{
 			CameraComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, HeadSocket);
 			// Position camera slightly forward and up from head socket to avoid clipping
-			CameraComponent->SetRelativeLocation(FVector(15.0f, 0.0f, 5.0f));
+			CameraComponent->SetRelativeLocation(FVector(GameplayConfig::Movement::FP_CAMERA_FORWARD, 0.0f, GameplayConfig::Movement::FP_CAMERA_UP));
 			CameraComponent->SetRelativeRotation(FRotator(0.0f, 0.0f, 0.0f));
 		}
 		else
 		{
 			// Fallback: attach to mesh at approximate head height
-			CameraComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform);
-			// Adjust these values based on your character model
-			CameraComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 160.0f)); // Approximate head height
-			CameraComponent->SetRelativeRotation(FRotator(-10.0f, 90.0f, 0.0f)); // Look slightly down, face forward
+			if (IsValid(GetMesh()) && IsValid(CameraComponent))
+			{
+				CameraComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform);
+				// Adjust these values based on your character model
+				CameraComponent->SetRelativeLocation(FVector(0.0f, 0.0f, GameplayConfig::Movement::FP_FALLBACK_HEIGHT)); // Approximate head height
+				CameraComponent->SetRelativeRotation(FRotator(GameplayConfig::Movement::FP_CAMERA_PITCH, GameplayConfig::Movement::FP_CAMERA_YAW, 0.0f)); // Look slightly down, face forward
+			}
+			else
+			{
+				UE_LOG(LogTemp, Error, TEXT("PlayerCharacter: Cannot attach camera - mesh or camera component is invalid"));
+				return;
+			}
 		}
 		
 		// Make camera use controller rotation directly
-		CameraComponent->bUsePawnControlRotation = true;
+		if (IsValid(CameraComponent))
+		{
+			CameraComponent->bUsePawnControlRotation = true;
+		}
 		
 		// Disable spring arm influence
-		SpringArmComponent->bUsePawnControlRotation = false;
-		SpringArmComponent->bInheritPitch = false;
-		SpringArmComponent->bInheritYaw = false;
-		SpringArmComponent->bInheritRoll = false;
+		if (IsValid(SpringArmComponent))
+		{
+			SpringArmComponent->bUsePawnControlRotation = false;
+			SpringArmComponent->bInheritPitch = false;
+			SpringArmComponent->bInheritYaw = false;
+			SpringArmComponent->bInheritRoll = false;
+		}
 		
 		// Don't hide character mesh in first person - we want to see arms/legs
-		GetMesh()->SetOwnerNoSee(false);
+		if (IsValid(GetMesh()))
+		{
+			GetMesh()->SetOwnerNoSee(false);
+		}
 		
 		// Hide the head bone to avoid seeing inside it
 		SetHeadVisibility(false);
 		
 		// Adjust movement to feel better in first person
 		bUseControllerRotationYaw = true;
-		GetCharacterMovement()->bOrientRotationToMovement = false;
+		if (IsValid(GetCharacterMovement()))
+		{
+			GetCharacterMovement()->bOrientRotationToMovement = false;
+		}
 	}
 	else
 	{
 		// Switch to third person
 		// Reattach camera to spring arm
-		CameraComponent->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
-		CameraComponent->AttachToComponent(SpringArmComponent, FAttachmentTransformRules::KeepRelativeTransform, USpringArmComponent::SocketName);
-		CameraComponent->SetRelativeLocation(FVector::ZeroVector);
-		CameraComponent->SetRelativeRotation(FRotator::ZeroRotator);
-		CameraComponent->bUsePawnControlRotation = false;
+		if (IsValid(CameraComponent) && IsValid(SpringArmComponent))
+		{
+			CameraComponent->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+			CameraComponent->AttachToComponent(SpringArmComponent, FAttachmentTransformRules::KeepRelativeTransform, USpringArmComponent::SocketName);
+			CameraComponent->SetRelativeLocation(FVector::ZeroVector);
+			CameraComponent->SetRelativeRotation(FRotator::ZeroRotator);
+			CameraComponent->bUsePawnControlRotation = false;
+		}
 		
 		// Re-enable spring arm
-		SpringArmComponent->bUsePawnControlRotation = true;
-		SpringArmComponent->bInheritPitch = true;
-		SpringArmComponent->bInheritYaw = true;
-		SpringArmComponent->bInheritRoll = true;
-		SpringArmComponent->TargetArmLength = 400.0f;
-		SpringArmComponent->SocketOffset = FVector::ZeroVector;
+		if (IsValid(SpringArmComponent))
+		{
+			SpringArmComponent->bUsePawnControlRotation = true;
+			SpringArmComponent->bInheritPitch = true;
+			SpringArmComponent->bInheritYaw = true;
+			SpringArmComponent->bInheritRoll = true;
+			SpringArmComponent->TargetArmLength = GameplayConfig::Movement::CAMERA_ARM_LENGTH;
+			SpringArmComponent->SocketOffset = FVector::ZeroVector;
+		}
 		
 		// Ensure character mesh is visible in third person
-		GetMesh()->SetOwnerNoSee(false);
+		if (IsValid(GetMesh()))
+		{
+			GetMesh()->SetOwnerNoSee(false);
+		}
 		
 		// Show the head bone again
 		SetHeadVisibility(true);
 		
 		// Reset movement settings
 		bUseControllerRotationYaw = false;
-		GetCharacterMovement()->bOrientRotationToMovement = true;
+		if (IsValid(GetCharacterMovement()))
+		{
+			GetCharacterMovement()->bOrientRotationToMovement = true;
+		}
 	}
 	
 	// Update weapon visibility based on camera mode
@@ -358,11 +481,29 @@ void ABlackholePlayerCharacter::ToggleCamera()
 
 void ABlackholePlayerCharacter::SetHeadVisibility(bool bVisible)
 {
-	if (GetMesh() && !HeadBoneName.IsNone())
+	// Safety checks - don't manipulate bones if character is invalid or dead
+	if (!IsValid(this) || bIsDead)
 	{
-		// Hide/show the head bone and all its children
-		GetMesh()->HideBoneByName(HeadBoneName, bVisible ? EPhysBodyOp::PBO_None : EPhysBodyOp::PBO_Term);
+		UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: Cannot set head visibility - character is invalid or dead"));
+		return;
 	}
+	
+	// Check if mesh is valid and head bone name is set
+	if (!IsValid(GetMesh()) || HeadBoneName.IsNone() || HeadBoneName.ToString().IsEmpty())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: Cannot set head visibility - invalid mesh or head bone name"));
+		return;
+	}
+	
+	// Additional safety check - ensure the mesh has the bone
+	if (!GetMesh()->GetSkeletalMeshAsset())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: Cannot set head visibility - no skeletal mesh asset"));
+		return;
+	}
+	
+	// Hide/show the head bone and all its children
+	GetMesh()->HideBoneByName(HeadBoneName, bVisible ? EPhysBodyOp::PBO_None : EPhysBodyOp::PBO_Term);
 }
 
 void ABlackholePlayerCharacter::ExecutePathBasedAbility(UAbilityComponent* HackerAbility, UAbilityComponent* ForgeAbility)
@@ -370,20 +511,20 @@ void ABlackholePlayerCharacter::ExecutePathBasedAbility(UAbilityComponent* Hacke
 	// Unified path checker for ability execution
 	UAbilityComponent* AbilityToExecute = nullptr;
 	
-	if (CurrentPath == ECharacterPath::Hacker && HackerAbility)
+	if (CurrentPath == ECharacterPath::Hacker && IsValid(HackerAbility))
 	{
 		AbilityToExecute = HackerAbility;
 	}
-	else if (CurrentPath == ECharacterPath::Forge && ForgeAbility)
+	else if (CurrentPath == ECharacterPath::Forge && IsValid(ForgeAbility))
 	{
 		AbilityToExecute = ForgeAbility;
 	}
 	
 	// Execute the ability and register it with combo tracker
-	if (AbilityToExecute)
+	if (IsValid(AbilityToExecute))
 	{
 		AbilityToExecute->Execute();
-		if (ComboTracker)
+		if (IsValid(ComboTracker))
 		{
 			ComboTracker->RegisterAbilityUse(AbilityToExecute);
 		}
@@ -392,14 +533,68 @@ void ABlackholePlayerCharacter::ExecutePathBasedAbility(UAbilityComponent* Hacke
 
 void ABlackholePlayerCharacter::UseDash()
 {
-	// Use unified path checker for dash abilities
-	ExecutePathBasedAbility(HackerDashAbility, ForgeDashAbility);
+	// Safety check
+	if (!IsValid(this) || bIsDead)
+	{
+		return;
+	}
+	
+	// Get the ability we're about to execute
+	UAbilityComponent* AbilityToExecute = nullptr;
+	if (CurrentPath == ECharacterPath::Hacker && IsValid(HackerDashAbility))
+	{
+		AbilityToExecute = HackerDashAbility;
+	}
+	else if (CurrentPath == ECharacterPath::Forge && IsValid(ForgeDashAbility))
+	{
+		AbilityToExecute = ForgeDashAbility;
+	}
+	
+	// Only register input if ability can execute
+	if (IsValid(AbilityToExecute) && AbilityToExecute->CanExecute())
+	{
+		// Register input with combo system BEFORE execution
+		if (IsValid(ComboComponent))
+		{
+			ComboComponent->RegisterInput("Dash");
+		}
+		
+		// Execute the ability
+		ExecutePathBasedAbility(HackerDashAbility, ForgeDashAbility);
+	}
 }
 
 void ABlackholePlayerCharacter::UseUtilityJump()
 {
-	// Use unified path checker for jump abilities
-	ExecutePathBasedAbility(HackerJumpAbility, ForgeJumpAbility);
+	// Safety check
+	if (!IsValid(this) || bIsDead)
+	{
+		return;
+	}
+	
+	// Get the ability we're about to execute
+	UAbilityComponent* AbilityToExecute = nullptr;
+	if (CurrentPath == ECharacterPath::Hacker && IsValid(HackerJumpAbility))
+	{
+		AbilityToExecute = HackerJumpAbility;
+	}
+	else if (CurrentPath == ECharacterPath::Forge && IsValid(ForgeJumpAbility))
+	{
+		AbilityToExecute = ForgeJumpAbility;
+	}
+	
+	// Only register input if ability can execute
+	if (IsValid(AbilityToExecute) && AbilityToExecute->CanExecute())
+	{
+		// Register input with combo system BEFORE execution
+		if (IsValid(ComboComponent))
+		{
+			ComboComponent->RegisterInput("Jump");
+		}
+		
+		// Execute the ability
+		ExecutePathBasedAbility(HackerJumpAbility, ForgeJumpAbility);
+	}
 }
 
 void ABlackholePlayerCharacter::SwitchPath()
@@ -480,10 +675,42 @@ FString ABlackholePlayerCharacter::GetCurrentPathName() const
 
 void ABlackholePlayerCharacter::UseAbilitySlot1()
 {
+	// Safety check
+	if (!IsValid(this) || bIsDead)
+	{
+		return;
+	}
+	
 	// Left Mouse Button - Basic attack
 	// Currently: Slash (shared) | Future: Katana Slash (Hacker) / Forge Slam (Forge)
 	// For now, use the shared Slash ability for both paths
-	ExecutePathBasedAbility(SlashAbility, SlashAbility);
+	
+	// Check if we're in a valid movement state for slash
+	bool bCanSlash = true;
+	if (IsValid(GetCharacterMovement()))
+	{
+		// Don't allow slash during dash or other non-walking movement states
+		if (GetCharacterMovement()->MovementMode != MOVE_Walking && 
+			GetCharacterMovement()->MovementMode != MOVE_Falling)
+		{
+			bCanSlash = false;
+			UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: Cannot slash during movement mode %d"), 
+				(int32)GetCharacterMovement()->MovementMode);
+		}
+	}
+	
+	// Only register input if ability can execute and we're in a valid state
+	if (bCanSlash && IsValid(SlashAbility) && SlashAbility->CanExecute())
+	{
+		// Register input with combo system BEFORE execution
+		if (IsValid(ComboComponent))
+		{
+			ComboComponent->RegisterInput("Slash");
+		}
+		
+		// Execute the ability
+		ExecutePathBasedAbility(SlashAbility, SlashAbility);
+	}
 }
 
 void ABlackholePlayerCharacter::UseAbilitySlot2()
@@ -524,21 +751,32 @@ void ABlackholePlayerCharacter::UseAbilitySlot6()
 
 void ABlackholePlayerCharacter::UpdateWeaponVisibility()
 {
+	// Safety checks - don't update weapon visibility if character is invalid or dead
+	if (!IsValid(this) || bIsDead)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: Cannot update weapon visibility - character is invalid or dead"));
+		return;
+	}
+	
 	// Show/hide weapons based on current path
-	if (MazeWeaponMesh && KatanaWeaponMesh)
+	if (IsValid(MaceWeaponMesh) && IsValid(KatanaWeaponMesh))
 	{
 		if (CurrentPath == ECharacterPath::Hacker)
 		{
 			// Hacker path uses Katana
 			KatanaWeaponMesh->SetVisibility(true);
-			MazeWeaponMesh->SetVisibility(false);
+			MaceWeaponMesh->SetVisibility(false);
 		}
 		else // Forge path
 		{
-			// Forge path uses Maze weapon
-			MazeWeaponMesh->SetVisibility(true);
+			// Forge path uses Mace weapon
+			MaceWeaponMesh->SetVisibility(true);
 			KatanaWeaponMesh->SetVisibility(false);
 		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: Cannot update weapon visibility - weapon mesh components are invalid"));
 	}
 }
 
@@ -553,18 +791,44 @@ void ABlackholePlayerCharacter::Die()
 	
 	UE_LOG(LogTemp, Error, TEXT("PLAYER DEATH!"));
 	
-	// Disable all abilities
-	TArray<UActorComponent*> AllComponents = GetComponents().Array();
-	TArray<UActorComponent*> AbilityComponents = AllComponents.FilterByPredicate([](UActorComponent* Component)
+	// Reset camera to third person on death to prevent FP crashes
+	if (bIsFirstPerson && IsValid(CameraComponent) && IsValid(SpringArmComponent))
 	{
-		return Component && Component->IsA<UAbilityComponent>();
-	});
+		bIsFirstPerson = false; // Set flag first to prevent ToggleCamera from being called
+		
+		// Safely reattach camera to spring arm
+		CameraComponent->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+		CameraComponent->AttachToComponent(SpringArmComponent, FAttachmentTransformRules::KeepRelativeTransform, USpringArmComponent::SocketName);
+		CameraComponent->SetRelativeLocation(FVector::ZeroVector);
+		CameraComponent->SetRelativeRotation(FRotator::ZeroRotator);
+		CameraComponent->bUsePawnControlRotation = false;
+		
+		// Re-enable spring arm
+		SpringArmComponent->bUsePawnControlRotation = true;
+		SpringArmComponent->bInheritPitch = true;
+		SpringArmComponent->bInheritYaw = true;
+		SpringArmComponent->bInheritRoll = true;
+		
+		// Show head bone again
+		SetHeadVisibility(true);
+	}
 	
-	for (UActorComponent* Component : AbilityComponents)
+	// Unbind from combo component events to prevent crashes
+	if (IsValid(ComboComponent))
 	{
-		if (UAbilityComponent* Ability = Cast<UAbilityComponent>(Component))
+		ComboComponent->OnComboPerformed.RemoveDynamic(this, &ABlackholePlayerCharacter::OnComboPerformed);
+	}
+	
+	// Disable all abilities safely
+	TArray<UActorComponent*> AllComponents = GetComponents().Array();
+	for (UActorComponent* Component : AllComponents)
+	{
+		if (IsValid(Component) && Component->IsA<UAbilityComponent>())
 		{
-			Ability->SetComponentTickEnabled(false);
+			if (UAbilityComponent* Ability = Cast<UAbilityComponent>(Component))
+			{
+				Ability->SetComponentTickEnabled(false);
+			}
 		}
 	}
 	
@@ -594,16 +858,74 @@ void ABlackholePlayerCharacter::Die()
 	}
 }
 
-void ABlackholePlayerCharacter::CheckIntegrity()
-{
-	if (IntegrityComponent && IntegrityComponent->GetCurrentValue() <= 0.0f)
-	{
-		Die();
-	}
-}
+// Removed CheckIntegrity - now using event-driven system
 
 void ABlackholePlayerCharacter::OnThresholdDeath()
 {
 	UE_LOG(LogTemp, Error, TEXT("Player death triggered by ThresholdManager!"));
 	Die();
+}
+
+void ABlackholePlayerCharacter::OnComboPerformed(const FComboSequence& Combo)
+{
+	// Safety check - don't execute combos if dead or invalid
+	if (!IsValid(this) || bIsDead)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: Cannot execute combo - character is dead or invalid"));
+		return;
+	}
+	
+	// Handle combo execution based on combo name
+	if (!IsValid(SlashAbility))
+	{
+		UE_LOG(LogTemp, Error, TEXT("PlayerCharacter: SlashAbility is null or invalid!"));
+		return;
+	}
+	
+	// Check if SlashAbility component is enabled and can execute
+	if (!SlashAbility->IsComponentTickEnabled())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: SlashAbility is disabled - cannot execute combo"));
+		return;
+	}
+	
+	// Additional safety check - ensure ability can execute
+	if (!SlashAbility->CanExecute())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: SlashAbility cannot execute - combo cancelled"));
+		return;
+	}
+	
+	UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: Combo performed - %s"), *Combo.ComboName.ToString());
+	
+	// Execute the appropriate combo effect with additional safety checks
+	if (Combo.ComboName == "PhantomStrike")
+	{
+		// Check if we're in a valid state for PhantomStrike (not currently in another movement ability)
+		if (IsValid(GetCharacterMovement()) && GetCharacterMovement()->MovementMode == MOVE_Walking)
+		{
+			SlashAbility->ExecutePhantomStrike();
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: Cannot execute PhantomStrike - invalid movement state"));
+		}
+	}
+	else if (Combo.ComboName == "AerialRave")
+	{
+		SlashAbility->ExecuteAerialRave();
+	}
+	else if (Combo.ComboName == "TempestBlade")
+	{
+		SlashAbility->ExecuteTempestBlade();
+	}
+	else if (Combo.ComboName == "BladeDance")
+	{
+		// For blade dance, track hit count
+		static int32 BladeDanceHitCount = 0;
+		BladeDanceHitCount++;
+		if (BladeDanceHitCount > 5) BladeDanceHitCount = 1;
+		
+		SlashAbility->ExecuteBladeDance(BladeDanceHitCount);
+	}
 }

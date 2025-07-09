@@ -5,6 +5,7 @@
 #include "Player/BlackholePlayerCharacter.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
+#include "Config/GameplayConfig.h"
 
 void UThresholdManager::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -28,11 +29,23 @@ void UThresholdManager::Initialize(FSubsystemCollectionBase& Collection)
 void UThresholdManager::Deinitialize()
 {
 	// Unbind from resource manager
-	if (ResourceManager)
+	if (IsValid(ResourceManager))
 	{
 		ResourceManager->OnWillPowerThresholdReached.RemoveDynamic(this, &UThresholdManager::OnWPThresholdChanged);
 		ResourceManager->OnWPMaxReached.RemoveDynamic(this, &UThresholdManager::OnWPMaxReachedHandler);
 	}
+	
+	// Clear all delegate bindings to prevent crashes
+	OnCombatStarted.Clear();
+	OnCombatEnded.Clear();
+	OnAbilityDisabled.Clear();
+	OnSurvivorBuff.Clear();
+	OnUltimateModeActivated.Clear();
+	OnPlayerDeath.Clear();
+	
+	// Clear ability arrays
+	AllPlayerAbilities.Empty();
+	DisabledAbilities.Empty();
 	
 	Super::Deinitialize();
 }
@@ -77,21 +90,34 @@ void UThresholdManager::EndCombat()
 	bIsInCombat = false;
 	bUltimateModeActive = false;
 	
+	// Clean up invalid abilities before processing
+	CleanupInvalidAbilities();
+	
 	// Re-enable all abilities
-	for (UAbilityComponent* Ability : DisabledAbilities)
+	for (int32 i = DisabledAbilities.Num() - 1; i >= 0; i--)
 	{
+		UAbilityComponent* Ability = DisabledAbilities[i];
 		if (IsValid(Ability))
 		{
 			Ability->SetComponentTickEnabled(true);
 		}
+		else
+		{
+			DisabledAbilities.RemoveAt(i);
+		}
 	}
 	
 	// Reset ultimate mode for all abilities
-	for (UAbilityComponent* Ability : AllPlayerAbilities)
+	for (int32 i = AllPlayerAbilities.Num() - 1; i >= 0; i--)
 	{
+		UAbilityComponent* Ability = AllPlayerAbilities[i];
 		if (IsValid(Ability))
 		{
 			Ability->SetUltimateMode(false);
+		}
+		else
+		{
+			AllPlayerAbilities.RemoveAt(i);
 		}
 	}
 	
@@ -154,18 +180,32 @@ void UThresholdManager::OnWPMaxReachedHandler(int32 TimesReached)
 		return;
 	}
 	
+	// Ensure ResourceManager is valid
+	if (!IsValid(ResourceManager))
+	{
+		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: ResourceManager is null in OnWPMaxReachedHandler!"));
+		return;
+	}
+	
+	// Only apply ultimate mode for Hacker path
+	if (ResourceManager->GetCurrentPath() != ECharacterPath::Hacker)
+	{
+		UE_LOG(LogTemp, Log, TEXT("ThresholdManager: WP reached 100%% but player is on Forge path - ignoring"));
+		return;
+	}
+	
 	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: WP reached 100%% (Count: %d) - ULTIMATE MODE ACTIVATED!"), TimesReached);
 	
 	// Check if player has already lost 3 abilities - trigger death
-	if (DisabledAbilities.Num() >= 3)
+	if (DisabledAbilities.Num() >= GameplayConfig::Thresholds::MAX_DISABLED_ABILITIES)
 	{
 		OnPlayerDeath.Broadcast();
 		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: Player death triggered - WP reached 100%% after losing %d abilities!"), DisabledAbilities.Num());
 		return;
 	}
 	
-	// Also check if this is the 4th time overall - trigger death
-	if (TimesReached >= 4)
+	// Also check if this is the max times overall - trigger death
+	if (TimesReached >= GameplayConfig::Thresholds::MAX_WP_REACHES)
 	{
 		OnPlayerDeath.Broadcast();
 		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: Player death triggered - WP reached 100%% for the 4th time!"));
@@ -186,13 +226,23 @@ void UThresholdManager::ActivateUltimateMode()
 	
 	bUltimateModeActive = true;
 	
+	// Clean up invalid abilities before processing
+	CleanupInvalidAbilities();
+	
 	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Activating ultimate mode, checking %d abilities"), AllPlayerAbilities.Num());
 	
 	// Set all non-basic abilities to ultimate mode
 	int32 UltimateCount = 0;
-	for (UAbilityComponent* Ability : AllPlayerAbilities)
+	for (int32 i = AllPlayerAbilities.Num() - 1; i >= 0; i--) // Iterate backwards for safe removal
 	{
-		if (IsValid(Ability) && !DisabledAbilities.Contains(Ability))
+		UAbilityComponent* Ability = AllPlayerAbilities[i];
+		if (!IsValid(Ability))
+		{
+			AllPlayerAbilities.RemoveAt(i);
+			continue;
+		}
+		
+		if (!DisabledAbilities.Contains(Ability))
 		{
 			// Skip basic abilities - they don't have ultimate versions
 			if (!Ability->IsBasicAbility())
@@ -201,17 +251,35 @@ void UThresholdManager::ActivateUltimateMode()
 				UltimateCount++;
 				UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Set %s to ultimate mode"), *Ability->GetName());
 			}
-			else
-			{
-				// Skipped basic ability - no need to log every time
-			}
 		}
-		// Skip disabled abilities - no need to log
 	}
 	
 	OnUltimateModeActivated.Broadcast(true);
 	
 	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: ULTIMATE MODE ACTIVATED - %d abilities enhanced!"), UltimateCount);
+}
+
+void UThresholdManager::CleanupInvalidAbilities()
+{
+	// Remove invalid abilities from AllPlayerAbilities
+	for (int32 i = AllPlayerAbilities.Num() - 1; i >= 0; i--)
+	{
+		if (!IsValid(AllPlayerAbilities[i]))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Removing invalid ability at index %d"), i);
+			AllPlayerAbilities.RemoveAt(i);
+		}
+	}
+	
+	// Remove invalid abilities from DisabledAbilities
+	for (int32 i = DisabledAbilities.Num() - 1; i >= 0; i--)
+	{
+		if (!IsValid(DisabledAbilities[i]))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Removing invalid disabled ability at index %d"), i);
+			DisabledAbilities.RemoveAt(i);
+		}
+	}
 }
 
 void UThresholdManager::DeactivateUltimateMode(UAbilityComponent* UsedAbility)
@@ -222,7 +290,7 @@ void UThresholdManager::DeactivateUltimateMode(UAbilityComponent* UsedAbility)
 	}
 	
 	// Basic abilities don't trigger deactivation
-	if (UsedAbility && UsedAbility->IsBasicAbility())
+	if (IsValid(UsedAbility) && UsedAbility->IsBasicAbility())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Basic ability used during ultimate mode - no deactivation"));
 		return;
@@ -230,17 +298,25 @@ void UThresholdManager::DeactivateUltimateMode(UAbilityComponent* UsedAbility)
 	
 	bUltimateModeActive = false;
 	
+	// Clean up invalid abilities before processing
+	CleanupInvalidAbilities();
+	
 	// Deactivate ultimate mode for all abilities
-	for (UAbilityComponent* Ability : AllPlayerAbilities)
+	for (int32 i = AllPlayerAbilities.Num() - 1; i >= 0; i--)
 	{
+		UAbilityComponent* Ability = AllPlayerAbilities[i];
 		if (IsValid(Ability))
 		{
 			Ability->SetUltimateMode(false);
 		}
+		else
+		{
+			AllPlayerAbilities.RemoveAt(i);
+		}
 	}
 	
 	// Disable the ability that was used (if it's not basic)
-	if (UsedAbility && !DisabledAbilities.Contains(UsedAbility) && !UsedAbility->IsBasicAbility())
+	if (IsValid(UsedAbility) && !DisabledAbilities.Contains(UsedAbility) && !UsedAbility->IsBasicAbility())
 	{
 		UsedAbility->SetComponentTickEnabled(false);
 		DisabledAbilities.Add(UsedAbility);
@@ -256,9 +332,13 @@ void UThresholdManager::DeactivateUltimateMode(UAbilityComponent* UsedAbility)
 	}
 	
 	// Reset WP to 0
-	if (ResourceManager)
+	if (IsValid(ResourceManager))
 	{
 		ResourceManager->ResetWPAfterMax();
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: ResourceManager is null in DeactivateUltimateMode!"));
 	}
 	
 	OnUltimateModeActivated.Broadcast(false);
@@ -288,9 +368,9 @@ void UThresholdManager::UpdateSurvivorBuffs()
 	// Base buffs from 50% WP threshold
 	if (CurrentBuff.bIsBuffed)
 	{
-		CurrentBuff.DamageMultiplier = 1.2f; // 20% damage increase at 50% WP
-		CurrentBuff.CooldownReduction = 0.15f; // 15% cooldown reduction at 50% WP
-		CurrentBuff.AttackSpeed = 1.25f; // 25% faster attack speed at 50% WP
+		CurrentBuff.DamageMultiplier = GameplayConfig::Thresholds::BUFFED_DAMAGE_MULT; // Damage increase at 50% WP
+		CurrentBuff.CooldownReduction = GameplayConfig::Thresholds::BUFFED_COOLDOWN_REDUCTION; // Cooldown reduction at 50% WP
+		CurrentBuff.AttackSpeed = GameplayConfig::Thresholds::BUFFED_ATTACK_SPEED; // Faster attack speed at 50% WP
 	}
 	else
 	{
@@ -302,9 +382,9 @@ void UThresholdManager::UpdateSurvivorBuffs()
 	// Additional buffs for each lost ability
 	if (DisabledCount > 0)
 	{
-		CurrentBuff.DamageMultiplier += (0.1f * DisabledCount); // +10% per lost ability
-		CurrentBuff.CooldownReduction += (0.05f * DisabledCount); // +5% per lost ability
-		CurrentBuff.AttackSpeed += (0.1f * DisabledCount); // +10% per lost ability
+		CurrentBuff.DamageMultiplier += (GameplayConfig::Thresholds::DAMAGE_PER_LOST_ABILITY * DisabledCount); // Per lost ability
+		CurrentBuff.CooldownReduction += (GameplayConfig::Thresholds::CDR_PER_LOST_ABILITY * DisabledCount); // Per lost ability
+		CurrentBuff.AttackSpeed += (GameplayConfig::Thresholds::SPEED_PER_LOST_ABILITY * DisabledCount); // Per lost ability
 	}
 	
 	// Broadcast buff update

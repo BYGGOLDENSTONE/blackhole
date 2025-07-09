@@ -14,6 +14,18 @@ class UResourceManager;
 class USlashAbilityComponent;
 // class USystemFreezeAbilityComponent; // Removed
 class UKillAbilityComponent;
+class UFirewallBreachAbility;
+class UPulseHackAbility;
+class UGravityPullAbilityComponent;
+class UHackerDashAbility;
+class UHackerJumpAbility;
+class UMoltenMaceSlashAbility;
+class UHeatShieldAbility;
+class UBlastChargeAbility;
+class UHammerStrikeAbility;
+class UForgeDashAbility;
+class UForgeJumpAbility;
+class UComboComponent;
 
 UCLASS()
 class BLACKHOLE_API ABlackholeHUD : public AHUD
@@ -36,6 +48,52 @@ protected:
 	
 	UPROPERTY()
 	class UThresholdManager* ThresholdManager;
+	
+	// Cached ability components
+	UPROPERTY()
+	class USlashAbilityComponent* CachedSlashAbility;
+	
+	UPROPERTY()
+	class UKillAbilityComponent* CachedKillAbility;
+	
+	// Hacker abilities
+	UPROPERTY()
+	class UFirewallBreachAbility* CachedFirewallBreach;
+	
+	UPROPERTY()
+	class UPulseHackAbility* CachedPulseHack;
+	
+	UPROPERTY()
+	class UGravityPullAbilityComponent* CachedGravityPull;
+	
+	UPROPERTY()
+	class UHackerDashAbility* CachedHackerDash;
+	
+	UPROPERTY()
+	class UHackerJumpAbility* CachedHackerJump;
+	
+	// Forge abilities
+	UPROPERTY()
+	class UMoltenMaceSlashAbility* CachedMoltenMace;
+	
+	UPROPERTY()
+	class UHeatShieldAbility* CachedHeatShield;
+	
+	UPROPERTY()
+	class UBlastChargeAbility* CachedBlastCharge;
+	
+	UPROPERTY()
+	class UHammerStrikeAbility* CachedHammerStrike;
+	
+	UPROPERTY()
+	class UForgeDashAbility* CachedForgeDash;
+	
+	UPROPERTY()
+	class UForgeJumpAbility* CachedForgeJump;
+	
+	// Combo component
+	UPROPERTY()
+	class UComboComponent* CachedComboComponent;
 
 	void DrawAttribute(const FString& Name, float Current, float Max, float X, float Y, const FColor& Color);
 	void DrawAbilityCooldown(const FString& Name, float CooldownPercent, float X, float Y);
@@ -92,6 +150,9 @@ private:
 	// Draw debug status panel
 	void DrawDebugStatus();
 	
+	// Draw combo status
+	void DrawComboStatus();
+	
 	// Structure to hold ability display info
 	struct FAbilityDisplayInfo
 	{
@@ -106,4 +167,10 @@ private:
 	
 	// Get current path abilities
 	TArray<FAbilityDisplayInfo> GetCurrentAbilities() const;
+	
+	// String formatting helpers to avoid per-frame allocations
+	TCHAR AttributeTextBuffer[64];
+	TCHAR TargetTextBuffer[128];
+	TCHAR CooldownTextBuffer[32];
+	TCHAR DebugTextBuffer[256];
 };

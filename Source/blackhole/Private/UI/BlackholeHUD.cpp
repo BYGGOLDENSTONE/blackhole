@@ -21,6 +21,7 @@
 #include "Components/Abilities/Player/Forge/BlastChargeAbility.h"
 #include "Components/Abilities/Player/Forge/HammerStrikeAbility.h"
 #include "Components/Abilities/AbilityComponent.h"
+#include "Components/ComboComponent.h"
 #include "Systems/ThresholdManager.h"
 #include "Engine/Canvas.h"
 #include "Engine/World.h"
@@ -51,6 +52,29 @@ void ABlackholeHUD::BeginPlay()
 	Super::BeginPlay();
 
 	PlayerCharacter = Cast<ABlackholePlayerCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
+	
+	// Cache all ability components
+	if (PlayerCharacter)
+	{
+		// Basic abilities
+		CachedSlashAbility = PlayerCharacter->FindComponentByClass<USlashAbilityComponent>();
+		CachedKillAbility = PlayerCharacter->FindComponentByClass<UKillAbilityComponent>();
+		
+		// Hacker abilities
+		CachedFirewallBreach = PlayerCharacter->FindComponentByClass<UFirewallBreachAbility>();
+		CachedPulseHack = PlayerCharacter->FindComponentByClass<UPulseHackAbility>();
+		CachedGravityPull = PlayerCharacter->FindComponentByClass<UGravityPullAbilityComponent>();
+		CachedHackerDash = PlayerCharacter->FindComponentByClass<UHackerDashAbility>();
+		CachedHackerJump = PlayerCharacter->FindComponentByClass<UHackerJumpAbility>();
+		
+		// Forge abilities
+		CachedMoltenMace = PlayerCharacter->FindComponentByClass<UMoltenMaceSlashAbility>();
+		CachedHeatShield = PlayerCharacter->FindComponentByClass<UHeatShieldAbility>();
+		CachedBlastCharge = PlayerCharacter->FindComponentByClass<UBlastChargeAbility>();
+		CachedHammerStrike = PlayerCharacter->FindComponentByClass<UHammerStrikeAbility>();
+		CachedForgeDash = PlayerCharacter->FindComponentByClass<UForgeDashAbility>();
+		CachedForgeJump = PlayerCharacter->FindComponentByClass<UForgeJumpAbility>();
+	}
 	
 	// Bind to ResourceManager events
 	if (UGameInstance* GameInstance = GetWorld()->GetGameInstance())
@@ -196,8 +220,9 @@ void ABlackholeHUD::DrawAttribute(const FString& Name, float Current, float Max,
 		DrawRect(Color, BarX, BarY, FilledWidth, AttributeBarHeight);
 	}
 
-	FString ValueText = FString::Printf(TEXT("%.0f/%.0f"), Current, Max);
-	DrawText(ValueText, FColor::White, BarX + AttributeBarWidth + 10, Y);
+	// Use pre-allocated buffer to avoid per-frame allocation
+	FCString::Sprintf(AttributeTextBuffer, TEXT("%.0f/%.0f"), Current, Max);
+	DrawText(AttributeTextBuffer, FColor::White, BarX + AttributeBarWidth + 10, Y);
 }
 
 void ABlackholeHUD::DrawAbilityCooldown(const FString& Name, float CooldownPercent, float X, float Y)
@@ -243,7 +268,9 @@ void ABlackholeHUD::DrawTargetInfo()
 	float InfoX = Canvas->SizeX * 0.5f - 100.0f;
 	float InfoY = 100.0f;
 
-	DrawText(FString::Printf(TEXT("Target: %s"), *Target->GetName()), FColor::Yellow, InfoX, InfoY);
+	// Use pre-allocated buffer to avoid per-frame allocation
+	FCString::Sprintf(TargetTextBuffer, TEXT("Target: %s"), *Target->GetName());
+	DrawText(TargetTextBuffer, FColor::Yellow, InfoX, InfoY);
 
 	if (UIntegrityComponent* TargetIntegrity = Target->FindComponentByClass<UIntegrityComponent>())
 	{
@@ -267,7 +294,7 @@ AActor* ABlackholeHUD::GetTargetedActor() const
 
 	FVector Start = PlayerCharacter->GetActorLocation();
 	FVector Forward = PC->GetControlRotation().Vector();
-	FVector End = Start + (Forward * 5000.0f);
+	FVector End = Start + (Forward * GameplayConfig::Abilities::Defaults::RANGE * 5.0f); // 5x default range for targeting
 
 	FHitResult HitResult;
 	FCollisionQueryParams QueryParams;
@@ -313,67 +340,67 @@ TArray<ABlackholeHUD::FAbilityDisplayInfo> ABlackholeHUD::GetCurrentAbilities() 
 	bool bIsHacker = PlayerCharacter->GetCurrentPath() == ECharacterPath::Hacker;
 	
 	// Always available abilities
-	if (auto* Slash = PlayerCharacter->FindComponentByClass<USlashAbilityComponent>())
+	if (CachedSlashAbility)
 	{
-		bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(Slash) : false;
-		bool bUltimate = Slash->IsInUltimateMode();
-		bool bBasic = Slash->IsBasicAbility();
-		Abilities.Add({TEXT("Slash"), TEXT("LMB"), Slash, true, bDisabled, bUltimate, bBasic});
+		bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedSlashAbility) : false;
+		bool bUltimate = CachedSlashAbility->IsInUltimateMode();
+		bool bBasic = CachedSlashAbility->IsBasicAbility();
+		Abilities.Add({TEXT("Slash"), TEXT("LMB"), CachedSlashAbility, true, bDisabled, bUltimate, bBasic});
 	}
 	
-	if (auto* Kill = PlayerCharacter->FindComponentByClass<UKillAbilityComponent>())
+	if (CachedKillAbility)
 	{
-		bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(Kill) : false;
-		bool bUltimate = Kill->IsInUltimateMode();
-		bool bBasic = Kill->IsBasicAbility();
-		Abilities.Add({TEXT("Kill (Debug)"), TEXT("K"), Kill, true, bDisabled, bUltimate, bBasic});
+		bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedKillAbility) : false;
+		bool bUltimate = CachedKillAbility->IsInUltimateMode();
+		bool bBasic = CachedKillAbility->IsBasicAbility();
+		Abilities.Add({TEXT("Kill (Debug)"), TEXT("K"), CachedKillAbility, true, bDisabled, bUltimate, bBasic});
 	}
 	
 	// Path-specific abilities
 	if (bIsHacker)
 	{
 		// Hacker abilities
-		if (auto* FirewallBreach = PlayerCharacter->FindComponentByClass<UFirewallBreachAbility>())
+		if (CachedFirewallBreach)
 		{
-			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(FirewallBreach) : false;
-			bool bUltimate = FirewallBreach->IsInUltimateMode();
-			bool bBasic = FirewallBreach->IsBasicAbility();
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedFirewallBreach) : false;
+			bool bUltimate = CachedFirewallBreach->IsInUltimateMode();
+			bool bBasic = CachedFirewallBreach->IsBasicAbility();
 			FString Name = bUltimate ? TEXT("TOTAL SYSTEM COMPROMISE") : TEXT("Firewall Breach");
-			Abilities.Add({Name, TEXT("RMB"), FirewallBreach, true, bDisabled, bUltimate, bBasic});
+			Abilities.Add({Name, TEXT("RMB"), CachedFirewallBreach, true, bDisabled, bUltimate, bBasic});
 		}
 		
-		if (auto* PulseHack = PlayerCharacter->FindComponentByClass<UPulseHackAbility>())
+		if (CachedPulseHack)
 		{
-			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(PulseHack) : false;
-			bool bUltimate = PulseHack->IsInUltimateMode();
-			bool bBasic = PulseHack->IsBasicAbility();
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedPulseHack) : false;
+			bool bUltimate = CachedPulseHack->IsInUltimateMode();
+			bool bBasic = CachedPulseHack->IsBasicAbility();
 			FString Name = bUltimate ? TEXT("SYSTEM OVERLOAD") : TEXT("Pulse Hack");
-			Abilities.Add({Name, TEXT("Q"), PulseHack, true, bDisabled, bUltimate, bBasic});
+			Abilities.Add({Name, TEXT("Q"), CachedPulseHack, true, bDisabled, bUltimate, bBasic});
 		}
 		
-		if (auto* GravityPull = PlayerCharacter->FindComponentByClass<UGravityPullAbilityComponent>())
+		if (CachedGravityPull)
 		{
-			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(GravityPull) : false;
-			bool bUltimate = GravityPull->IsInUltimateMode();
-			bool bBasic = GravityPull->IsBasicAbility();
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedGravityPull) : false;
+			bool bUltimate = CachedGravityPull->IsInUltimateMode();
+			bool bBasic = CachedGravityPull->IsBasicAbility();
 			FString Name = bUltimate ? TEXT("SINGULARITY") : TEXT("Gravity Pull");
-			Abilities.Add({Name, TEXT("E"), GravityPull, true, bDisabled, bUltimate, bBasic});
+			Abilities.Add({Name, TEXT("E"), CachedGravityPull, true, bDisabled, bUltimate, bBasic});
 		}
 		
-		if (auto* HackerDash = PlayerCharacter->FindComponentByClass<UHackerDashAbility>())
+		if (CachedHackerDash)
 		{
-			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(HackerDash) : false;
-			bool bUltimate = HackerDash->IsInUltimateMode();
-			bool bBasic = HackerDash->IsBasicAbility();
-			Abilities.Add({TEXT("Hacker Dash"), TEXT("Shift"), HackerDash, true, bDisabled, bUltimate, bBasic});
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedHackerDash) : false;
+			bool bUltimate = CachedHackerDash->IsInUltimateMode();
+			bool bBasic = CachedHackerDash->IsBasicAbility();
+			Abilities.Add({TEXT("Hacker Dash"), TEXT("Shift"), CachedHackerDash, true, bDisabled, bUltimate, bBasic});
 		}
 		
-		if (auto* HackerJump = PlayerCharacter->FindComponentByClass<UHackerJumpAbility>())
+		if (CachedHackerJump)
 		{
-			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(HackerJump) : false;
-			bool bUltimate = HackerJump->IsInUltimateMode();
-			bool bBasic = HackerJump->IsBasicAbility();
-			Abilities.Add({TEXT("Hacker Jump"), TEXT("Space"), HackerJump, true, bDisabled, bUltimate, bBasic});
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedHackerJump) : false;
+			bool bUltimate = CachedHackerJump->IsInUltimateMode();
+			bool bBasic = CachedHackerJump->IsBasicAbility();
+			Abilities.Add({TEXT("Hacker Jump"), TEXT("Space"), CachedHackerJump, true, bDisabled, bUltimate, bBasic});
 		}
 		
 		// R slot reserved for Hacker
@@ -382,52 +409,52 @@ TArray<ABlackholeHUD::FAbilityDisplayInfo> ABlackholeHUD::GetCurrentAbilities() 
 	else
 	{
 		// Forge abilities
-		if (auto* MoltenMace = PlayerCharacter->FindComponentByClass<UMoltenMaceSlashAbility>())
+		if (CachedMoltenMace)
 		{
-			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(MoltenMace) : false;
-			bool bUltimate = MoltenMace->IsInUltimateMode();
-			bool bBasic = MoltenMace->IsBasicAbility();
-			Abilities.Add({TEXT("Molten Mace"), TEXT("RMB"), MoltenMace, true, bDisabled, bUltimate, bBasic});
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedMoltenMace) : false;
+			bool bUltimate = CachedMoltenMace->IsInUltimateMode();
+			bool bBasic = CachedMoltenMace->IsBasicAbility();
+			Abilities.Add({TEXT("Molten Mace"), TEXT("RMB"), CachedMoltenMace, true, bDisabled, bUltimate, bBasic});
 		}
 		
-		if (auto* HeatShield = PlayerCharacter->FindComponentByClass<UHeatShieldAbility>())
+		if (CachedHeatShield)
 		{
-			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(HeatShield) : false;
-			bool bUltimate = HeatShield->IsInUltimateMode();
-			bool bBasic = HeatShield->IsBasicAbility();
-			Abilities.Add({TEXT("Heat Shield"), TEXT("Q"), HeatShield, true, bDisabled, bUltimate, bBasic});
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedHeatShield) : false;
+			bool bUltimate = CachedHeatShield->IsInUltimateMode();
+			bool bBasic = CachedHeatShield->IsBasicAbility();
+			Abilities.Add({TEXT("Heat Shield"), TEXT("Q"), CachedHeatShield, true, bDisabled, bUltimate, bBasic});
 		}
 		
-		if (auto* BlastCharge = PlayerCharacter->FindComponentByClass<UBlastChargeAbility>())
+		if (CachedBlastCharge)
 		{
-			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(BlastCharge) : false;
-			bool bUltimate = BlastCharge->IsInUltimateMode();
-			bool bBasic = BlastCharge->IsBasicAbility();
-			Abilities.Add({TEXT("Blast Charge"), TEXT("E"), BlastCharge, true, bDisabled, bUltimate, bBasic});
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedBlastCharge) : false;
+			bool bUltimate = CachedBlastCharge->IsInUltimateMode();
+			bool bBasic = CachedBlastCharge->IsBasicAbility();
+			Abilities.Add({TEXT("Blast Charge"), TEXT("E"), CachedBlastCharge, true, bDisabled, bUltimate, bBasic});
 		}
 		
-		if (auto* HammerStrike = PlayerCharacter->FindComponentByClass<UHammerStrikeAbility>())
+		if (CachedHammerStrike)
 		{
-			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(HammerStrike) : false;
-			bool bUltimate = HammerStrike->IsInUltimateMode();
-			bool bBasic = HammerStrike->IsBasicAbility();
-			Abilities.Add({TEXT("Hammer Strike"), TEXT("R"), HammerStrike, true, bDisabled, bUltimate, bBasic});
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedHammerStrike) : false;
+			bool bUltimate = CachedHammerStrike->IsInUltimateMode();
+			bool bBasic = CachedHammerStrike->IsBasicAbility();
+			Abilities.Add({TEXT("Hammer Strike"), TEXT("R"), CachedHammerStrike, true, bDisabled, bUltimate, bBasic});
 		}
 		
-		if (auto* ForgeDash = PlayerCharacter->FindComponentByClass<UForgeDashAbility>())
+		if (CachedForgeDash)
 		{
-			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(ForgeDash) : false;
-			bool bUltimate = ForgeDash->IsInUltimateMode();
-			bool bBasic = ForgeDash->IsBasicAbility();
-			Abilities.Add({TEXT("Forge Dash"), TEXT("Shift"), ForgeDash, true, bDisabled, bUltimate, bBasic});
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedForgeDash) : false;
+			bool bUltimate = CachedForgeDash->IsInUltimateMode();
+			bool bBasic = CachedForgeDash->IsBasicAbility();
+			Abilities.Add({TEXT("Forge Dash"), TEXT("Shift"), CachedForgeDash, true, bDisabled, bUltimate, bBasic});
 		}
 		
-		if (auto* ForgeJump = PlayerCharacter->FindComponentByClass<UForgeJumpAbility>())
+		if (CachedForgeJump)
 		{
-			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(ForgeJump) : false;
-			bool bUltimate = ForgeJump->IsInUltimateMode();
-			bool bBasic = ForgeJump->IsBasicAbility();
-			Abilities.Add({TEXT("Forge Jump"), TEXT("Space"), ForgeJump, true, bDisabled, bUltimate, bBasic});
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedForgeJump) : false;
+			bool bUltimate = CachedForgeJump->IsInUltimateMode();
+			bool bBasic = CachedForgeJump->IsBasicAbility();
+			Abilities.Add({TEXT("Forge Jump"), TEXT("Space"), CachedForgeJump, true, bDisabled, bUltimate, bBasic});
 		}
 	}
 	
@@ -524,7 +551,9 @@ void ABlackholeHUD::DrawAbilityInfo()
 		
 		// Draw input key
 		FColor InputColor = AbilityInfo.bIsActive && !AbilityInfo.bIsDisabled ? FColor::Green : FColor(128, 128, 128);
-		DrawText(FString::Printf(TEXT("[%s]"), *AbilityInfo.Input), InputColor, X + 5, Y + 25);
+		// Use pre-allocated buffer to avoid per-frame allocation
+		FCString::Sprintf(CooldownTextBuffer, TEXT("[%s]"), *AbilityInfo.Input);
+		DrawText(CooldownTextBuffer, InputColor, X + 5, Y + 25);
 		
 		// Draw cooldown and resource cost if ability is active
 		if (AbilityInfo.bIsActive && AbilityInfo.Ability)
@@ -544,7 +573,9 @@ void ABlackholeHUD::DrawAbilityInfo()
 						float CooldownPercent = JumpCooldownRemaining / HackerJump->GetJumpCooldown();
 						DrawRect(FColor(64, 64, 64), X + 5, Y + 50, CooldownWidth, CooldownHeight);
 						DrawRect(FColor::Orange, X + 5, Y + 50, CooldownWidth * CooldownPercent, CooldownHeight);
-						DrawText(FString::Printf(TEXT("Jump CD: %.1fs"), JumpCooldownRemaining), FColor::Orange, X + 5, Y + 60);
+						// Use pre-allocated buffer to avoid per-frame allocation
+						FCString::Sprintf(CooldownTextBuffer, TEXT("Jump CD: %.1fs"), JumpCooldownRemaining);
+						DrawText(CooldownTextBuffer, FColor::Orange, X + 5, Y + 60);
 					}
 					else
 					{
@@ -571,7 +602,9 @@ void ABlackholeHUD::DrawAbilityInfo()
 					
 					// Draw cooldown time
 					float TimeRemaining = AbilityInfo.Ability->GetCooldownRemaining();
-					DrawText(FString::Printf(TEXT("%.1fs"), TimeRemaining), FColor::Red, X + 5, Y + 60);
+					// Use pre-allocated buffer to avoid per-frame allocation
+					FCString::Sprintf(CooldownTextBuffer, TEXT("%.1fs"), TimeRemaining);
+					DrawText(CooldownTextBuffer, FColor::Red, X + 5, Y + 60);
 				}
 				else
 				{
@@ -603,23 +636,26 @@ void ABlackholeHUD::DrawDebugStatus()
 	Y += LineHeight * 1.5f;
 	
 	// Ultimate mode status
-	FString UltimateStatus = bUltimateModeActive ? TEXT("ACTIVE") : TEXT("INACTIVE");
+	const TCHAR* UltimateStatus = bUltimateModeActive ? TEXT("ACTIVE") : TEXT("INACTIVE");
 	FColor UltimateColor = bUltimateModeActive ? FColor::Red : FColor::White;
-	DrawText(FString::Printf(TEXT("Ultimate Mode: %s"), *UltimateStatus), UltimateColor, X, Y);
+	FCString::Sprintf(DebugTextBuffer, TEXT("Ultimate Mode: %s"), UltimateStatus);
+	DrawText(DebugTextBuffer, UltimateColor, X, Y);
 	Y += LineHeight;
 	
 	// Combat status
 	if (ThresholdManager)
 	{
 		bool bInCombat = ThresholdManager->IsInCombat();
-		FString CombatStatus = bInCombat ? TEXT("IN COMBAT") : TEXT("NOT IN COMBAT");
+		const TCHAR* CombatStatus = bInCombat ? TEXT("IN COMBAT") : TEXT("NOT IN COMBAT");
 		FColor CombatColor = bInCombat ? FColor::Orange : FColor(128, 128, 128);
-		DrawText(FString::Printf(TEXT("Combat: %s"), *CombatStatus), CombatColor, X, Y);
+		FCString::Sprintf(DebugTextBuffer, TEXT("Combat: %s"), CombatStatus);
+		DrawText(DebugTextBuffer, CombatColor, X, Y);
 		Y += LineHeight;
 		
 		// Disabled abilities count
 		int32 DisabledCount = ThresholdManager->GetDisabledAbilityCount();
-		DrawText(FString::Printf(TEXT("Disabled Abilities: %d"), DisabledCount), FColor::Red, X, Y);
+		FCString::Sprintf(DebugTextBuffer, TEXT("Disabled Abilities: %d"), DisabledCount);
+		DrawText(DebugTextBuffer, FColor::Red, X, Y);
 		Y += LineHeight * 1.5f;
 	}
 	
@@ -666,11 +702,12 @@ void ABlackholeHUD::DrawDebugStatus()
 				}
 			}
 			
-			DrawText(FString::Printf(TEXT("[%s] %s - %s"), 
+			// Use pre-allocated buffer to avoid per-frame allocation
+			FCString::Sprintf(DebugTextBuffer, TEXT("[%s] %s - %s"), 
 				*AbilityInfo.Input, 
 				*AbilityInfo.Name, 
-				*Status), 
-				StatusColor, X + 10, Y);
+				*Status);
+			DrawText(DebugTextBuffer, StatusColor, X + 10, Y);
 			Y += LineHeight;
 		}
 	}
@@ -691,5 +728,92 @@ void ABlackholeHUD::DrawDebugStatus()
 		{
 			DrawText(TEXT("ABILITIES BUFFED"), FColor::Cyan, X, Y);
 		}
+	}
+}
+
+void ABlackholeHUD::DrawComboStatus()
+{
+	if (!Canvas || !IsValid(CachedComboComponent))
+	{
+		return;
+	}
+	
+	// Position for combo display (center top)
+	float X = Canvas->SizeX * 0.5f - 150.0f;
+	float Y = 200.0f;
+	
+	// Get current combo status
+	FString ComboStatus = CachedComboComponent->GetCurrentComboStatus();
+	
+	if (!ComboStatus.IsEmpty())
+	{
+		// Draw background box
+		float BoxWidth = 300.0f;
+		float BoxHeight = 60.0f;
+		DrawRect(FColor(0, 0, 0, 180), X - 10, Y - 10, BoxWidth + 20, BoxHeight + 20);
+		
+		// Determine color based on combo status
+		FColor TextColor = FColor::White;
+		float TextScale = 1.5f;
+		
+		if (ComboStatus.Contains(TEXT("COMBO:")))
+		{
+			// Active combo - make it stand out
+			TextColor = FColor::Yellow;
+			TextScale = 2.0f;
+			
+			// Add pulsing effect
+			float Pulse = FMath::Sin(GetWorld()->GetTimeSeconds() * 4.0f) * 0.5f + 0.5f;
+			TextColor.R = FMath::Lerp(200, 255, Pulse);
+		}
+		else if (ComboStatus.Contains(TEXT("Inputs:")))
+		{
+			// Input sequence - show in cyan
+			TextColor = FColor::Cyan;
+		}
+		
+		// Draw the combo text
+		DrawText(ComboStatus, TextColor, X, Y, nullptr, TextScale);
+		
+		// Add visual effects for specific combos
+		if (ComboStatus.Contains(TEXT("COMBO: PhantomStrike")))
+		{
+			// Dash + Slash visual
+			DrawText(TEXT("💨⚔️ PHANTOM STRIKE!"), FColor::Cyan, X - 50, Y + 35, nullptr, 1.2f);
+			DrawText(TEXT("Teleport Backstab Critical Hit!"), FColor::White, X - 70, Y + 55, nullptr, 0.9f);
+		}
+		else if (ComboStatus.Contains(TEXT("COMBO: BladeDance")))
+		{
+			// Slash + Slash visual
+			DrawText(TEXT("⚔️⚔️ BLADE DANCE!"), FColor::Red, X - 50, Y + 35, nullptr, 1.2f);
+			DrawText(TEXT("Progressive Combo Damage!"), FColor::White, X - 60, Y + 55, nullptr, 0.9f);
+		}
+		else if (ComboStatus.Contains(TEXT("COMBO: AerialRave")))
+		{
+			// Jump + Slash visual
+			DrawText(TEXT("🚀⚔️ AERIAL RAVE!"), FColor::Green, X - 50, Y + 35, nullptr, 1.2f);
+			DrawText(TEXT("Shockwave Ground Slam!"), FColor::White, X - 60, Y + 55, nullptr, 0.9f);
+		}
+		else if (ComboStatus.Contains(TEXT("COMBO: TempestBlade")))
+		{
+			// Jump + Dash + Slash visual
+			DrawText(TEXT("🌪️⚔️ TEMPEST BLADE!"), FColor::Purple, X - 50, Y + 35, nullptr, 1.2f);
+			DrawText(TEXT("Multi-Teleport Strike!"), FColor::White, X - 50, Y + 55, nullptr, 0.9f);
+		}
+		
+		// Draw combo hints below if showing inputs
+		if (ComboStatus.Contains(TEXT("Inputs:")))
+		{
+			FString HintText = TEXT("Combos: Dash+Slash | Jump+Slash | Jump+Dash+Slash | Slash+Slash");
+			DrawText(HintText, FColor(150, 150, 150), X - 50, Y + 30, nullptr, 0.8f);
+		}
+	}
+	
+	// Show last performed combo if recent
+	FName LastCombo = CachedComboComponent->GetLastPerformedCombo();
+	if (LastCombo != NAME_None)
+	{
+		// This will be shown through the ComboStatus string above
+		// Additional visual feedback could be added here if needed
 	}
 }

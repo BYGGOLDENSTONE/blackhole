@@ -7,6 +7,7 @@
 #include "TimerManager.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Utils/ErrorHandling.h"
 
 AResourcePickup::AResourcePickup()
 {
@@ -39,9 +40,16 @@ void AResourcePickup::BeginPlay()
 	CollisionSphere->OnComponentBeginOverlap.AddDynamic(this, &AResourcePickup::OnOverlapBegin);
 	
 	// Get resource manager
-	if (UGameInstance* GameInstance = GetWorld()->GetGameInstance())
+	if (UWorld* World = GetWorld())
 	{
-		ResourceManager = GameInstance->GetSubsystem<UResourceManager>();
+		if (UGameInstance* GameInstance = World->GetGameInstance())
+		{
+			ResourceManager = GameInstance->GetSubsystem<UResourceManager>();
+			if (!ResourceManager)
+			{
+				UE_LOG(LogTemp, Error, TEXT("ResourcePickup: Failed to get ResourceManager!"));
+			}
+		}
 	}
 	
 	// Store initial Z position for bobbing
@@ -74,10 +82,7 @@ void AResourcePickup::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, A
 {
 	// Check if player
 	ABlackholePlayerCharacter* PlayerCharacter = Cast<ABlackholePlayerCharacter>(OtherActor);
-	if (!PlayerCharacter)
-	{
-		return;
-	}
+	CHECK_CAST_VOID(PlayerCharacter);
 	
 	// Apply pickup effect
 	ApplyPickupEffect(PlayerCharacter);
@@ -89,7 +94,10 @@ void AResourcePickup::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, A
 	// Set respawn timer if applicable
 	if (RespawnTime > 0.0f)
 	{
-		GetWorld()->GetTimerManager().SetTimer(RespawnTimerHandle, this, &AResourcePickup::RespawnPickup, RespawnTime, false);
+		if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().SetTimer(RespawnTimerHandle, this, &AResourcePickup::RespawnPickup, RespawnTime, false);
+		}
 	}
 	else
 	{
@@ -102,11 +110,12 @@ void AResourcePickup::ApplyPickupEffect(AActor* TargetActor)
 {
 	if (!ResourceManager)
 	{
+		UE_LOG(LogTemp, Error, TEXT("ResourcePickup: ResourceManager is null in ApplyPickupEffect!"));
 		return;
 	}
 	
 	// Spawn pickup effect
-	if (PickupEffect)
+	if (PickupEffect && GetWorld())
 	{
 		UGameplayStatics::SpawnEmitterAtLocation(
 			GetWorld(),
@@ -118,7 +127,7 @@ void AResourcePickup::ApplyPickupEffect(AActor* TargetActor)
 	}
 	
 	// Play pickup sound
-	if (PickupSound)
+	if (PickupSound && GetWorld())
 	{
 		UGameplayStatics::PlaySoundAtLocation(GetWorld(), PickupSound, GetActorLocation());
 	}
@@ -171,8 +180,11 @@ void AResourcePickup::Tick(float DeltaTime)
 	SetActorRotation(NewRotation);
 	
 	// Bob up and down
-	FVector NewLocation = GetActorLocation();
-	float BobOffset = FMath::Sin(GetWorld()->GetTimeSeconds() * BobSpeed) * BobHeight;
-	NewLocation.Z = InitialZ + BobOffset;
-	SetActorLocation(NewLocation);
+	if (UWorld* World = GetWorld())
+	{
+		FVector NewLocation = GetActorLocation();
+		float BobOffset = FMath::Sin(World->GetTimeSeconds() * BobSpeed) * BobHeight;
+		NewLocation.Z = InitialZ + BobOffset;
+		SetActorLocation(NewLocation);
+	}
 }

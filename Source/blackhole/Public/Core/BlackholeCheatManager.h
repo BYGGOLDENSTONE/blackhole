@@ -55,6 +55,18 @@ public:
 	UFUNCTION(Exec, Category = "Blackhole Cheats")
 	void CacheAbilities();
 	
+	// Test combo system
+	UFUNCTION(Exec, Category = "Blackhole Cheats")
+	void TestCombo(const FString& ComboName);
+	
+	// Show combo debug info
+	UFUNCTION(Exec, Category = "Blackhole Cheats")
+	void ShowComboInfo();
+	
+	// Reset combo state
+	UFUNCTION(Exec, Category = "Blackhole Cheats")
+	void ResetCombo();
+	
 private:
 	bool bShowDebugDisplay = false;
 };

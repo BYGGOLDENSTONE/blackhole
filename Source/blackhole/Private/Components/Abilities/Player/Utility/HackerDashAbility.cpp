@@ -4,6 +4,8 @@
 #include "GameFramework/PlayerController.h"
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
+#include "Player/BlackholePlayerCharacter.h"
+#include "Systems/ComboSystem.h"
 
 UHackerDashAbility::UHackerDashAbility()
 {
@@ -26,10 +28,26 @@ UHackerDashAbility::UHackerDashAbility()
 	DashDuration = 0.15f;
 }
 
+void UHackerDashAbility::Execute()
+{
+	// Call parent implementation
+	Super::Execute();
+	
+	// Combo input registration is now handled by the player character
+	// in UseDash() to avoid timing issues and double registration
+}
+
 void UHackerDashAbility::ApplyMovement(ACharacter* Character)
 {
 	if (!Character || !CachedMovement)
 	{
+		return;
+	}
+	
+	// Safety check - ensure character is valid and not dead
+	if (!IsValid(Character))
+	{
+		UE_LOG(LogTemp, Error, TEXT("HackerDashAbility: Character is invalid during ApplyMovement"));
 		return;
 	}
 	
@@ -77,12 +95,16 @@ void UHackerDashAbility::ApplyMovement(ACharacter* Character)
 
 void UHackerDashAbility::StopMovement()
 {
-	if (CachedMovement)
+	if (IsValid(CachedMovement))
 	{
 		// Restore original friction
 		CachedMovement->BrakingFrictionFactor = OriginalFriction;
 		
 		// Apply some braking to stop the dash smoothly
 		CachedMovement->Velocity *= 0.5f;
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("HackerDashAbility: CachedMovement is invalid during StopMovement"));
 	}
 }

@@ -4,18 +4,19 @@
 #include "Engine/World.h"
 #include "Engine/GameInstance.h"
 #include "Components/Attributes/StaminaComponent.h"
+#include "Config/GameplayConfig.h"
 
 UAbilityComponent::UAbilityComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	
-	Cooldown = 1.0f;
+	Cooldown = GameplayConfig::Abilities::Defaults::COOLDOWN;
 	Cost = 0.0f; // Legacy field
 	StaminaCost = 0.0f;
 	WPCost = 0.0f;
 	HeatCost = 0.0f;
-	Range = 1000.0f;
-	HeatGenerationMultiplier = 0.5f; // Default: generates heat equal to 50% of cost
+	Range = GameplayConfig::Abilities::Defaults::RANGE;
+	HeatGenerationMultiplier = GameplayConfig::Abilities::Defaults::HEAT_GENERATION_MULT; // Default: generates heat equal to 50% of cost
 	CurrentCooldown = 0.0f;
 	bIsOnCooldown = false;
 	bIsInUltimateMode = false;
@@ -56,6 +57,12 @@ void UAbilityComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 
 bool UAbilityComponent::CanExecute() const
 {
+	// Check if ability is disabled (component tick disabled)
+	if (!IsComponentTickEnabled())
+	{
+		return false; // Ability has been disabled by ThresholdManager
+	}
+	
 	if (bIsOnCooldown)
 	{
 		// Don't log cooldown checks - this gets called every tick
@@ -82,15 +89,51 @@ bool UAbilityComponent::CanExecute() const
 			}
 		}
 
-		// WP system is inverted: Hacker abilities ADD WP (corruption)
-		// No need to check WP availability since it's added, not consumed
-		// However, we might want to prevent going over 100% in the future
-		
-		// For Forge abilities, check if adding heat would cause overheat
-		if (HeatCost > 0.0f && ResMgr->IsOverheated())
+		// WP validation: Only block if we're already at 100% WP and in ultimate mode
+		if (WPCost > 0.0f)
 		{
-			// Don't log overheat checks - this gets called every tick
-			return false; // Can't use abilities while overheated
+			float CurrentWP = ResMgr->GetCurrentWillPower();
+			float MaxWP = ResMgr->GetMaxWillPower();
+			
+			// Only block if we're already at 100% WP - allow abilities that reach 100%
+			if (CurrentWP >= MaxWP)
+			{
+				// Basic abilities (like slash) should always work regardless of WP level
+				if (bIsBasicAbility)
+				{
+					UE_LOG(LogTemp, Log, TEXT("Ability %s: Allowed - basic ability at 100%% WP"), *GetName());
+				}
+				// At 100% WP, only ultimate abilities or basic abilities should work
+				else if (!bIsInUltimateMode)
+				{
+					if (CurrentWP >= MaxWP * 0.9f) // Debug log
+					{
+						UE_LOG(LogTemp, Warning, TEXT("Ability %s: Blocked - at 100%% WP but not in ultimate mode"), *GetName());
+					}
+					return false; // Regular abilities blocked at 100% WP
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("Ability %s: Allowed - at 100%% WP and in ultimate mode"), *GetName());
+				}
+			}
+			// Allow all abilities below 100% WP, even if they would reach 100%
+		}
+		
+		// Heat validation: Check if already overheated or would cause overflow
+		if (HeatCost > 0.0f)
+		{
+			if (ResMgr->IsOverheated())
+			{
+				// Don't log overheat checks - this gets called every tick
+				return false; // Can't use abilities while overheated
+			}
+			
+			if (ResMgr->WouldAddingHeatCauseOverflow(HeatCost))
+			{
+				// Don't log overflow checks - this gets called every tick
+				return false; // Prevent abilities that would push heat too high
+			}
 		}
 	}
 
@@ -99,6 +142,20 @@ bool UAbilityComponent::CanExecute() const
 
 void UAbilityComponent::Execute()
 {
+	// Debug logging for WP issues
+	if (UResourceManager* ResMgr = GetResourceManager())
+	{
+		float CurrentWP = ResMgr->GetCurrentWillPower();
+		float MaxWP = ResMgr->GetMaxWillPower();
+		if (CurrentWP >= MaxWP * 0.9f) // Log when close to or at 100% WP
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Ability %s: Execute called with WP=%.1f/%.1f (%.1f%%), UltimateMode=%s, CanExecute=%s"), 
+				*GetName(), CurrentWP, MaxWP, (CurrentWP/MaxWP)*100.0f, 
+				bIsInUltimateMode ? TEXT("TRUE") : TEXT("FALSE"),
+				CanExecute() ? TEXT("TRUE") : TEXT("FALSE"));
+		}
+	}
+	
 	// Only log ultimate executions
 	if (bIsInUltimateMode)
 	{

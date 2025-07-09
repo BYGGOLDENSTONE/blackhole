@@ -6,6 +6,8 @@
 #include "Systems/ThresholdManager.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
+#include "TimerManager.h"
+#include "Config/GameplayConfig.h"
 
 ABaseEnemy::ABaseEnemy()
 {
@@ -23,6 +25,9 @@ ABaseEnemy::ABaseEnemy()
 	SwordMesh->SetupAttachment(GetMesh(), FName("weaponsocket"));
 	SwordMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	SwordMesh->SetCastShadow(true);
+	
+	// Set default AI update rate from config
+	AIUpdateRate = GameplayConfig::Enemy::AI_UPDATE_RATE;
 }
 
 void ABaseEnemy::BeginPlay()
@@ -41,24 +46,26 @@ void ABaseEnemy::BeginPlay()
 			}
 		}
 	}
+	
+	// Bind to integrity component's OnReachedZero event
+	if (IntegrityComponent)
+	{
+		IntegrityComponent->OnReachedZero.AddDynamic(this, &ABaseEnemy::OnDeath);
+	}
+	
+	// Start AI update timer
+	if (GetWorld() && !bIsDead)
+	{
+		GetWorld()->GetTimerManager().SetTimer(AIUpdateTimer, this, &ABaseEnemy::TimerUpdateAI, AIUpdateRate, true);
+	}
 }
 
 void ABaseEnemy::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	
-	if (!bIsDead)
-	{
-		// Check if dead
-		if (IntegrityComponent && IntegrityComponent->GetCurrentValue() <= 0.0f)
-		{
-			OnDeath();
-		}
-		else
-		{
-			UpdateAIBehavior(DeltaTime);
-		}
-	}
+	// AI updates are now handled by timer
+	// This tick function is only kept for movement/animation purposes
 }
 
 void ABaseEnemy::UpdateAIBehavior(float DeltaTime)
@@ -69,7 +76,7 @@ void ABaseEnemy::UpdateAIBehavior(float DeltaTime)
 		UE_LOG(LogTemp, VeryVerbose, TEXT("%s: Checking combat start - Has target"), *GetName());
 		// Check both distance and line of sight
 		float Distance = FVector::Dist(GetActorLocation(), TargetActor->GetActorLocation());
-		if (Distance < 2500.0f) // Within detection range
+		if (Distance < GameplayConfig::Enemy::DETECTION_RANGE) // Within detection range
 		{
 			// Check line of sight
 			FHitResult HitResult;
@@ -77,8 +84,8 @@ void ABaseEnemy::UpdateAIBehavior(float DeltaTime)
 			QueryParams.AddIgnoredActor(this);
 			QueryParams.AddIgnoredActor(TargetActor);
 			
-			FVector Start = GetActorLocation() + FVector(0, 0, 50);
-			FVector End = TargetActor->GetActorLocation() + FVector(0, 0, 50);
+			FVector Start = GetActorLocation() + FVector(0, 0, GameplayConfig::Enemy::SIGHT_HEIGHT_OFFSET);
+			FVector End = TargetActor->GetActorLocation() + FVector(0, 0, GameplayConfig::Enemy::SIGHT_HEIGHT_OFFSET);
 			
 			bool bHasLineOfSight = !GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, QueryParams);
 			
@@ -97,7 +104,7 @@ void ABaseEnemy::UpdateAIBehavior(float DeltaTime)
 							// Show on screen message
 							if (GEngine)
 							{
-								GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Red, TEXT("COMBAT STARTED!"));
+								GEngine->AddOnScreenDebugMessage(-1, GameplayConfig::Enemy::COMBAT_MESSAGE_DURATION, FColor::Red, TEXT("COMBAT STARTED!"));
 							}
 						}
 					}
@@ -127,6 +134,12 @@ void ABaseEnemy::OnDeath()
 	
 	bIsDead = true;
 	
+	// Stop AI updates
+	if (GetWorld())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(AIUpdateTimer);
+	}
+	
 	// Stop all movement
 	GetCharacterMovement()->DisableMovement();
 	GetCharacterMovement()->StopMovementImmediately();
@@ -141,9 +154,29 @@ void ABaseEnemy::OnDeath()
 	// Add some impulse to make the death more dramatic
 	FVector ImpulseDirection = GetActorLocation() - (TargetActor ? TargetActor->GetActorLocation() : GetActorLocation());
 	ImpulseDirection.Normalize();
-	ImpulseDirection.Z = 0.5f; // Add some upward force
-	GetMesh()->AddImpulse(ImpulseDirection * 5000.0f, NAME_None, true);
+	ImpulseDirection.Z = GameplayConfig::Enemy::DEATH_IMPULSE_Z; // Add some upward force
+	GetMesh()->AddImpulse(ImpulseDirection * GameplayConfig::Enemy::DEATH_IMPULSE_MAGNITUDE, NAME_None, true);
 	
 	// Destroy actor after delay
-	SetLifeSpan(10.0f);
+	SetLifeSpan(GameplayConfig::Enemy::CORPSE_LIFESPAN);
+}
+
+void ABaseEnemy::TimerUpdateAI()
+{
+	if (!bIsDead)
+	{
+		// Call the existing UpdateAIBehavior with a fixed delta time
+		UpdateAIBehavior(AIUpdateRate);
+	}
+}
+
+void ABaseEnemy::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// Clean up timer
+	if (GetWorld())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(AIUpdateTimer);
+	}
+	
+	Super::EndPlay(EndPlayReason);
 }

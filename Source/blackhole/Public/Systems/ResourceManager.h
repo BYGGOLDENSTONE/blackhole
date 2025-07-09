@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "blackhole.h"
+#include "Config/GameplayConfig.h"
 #include "ResourceManager.generated.h"
 
 UENUM(BlueprintType)
@@ -98,6 +99,20 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Resources")
 	bool CanConsumeHeat(float Amount) const { return CurrentHeat >= Amount; }
+	
+	// Check if adding resources would cause overflow
+	UFUNCTION(BlueprintPure, Category = "Resources")
+	bool WouldAddingWPCauseOverflow(float Amount) const;
+	
+	UFUNCTION(BlueprintPure, Category = "Resources")
+	bool WouldAddingHeatCauseOverflow(float Amount) const;
+	
+	// Get warning thresholds
+	UFUNCTION(BlueprintPure, Category = "Resources")
+	float GetWPWarningThreshold() const { return MaxWP * GameplayConfig::Resources::WP_WARNING_PERCENT; } // 90%
+	
+	UFUNCTION(BlueprintPure, Category = "Resources")
+	float GetHeatWarningThreshold() const { return MaxHeat * GameplayConfig::Resources::HEAT_WARNING_PERCENT; } // 80%
 
 	// Consume heat (for Forge abilities)
 	UFUNCTION(BlueprintCallable, Category = "Resources")
@@ -166,11 +181,5 @@ private:
 	void CheckWPThreshold();
 	void EndOverheatShutdown();
 	
-	// Default values
-	static constexpr float DEFAULT_MAX_WP = 100.0f;
-	static constexpr float DEFAULT_MAX_HEAT = 100.0f;
-	static constexpr float DEFAULT_HEAT_DISSIPATION_RATE = 5.0f;
-	static constexpr float OVERHEAT_SHUTDOWN_DURATION = 3.0f;
-	static constexpr float HEAT_WARNING_THRESHOLD = 0.8f;
-	static constexpr float HEAT_OVERHEAT_THRESHOLD = 1.0f;
+	// Default values now in GameplayConfig.h
 };
