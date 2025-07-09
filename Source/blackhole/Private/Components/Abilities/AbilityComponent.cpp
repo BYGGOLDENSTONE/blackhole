@@ -5,6 +5,7 @@
 #include "Engine/GameInstance.h"
 #include "Components/Attributes/StaminaComponent.h"
 #include "Config/GameplayConfig.h"
+#include "Player/BlackholePlayerCharacter.h"
 
 UAbilityComponent::UAbilityComponent()
 {
@@ -57,6 +58,23 @@ void UAbilityComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 
 bool UAbilityComponent::CanExecute() const
 {
+	// Check if owner is dead
+	if (AActor* Owner = GetOwner())
+	{
+		if (ABlackholePlayerCharacter* PlayerOwner = Cast<ABlackholePlayerCharacter>(Owner))
+		{
+			if (PlayerOwner->IsDead())
+			{
+				return false;
+			}
+		}
+	}
+	else
+	{
+		// No owner - ability cannot execute
+		return false;
+	}
+	
 	// Check if ability is disabled (component tick disabled)
 	if (!IsComponentTickEnabled())
 	{
@@ -86,6 +104,11 @@ bool UAbilityComponent::CanExecute() const
 						return false;
 					}
 				}
+			}
+			else
+			{
+				// No owner to check stamina on
+				return false;
 			}
 		}
 
@@ -217,6 +240,10 @@ void UAbilityComponent::Execute()
 					{
 						StaminaComp->UseStamina(StaminaCost);
 					}
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("Ability %s: Cannot consume stamina - no owner"), *GetName());
 				}
 			}
 			

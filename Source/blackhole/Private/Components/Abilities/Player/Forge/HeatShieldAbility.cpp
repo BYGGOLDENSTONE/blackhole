@@ -21,6 +21,27 @@ UHeatShieldAbility::UHeatShieldAbility()
 	CurrentShieldHealth = 0.0f;
 }
 
+void UHeatShieldAbility::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// Clean up shield timer
+	if (UWorld* World = GetWorld())
+	{
+		if (World && ShieldDurationTimer.IsValid())
+		{
+			World->GetTimerManager().ClearTimer(ShieldDurationTimer);
+		}
+	}
+	
+	// Clean up active effect
+	if (ActiveShieldEffect)
+	{
+		ActiveShieldEffect->DestroyComponent();
+		ActiveShieldEffect = nullptr;
+	}
+	
+	Super::EndPlay(EndPlayReason);
+}
+
 bool UHeatShieldAbility::CanExecute() const
 {
 	if (!Super::CanExecute())
@@ -46,7 +67,14 @@ void UHeatShieldAbility::Execute()
 
 	Super::Execute();
 
-	ACharacter* Character = Cast<ACharacter>(GetOwner());
+	AActor* Owner = GetOwner();
+	if (!Owner)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("HeatShieldAbility: Execute failed - no owner"));
+		return;
+	}
+	
+	ACharacter* Character = Cast<ACharacter>(Owner);
 	if (!Character)
 	{
 		return;
@@ -80,17 +108,28 @@ void UHeatShieldAbility::Execute()
 	// Play activation sound
 	if (ShieldActivateSound)
 	{
-		UGameplayStatics::PlaySoundAtLocation(GetWorld(), ShieldActivateSound, Character->GetActorLocation());
+		if (UWorld* World = GetWorld())
+		{
+			UGameplayStatics::PlaySoundAtLocation(World, ShieldActivateSound, Character->GetActorLocation());
+		}
 	}
 
 	// Set timer for shield duration
-	GetWorld()->GetTimerManager().SetTimer(
-		ShieldDurationTimer,
-		this,
-		&UHeatShieldAbility::DeactivateShield,
-		ShieldDuration,
-		false
-	);
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().SetTimer(
+			ShieldDurationTimer,
+			this,
+			&UHeatShieldAbility::DeactivateShield,
+			ShieldDuration,
+			false
+		);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("HeatShieldAbility: Cannot set timer - no valid world"));
+		return;
+	}
 
 	UE_LOG(LogTemp, Log, TEXT("Heat Shield activated: %f HP for %f seconds"), MaxShieldHealth, ShieldDuration);
 }
@@ -114,7 +153,13 @@ float UHeatShieldAbility::AbsorbDamage(float IncomingDamage)
 	// Play hit sound
 	if (ShieldHitSound && DamageToAbsorb > 0.0f)
 	{
-		UGameplayStatics::PlaySoundAtLocation(GetWorld(), ShieldHitSound, GetOwner()->GetActorLocation());
+		if (AActor* Owner = GetOwner())
+		{
+			if (UWorld* World = GetWorld())
+			{
+				UGameplayStatics::PlaySoundAtLocation(World, ShieldHitSound, Owner->GetActorLocation());
+			}
+		}
 	}
 
 	// Check if shield broke
@@ -150,7 +195,10 @@ void UHeatShieldAbility::DeactivateShield()
 	}
 
 	// Clear timer
-	GetWorld()->GetTimerManager().ClearTimer(ShieldDurationTimer);
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(ShieldDurationTimer);
+	}
 
 	UE_LOG(LogTemp, Log, TEXT("Heat Shield deactivated"));
 }
@@ -161,21 +209,33 @@ void UHeatShieldAbility::BreakShield(float RemainingDamage)
 	OnShieldBroken.Broadcast(RemainingDamage);
 
 	// Play break effect
-	if (ShieldBreakEffect && GetOwner())
+	if (ShieldBreakEffect)
 	{
-		UGameplayStatics::SpawnEmitterAtLocation(
-			GetWorld(),
-			ShieldBreakEffect,
-			GetOwner()->GetActorLocation(),
-			FRotator::ZeroRotator,
-			FVector(1.5f)
-		);
+		if (AActor* Owner = GetOwner())
+		{
+			if (UWorld* World = GetWorld())
+			{
+				UGameplayStatics::SpawnEmitterAtLocation(
+					World,
+					ShieldBreakEffect,
+					Owner->GetActorLocation(),
+					FRotator::ZeroRotator,
+					FVector(1.5f)
+				);
+			}
+		}
 	}
 
 	// Play break sound
 	if (ShieldBreakSound)
 	{
-		UGameplayStatics::PlaySoundAtLocation(GetWorld(), ShieldBreakSound, GetOwner()->GetActorLocation());
+		if (AActor* Owner = GetOwner())
+		{
+			if (UWorld* World = GetWorld())
+			{
+				UGameplayStatics::PlaySoundAtLocation(World, ShieldBreakSound, Owner->GetActorLocation());
+			}
+		}
 	}
 
 	// Deactivate shield

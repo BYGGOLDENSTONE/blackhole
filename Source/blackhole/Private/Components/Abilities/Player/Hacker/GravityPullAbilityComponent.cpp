@@ -58,7 +58,13 @@ void UGravityPullAbilityComponent::Execute()
     float FinalLaunchForce = BaseLaunchForce * LaunchForceMultiplier;
 
     // Get player location
-    FVector PlayerLocation = GetOwner()->GetActorLocation();
+    AActor* Owner = GetOwner();
+    if (!Owner)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("GravityPull: No owner"));
+        return;
+    }
+    FVector PlayerLocation = Owner->GetActorLocation();
 
     // Launch the object (it will determine direction based on player location)
     HackableComp->OnHacked(FinalLaunchForce, PlayerLocation);

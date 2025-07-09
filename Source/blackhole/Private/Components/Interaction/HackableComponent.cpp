@@ -38,7 +38,10 @@ void UHackableComponent::OnTargeted()
         MeshComponent->SetMaterial(0, HighlightMaterial);
     }
 
-    UE_LOG(LogTemp, Warning, TEXT("Hackable object targeted: %s"), *GetOwner()->GetName());
+    if (AActor* Owner = GetOwner())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Hackable object targeted: %s"), *Owner->GetName());
+    }
 }
 
 void UHackableComponent::OnUntargeted()
@@ -88,8 +91,11 @@ void UHackableComponent::OnHacked(float LaunchForce, const FVector& PlayerLocati
     GetWorld()->GetTimerManager().SetTimer(ResetHackableTimer, this, 
         &UHackableComponent::ResetHackableState, 5.0f, false);
 
-    UE_LOG(LogTemp, Warning, TEXT("Hackable object launched: %s with force %f in direction %s"), 
-        *GetOwner()->GetName(), LaunchForce, *Direction.ToString());
+    if (AActor* Owner = GetOwner())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Hackable object launched: %s with force %f in direction %s"), 
+            *Owner->GetName(), LaunchForce, *Direction.ToString());
+    }
 }
 
 FVector UHackableComponent::GetLaunchDirection(const FVector& PlayerLocation) const

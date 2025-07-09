@@ -93,6 +93,12 @@ void UThresholdManager::EndCombat()
 	// Clean up invalid abilities before processing
 	CleanupInvalidAbilities();
 	
+	// Clear all timers for this object
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearAllTimersForObject(this);
+	}
+	
 	// Re-enable all abilities
 	for (int32 i = DisabledAbilities.Num() - 1; i >= 0; i--)
 	{
@@ -122,6 +128,7 @@ void UThresholdManager::EndCombat()
 	}
 	
 	DisabledAbilities.Empty();
+	AllPlayerAbilities.Empty(); // Clear the array to prevent stale references
 	CurrentBuff = FSurvivorBuff();
 	
 	OnCombatEnded.Broadcast();
@@ -140,6 +147,9 @@ void UThresholdManager::OnWPThresholdChanged(EResourceThreshold NewThreshold)
 	{
 		return;
 	}
+	
+	// Clean up invalid abilities before processing
+	CleanupInvalidAbilities();
 	
 	// Handle new threshold system
 	switch (NewThreshold)
@@ -180,6 +190,9 @@ void UThresholdManager::OnWPMaxReachedHandler(int32 TimesReached)
 		return;
 	}
 	
+	// Clean up invalid abilities before processing
+	CleanupInvalidAbilities();
+	
 	// Ensure ResourceManager is valid
 	if (!IsValid(ResourceManager))
 	{
@@ -199,6 +212,8 @@ void UThresholdManager::OnWPMaxReachedHandler(int32 TimesReached)
 	// Check if player has already lost 3 abilities - trigger death
 	if (DisabledAbilities.Num() >= GameplayConfig::Thresholds::MAX_DISABLED_ABILITIES)
 	{
+		// End combat first to clean up properly
+		EndCombat();
 		OnPlayerDeath.Broadcast();
 		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: Player death triggered - WP reached 100%% after losing %d abilities!"), DisabledAbilities.Num());
 		return;
@@ -207,6 +222,8 @@ void UThresholdManager::OnWPMaxReachedHandler(int32 TimesReached)
 	// Also check if this is the max times overall - trigger death
 	if (TimesReached >= GameplayConfig::Thresholds::MAX_WP_REACHES)
 	{
+		// End combat first to clean up properly
+		EndCombat();
 		OnPlayerDeath.Broadcast();
 		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: Player death triggered - WP reached 100%% for the 4th time!"));
 		return;

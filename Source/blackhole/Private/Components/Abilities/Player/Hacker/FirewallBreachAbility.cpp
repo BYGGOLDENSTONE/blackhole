@@ -71,36 +71,42 @@ void UFirewallBreachAbility::Execute()
 		FCollisionQueryParams QueryParams;
 		QueryParams.AddIgnoredActor(Owner);
 		
-		if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Pawn, QueryParams))
+		if (UWorld* World = GetWorld())
 		{
-			if (AActor* HitActor = HitResult.GetActor())
+			if (World->LineTraceSingleByChannel(HitResult, Start, End, ECC_Pawn, QueryParams))
 			{
-				// Apply armor shred effect to enemy
-				if (HitActor->ActorHasTag("Enemy") || HitActor->IsA<ABaseEnemy>())
+				if (AActor* HitActor = HitResult.GetActor())
 				{
-					// Simple implementation: Tag the enemy as armor-breached
-					HitActor->Tags.AddUnique("ArmorBreached");
-					
-					// Set timer to remove effect
-					FTimerHandle RemoveEffectTimer;
-					GetWorld()->GetTimerManager().SetTimer(RemoveEffectTimer, 
-						[HitActor]()
+					// Apply armor shred effect to enemy
+					if (HitActor->ActorHasTag("Enemy") || HitActor->IsA<ABaseEnemy>())
+					{
+						// Simple implementation: Tag the enemy as armor-breached
+						HitActor->Tags.AddUnique("ArmorBreached");
+						
+						// Set timer to remove effect
+						FTimerHandle RemoveEffectTimer;
+						if (UWorld* TimerWorld = GetWorld())
 						{
-							if (IsValid(HitActor))
-							{
-								HitActor->Tags.Remove("ArmorBreached");
-							}
-						}, 
-						EffectDuration, false);
-					
-					UE_LOG(LogTemp, Log, TEXT("FirewallBreach: Applied armor shred to %s"), *HitActor->GetName());
+							TimerWorld->GetTimerManager().SetTimer(RemoveEffectTimer, 
+								[HitActor]()
+								{
+									if (IsValid(HitActor))
+									{
+										HitActor->Tags.Remove("ArmorBreached");
+									}
+								}, 
+								EffectDuration, false);
+						}
+						
+						UE_LOG(LogTemp, Log, TEXT("FirewallBreach: Applied armor shred to %s"), *HitActor->GetName());
+					}
 				}
 			}
+			
+			#if WITH_EDITOR
+			DrawDebugLine(World, Start, End, FColor::Purple, false, 1.0f, 0, 2.0f);
+			#endif
 		}
-		
-		#if WITH_EDITOR
-		DrawDebugLine(GetWorld(), Start, End, FColor::Purple, false, 1.0f, 0, 2.0f);
-		#endif
 	}
 }
 
@@ -126,15 +132,23 @@ void UFirewallBreachAbility::ExecuteUltimate()
 		
 		FVector OwnerLocation = Owner->GetActorLocation();
 		
-		GetWorld()->SweepMultiByChannel(
-			HitResults,
-			OwnerLocation,
-			OwnerLocation,
-			FQuat::Identity,
-			ECC_Pawn,
-			FCollisionShape::MakeSphere(UltimateRadius),
-			QueryParams
-		);
+		if (UWorld* World = GetWorld())
+		{
+			World->SweepMultiByChannel(
+				HitResults,
+				OwnerLocation,
+				OwnerLocation,
+				FQuat::Identity,
+				ECC_Pawn,
+				FCollisionShape::MakeSphere(UltimateRadius),
+				QueryParams
+			);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("FirewallBreachAbility: Cannot sweep - no valid world"));
+			return;
+		}
 		
 		int32 EnemiesBreached = 0;
 		
@@ -154,16 +168,19 @@ void UFirewallBreachAbility::ExecuteUltimate()
 					
 					// Set timer to remove effect
 					FTimerHandle RemoveEffectTimer;
-					GetWorld()->GetTimerManager().SetTimer(RemoveEffectTimer, 
-						[HitActor]()
-						{
-							if (IsValid(HitActor))
+					if (UWorld* TimerWorld = GetWorld())
+					{
+						TimerWorld->GetTimerManager().SetTimer(RemoveEffectTimer, 
+							[HitActor]()
 							{
-								HitActor->Tags.Remove("TotalArmorBreach");
-								HitActor->Tags.Remove("ArmorBreached");
-							}
-						}, 
-						UltimateDuration, false);
+								if (IsValid(HitActor))
+								{
+									HitActor->Tags.Remove("TotalArmorBreach");
+									HitActor->Tags.Remove("ArmorBreached");
+								}
+							}, 
+							UltimateDuration, false);
+					}
 					
 					EnemiesBreached++;
 					
@@ -177,17 +194,20 @@ void UFirewallBreachAbility::ExecuteUltimate()
 		
 		#if WITH_EDITOR
 		// Draw debug sphere showing affected area
-		DrawDebugSphere(GetWorld(), OwnerLocation, UltimateRadius, 32, FColor::Purple, false, 2.0f);
-		
-		// Draw lines to all breached enemies
-		for (const FHitResult& Result : HitResults)
+		if (UWorld* World = GetWorld())
 		{
-			if (AActor* HitActor = Result.GetActor())
+			DrawDebugSphere(World, OwnerLocation, UltimateRadius, 32, FColor::Purple, false, 2.0f);
+			
+			// Draw lines to all breached enemies
+			for (const FHitResult& Result : HitResults)
 			{
-				if (HitActor->ActorHasTag("TotalArmorBreach"))
+				if (AActor* HitActor = Result.GetActor())
 				{
-					DrawDebugLine(GetWorld(), OwnerLocation, HitActor->GetActorLocation(), 
-						FColor::Purple, false, 2.0f, 0, 3.0f);
+					if (HitActor->ActorHasTag("TotalArmorBreach"))
+					{
+						DrawDebugLine(World, OwnerLocation, HitActor->GetActorLocation(), 
+							FColor::Purple, false, 2.0f, 0, 3.0f);
+					}
 				}
 			}
 		}

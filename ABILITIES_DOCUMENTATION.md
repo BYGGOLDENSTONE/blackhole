@@ -240,6 +240,48 @@ When Hacker path WP reaches 100%:
 - No fall damage
 - UI shows jump cooldown
 
+#### Data Spike (R) ✅
+**Type**: Piercing Projectile with DOT  
+**Resources**: 12 Stamina, +18 WP  
+**Cooldown**: 6 seconds  
+**Range**: 3000 units  
+**Pierce Count**: 3 enemies  
+
+**Mechanics**:
+- Fires digital projectile
+- Pierces through enemies
+- 75 direct damage
+- Applies data corruption DOT
+- 25 damage per second for 5 seconds
+- Visual corruption effect
+
+**Ultimate - System Corruption**:
+- Pierces ALL enemies in line
+- 2x damage multiplier
+- Enhanced DOT (50 dmg/sec)
+- Cleanses 20 WP on use
+- Devastating line clear
+
+#### System Override (F) ✅
+**Type**: Area Disable  
+**Resources**: 30 Stamina, +30 WP  
+**Cooldown**: 10 seconds  
+**Radius**: 800 units  
+
+**Mechanics**:
+- Disables all enemies in radius
+- 200 initial damage
+- 3 second lockdown
+- Cleanses 15 WP
+- Blue override visual
+
+**Ultimate - Total System Shutdown**:
+- Enhanced when used at 100% WP
+- 5 second lockdown duration
+- Cleanses 22.5 WP (1.5x)
+- Screen distortion effect
+- Complete area denial
+
 ### Forge Path Abilities
 
 #### Molten Mace Slash (RMB) ✅
@@ -346,7 +388,9 @@ UAbilityComponent (Base)
 ├── UHackerAbility
 │   ├── UFirewallBreachAbility
 │   ├── UPulseHackAbility
-│   └── UGravityPullAbilityComponent
+│   ├── UGravityPullAbilityComponent
+│   ├── UDataSpikeAbility
+│   └── USystemOverrideAbility
 └── UForgeAbility
     ├── UMoltenMaceSlashAbility
     ├── UHeatShieldAbility

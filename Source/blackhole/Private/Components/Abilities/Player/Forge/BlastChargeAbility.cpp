@@ -26,6 +26,43 @@ UBlastChargeAbility::UBlastChargeAbility()
 	bIsCharging = false;
 }
 
+void UBlastChargeAbility::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// Clean up charge timer
+	if (UWorld* World = GetWorld())
+	{
+		if (World && ChargeTimerHandle.IsValid())
+		{
+			World->GetTimerManager().ClearTimer(ChargeTimerHandle);
+		}
+	}
+	
+	// Clean up active charge effect
+	if (ActiveChargeEffect)
+	{
+		ActiveChargeEffect->DestroyComponent();
+		ActiveChargeEffect = nullptr;
+	}
+	
+	// Reset movement speed if still charging
+	if (bIsCharging)
+	{
+		if (AActor* Owner = GetOwner())
+		{
+			if (ACharacter* Character = Cast<ACharacter>(Owner))
+			{
+				if (UCharacterMovementComponent* Movement = Character->GetCharacterMovement())
+				{
+					Movement->MaxWalkSpeed *= 2.0f; // Restore speed (inverse of 0.5f)
+				}
+			}
+		}
+		bIsCharging = false;
+	}
+	
+	Super::EndPlay(EndPlayReason);
+}
+
 bool UBlastChargeAbility::CanExecute() const
 {
 	if (!Super::CanExecute())
@@ -51,7 +88,14 @@ void UBlastChargeAbility::Execute()
 
 	Super::Execute();
 
-	ACharacter* Character = Cast<ACharacter>(GetOwner());
+	AActor* Owner = GetOwner();
+	if (!Owner)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("BlastChargeAbility: Execute failed - no owner"));
+		return;
+	}
+	
+	ACharacter* Character = Cast<ACharacter>(Owner);
 	if (!Character)
 	{
 		return;
@@ -83,17 +127,28 @@ void UBlastChargeAbility::Execute()
 	// Play charge sound
 	if (ChargeSound)
 	{
-		UGameplayStatics::PlaySoundAtLocation(GetWorld(), ChargeSound, Character->GetActorLocation());
+		if (UWorld* World = GetWorld())
+		{
+			UGameplayStatics::PlaySoundAtLocation(World, ChargeSound, Character->GetActorLocation());
+		}
 	}
 
 	// Set timer to execute blast
-	GetWorld()->GetTimerManager().SetTimer(
-		ChargeTimerHandle,
-		this,
-		&UBlastChargeAbility::ExecuteBlast,
-		ChargeTime,
-		false
-	);
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().SetTimer(
+			ChargeTimerHandle,
+			this,
+			&UBlastChargeAbility::ExecuteBlast,
+			ChargeTime,
+			false
+		);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("BlastChargeAbility: Cannot set timer - no valid world"));
+		return;
+	}
 
 	UE_LOG(LogTemp, Log, TEXT("Blast Charge charging for %f seconds"), ChargeTime);
 }
@@ -102,7 +157,14 @@ void UBlastChargeAbility::ExecuteBlast()
 {
 	bIsCharging = false;
 
-	ACharacter* Character = Cast<ACharacter>(GetOwner());
+	AActor* Owner = GetOwner();
+	if (!Owner)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("BlastChargeAbility: ExecuteBlast failed - no owner"));
+		return;
+	}
+	
+	ACharacter* Character = Cast<ACharacter>(Owner);
 	if (!Character)
 	{
 		return;
@@ -129,15 +191,23 @@ void UBlastChargeAbility::ExecuteBlast()
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(Character);
 
-	GetWorld()->SweepMultiByChannel(
-		HitResults,
-		BlastLocation,
-		BlastLocation,
-		FQuat::Identity,
-		ECC_WorldDynamic,
-		FCollisionShape::MakeSphere(BlastRadius),
-		QueryParams
-	);
+	if (UWorld* World = GetWorld())
+	{
+		World->SweepMultiByChannel(
+			HitResults,
+			BlastLocation,
+			BlastLocation,
+			FQuat::Identity,
+			ECC_WorldDynamic,
+			FCollisionShape::MakeSphere(BlastRadius),
+			QueryParams
+		);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("BlastChargeAbility: Cannot sweep - no valid world"));
+		return;
+	}
 
 	// Apply effects to all hit actors
 	for (const FHitResult& Result : HitResults)
@@ -185,19 +255,25 @@ void UBlastChargeAbility::ExecuteBlast()
 	// Spawn blast visual effect
 	if (BlastEffect)
 	{
-		UGameplayStatics::SpawnEmitterAtLocation(
-			GetWorld(),
-			BlastEffect,
-			BlastLocation,
-			FRotator::ZeroRotator,
-			FVector(1.0f)
-		);
+		if (UWorld* World = GetWorld())
+		{
+			UGameplayStatics::SpawnEmitterAtLocation(
+				World,
+				BlastEffect,
+				BlastLocation,
+				FRotator::ZeroRotator,
+				FVector(1.0f)
+			);
+		}
 	}
 
 	// Play blast sound
 	if (BlastSound)
 	{
-		UGameplayStatics::PlaySoundAtLocation(GetWorld(), BlastSound, BlastLocation);
+		if (UWorld* World = GetWorld())
+		{
+			UGameplayStatics::PlaySoundAtLocation(World, BlastSound, BlastLocation);
+		}
 	}
 
 	// Camera shake
@@ -211,7 +287,10 @@ void UBlastChargeAbility::ExecuteBlast()
 
 	// Debug visualization
 #if WITH_EDITOR
-	DrawDebugSphere(GetWorld(), BlastLocation, BlastRadius, 32, FColor::Orange, false, 2.0f);
+	if (UWorld* World = GetWorld())
+	{
+		DrawDebugSphere(World, BlastLocation, BlastRadius, 32, FColor::Orange, false, 2.0f);
+	}
 #endif
 
 	UE_LOG(LogTemp, Log, TEXT("Blast Charge executed at %s with radius %f"), *BlastLocation.ToString(), BlastRadius);

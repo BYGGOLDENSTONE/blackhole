@@ -33,7 +33,10 @@ void USlashAbilityComponent::BeginPlay()
 	Super::BeginPlay();
 	
 	// Cache owner character
-	OwnerCharacter = Cast<ABlackholePlayerCharacter>(GetOwner());
+	if (AActor* Owner = GetOwner())
+	{
+		OwnerCharacter = Cast<ABlackholePlayerCharacter>(Owner);
+	}
 }
 
 bool USlashAbilityComponent::CanExecute() const

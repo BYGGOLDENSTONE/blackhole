@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
 #include "blackhole.h"
+#include "Systems/GameStateManager.h"
 #include "BlackholeHUD.generated.h"
 
 class ABlackholePlayerCharacter;
@@ -17,6 +18,8 @@ class UKillAbilityComponent;
 class UFirewallBreachAbility;
 class UPulseHackAbility;
 class UGravityPullAbilityComponent;
+class UDataSpikeAbility;
+class USystemOverrideAbility;
 class UHackerDashAbility;
 class UHackerJumpAbility;
 class UMoltenMaceSlashAbility;
@@ -26,6 +29,7 @@ class UHammerStrikeAbility;
 class UForgeDashAbility;
 class UForgeJumpAbility;
 class UComboComponent;
+class USimplePauseMenu;
 
 UCLASS()
 class BLACKHOLE_API ABlackholeHUD : public AHUD
@@ -36,12 +40,56 @@ public:
 	ABlackholeHUD();
 
 	virtual void DrawHUD() override;
+	
+	// Called when the menu toggle key is pressed
+	void OnMenuTogglePressed();
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	// Menu management
+	void ShowMainMenu();
+	void ShowPauseMenu();
+	void ShowGameOverMenu();
+	void HideAllMenus();
+	
+	// Input handling
+	void SetupInputComponent();
+	void OnEscapePressed();
+	
+	// State change handler
+	UFUNCTION()
+	void OnGameStateChanged(EGameState NewState);
 
 	UPROPERTY()
 	ABlackholePlayerCharacter* PlayerCharacter;
+	
+	// Menu widget classes - must be set in Blueprint
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<class UMainMenuWidget> MainMenuWidgetClass;
+	
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<class UPauseMenuWidget> PauseMenuWidgetClass;
+	
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<class UGameOverWidget> GameOverWidgetClass;
+	
+	// Menu widget instances
+	UPROPERTY()
+	class UMainMenuWidget* MainMenuWidget;
+	
+	UPROPERTY()
+	class UPauseMenuWidget* PauseMenuWidget;
+	
+	UPROPERTY()
+	class USimplePauseMenu* SimplePauseMenu;
+	
+	UPROPERTY()
+	class UGameOverWidget* GameOverWidget;
+	
+	UPROPERTY()
+	class UGameStateManager* GameStateManager;
 	
 	UPROPERTY()
 	UResourceManager* ResourceManager;
@@ -65,6 +113,12 @@ protected:
 	
 	UPROPERTY()
 	class UGravityPullAbilityComponent* CachedGravityPull;
+	
+	UPROPERTY()
+	class UDataSpikeAbility* CachedDataSpike;
+	
+	UPROPERTY()
+	class USystemOverrideAbility* CachedSystemOverride;
 	
 	UPROPERTY()
 	class UHackerDashAbility* CachedHackerDash;

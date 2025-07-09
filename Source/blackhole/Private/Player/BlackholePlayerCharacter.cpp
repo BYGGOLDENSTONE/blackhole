@@ -15,6 +15,8 @@
 #include "Components/Attributes/HeatComponent.h"
 #include "Systems/ResourceManager.h"
 #include "Systems/ThresholdManager.h"
+#include "Systems/GameStateManager.h"
+#include "UI/BlackholeHUD.h"
 #include "Components/Abilities/Player/Basic/SlashAbilityComponent.h"
 // #include "Components/Abilities/Player/SystemFreezeAbilityComponent.h" // Removed
 #include "Components/Abilities/Player/Basic/KillAbilityComponent.h"
@@ -25,6 +27,8 @@
 #include "Components/Abilities/Player/Utility/ForgeJumpAbility.h"
 #include "Components/Abilities/Player/Hacker/PulseHackAbility.h"
 #include "Components/Abilities/Player/Hacker/FirewallBreachAbility.h"
+#include "Components/Abilities/Player/Hacker/DataSpikeAbility.h"
+#include "Components/Abilities/Player/Hacker/SystemOverrideAbility.h"
 #include "Components/Abilities/Player/Forge/MoltenMaceSlashAbility.h"
 #include "Components/Abilities/Player/Forge/HeatShieldAbility.h"
 #include "Components/Abilities/Player/Forge/BlastChargeAbility.h"
@@ -78,6 +82,8 @@ ABlackholePlayerCharacter::ABlackholePlayerCharacter()
 	// Create path-specific combat abilities
 	PulseHackAbility = CreateDefaultSubobject<UPulseHackAbility>(TEXT("PulseHackAbility"));
 	FirewallBreachAbility = CreateDefaultSubobject<UFirewallBreachAbility>(TEXT("FirewallBreachAbility"));
+	DataSpikeAbility = CreateDefaultSubobject<UDataSpikeAbility>(TEXT("DataSpikeAbility"));
+	SystemOverrideAbility = CreateDefaultSubobject<USystemOverrideAbility>(TEXT("SystemOverrideAbility"));
 	MoltenMaceSlashAbility = CreateDefaultSubobject<UMoltenMaceSlashAbility>(TEXT("MoltenMaceSlashAbility"));
 	HeatShieldAbility = CreateDefaultSubobject<UHeatShieldAbility>(TEXT("HeatShieldAbility"));
 	BlastChargeAbility = CreateDefaultSubobject<UBlastChargeAbility>(TEXT("BlastChargeAbility"));
@@ -116,6 +122,9 @@ ABlackholePlayerCharacter::ABlackholePlayerCharacter()
 void ABlackholePlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	// Reset death state on BeginPlay - fixes crash when restarting after death
+	bIsDead = false;
 
 	// Add Input Mapping Context
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
@@ -264,6 +273,9 @@ void ABlackholePlayerCharacter::SetupPlayerInputComponent(UInputComponent* Playe
 		
 		// Path switching
 		EnhancedInputComponent->BindAction(SwitchPathAction, ETriggerEvent::Triggered, this, &ABlackholePlayerCharacter::SwitchPath);
+		
+		// Menu toggle (Quote key)
+		EnhancedInputComponent->BindAction(MenuToggleAction, ETriggerEvent::Triggered, this, &ABlackholePlayerCharacter::ToggleMenu);
 		
 		// Path-based ability slots (6 total)
 		EnhancedInputComponent->BindAction(AbilitySlot1Action, ETriggerEvent::Triggered, this, &ABlackholePlayerCharacter::UseAbilitySlot1);
@@ -637,6 +649,18 @@ void ABlackholePlayerCharacter::SwitchPath()
 	}
 }
 
+void ABlackholePlayerCharacter::ToggleMenu()
+{
+	// Get the HUD and tell it to handle menu toggle
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		if (ABlackholeHUD* GameHUD = Cast<ABlackholeHUD>(PC->GetHUD()))
+		{
+			GameHUD->OnMenuTogglePressed();
+		}
+	}
+}
+
 void ABlackholePlayerCharacter::SetCurrentPath(ECharacterPath NewPath)
 {
 	CurrentPath = NewPath;
@@ -737,16 +761,16 @@ void ABlackholePlayerCharacter::UseAbilitySlot4()
 void ABlackholePlayerCharacter::UseAbilitySlot5()
 {
 	// R key
-	// Hacker: Reserved | Forge: Hammer Strike
-	ExecutePathBasedAbility(nullptr, HammerStrikeAbility);
+	// Hacker: Data Spike | Forge: Hammer Strike
+	ExecutePathBasedAbility(DataSpikeAbility, HammerStrikeAbility);
 }
 
 void ABlackholePlayerCharacter::UseAbilitySlot6()
 {
-	// F key - Reserved for ultimate abilities
-	// Hacker: Reserved | Forge: Reserved
-	// TODO: Implement ultimate abilities
-	ExecutePathBasedAbility(nullptr, nullptr);
+	// F key - Ultimate abilities
+	// Hacker: System Override | Forge: Reserved
+	// TODO: Implement Forge F key ability
+	ExecutePathBasedAbility(SystemOverrideAbility, nullptr);
 }
 
 void ABlackholePlayerCharacter::UpdateWeaponVisibility()
@@ -791,6 +815,31 @@ void ABlackholePlayerCharacter::Die()
 	
 	UE_LOG(LogTemp, Error, TEXT("PLAYER DEATH!"));
 	
+	// First, clear all timers for this actor to prevent crashes
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearAllTimersForObject(this);
+	}
+	
+	// Unbind from all delegates BEFORE disabling components
+	if (IsValid(ComboComponent))
+	{
+		ComboComponent->OnComboPerformed.RemoveDynamic(this, &ABlackholePlayerCharacter::OnComboPerformed);
+	}
+	
+	if (IsValid(IntegrityComponent))
+	{
+		IntegrityComponent->OnReachedZero.RemoveDynamic(this, &ABlackholePlayerCharacter::Die);
+	}
+	
+	if (UWorld* World = GetWorld())
+	{
+		if (UThresholdManager* ThresholdMgr = World->GetSubsystem<UThresholdManager>())
+		{
+			ThresholdMgr->OnPlayerDeath.RemoveDynamic(this, &ABlackholePlayerCharacter::OnThresholdDeath);
+		}
+	}
+	
 	// Reset camera to third person on death to prevent FP crashes
 	if (bIsFirstPerson && IsValid(CameraComponent) && IsValid(SpringArmComponent))
 	{
@@ -813,12 +862,6 @@ void ABlackholePlayerCharacter::Die()
 		SetHeadVisibility(true);
 	}
 	
-	// Unbind from combo component events to prevent crashes
-	if (IsValid(ComboComponent))
-	{
-		ComboComponent->OnComboPerformed.RemoveDynamic(this, &ABlackholePlayerCharacter::OnComboPerformed);
-	}
-	
 	// Disable all abilities safely
 	TArray<UActorComponent*> AllComponents = GetComponents().Array();
 	for (UActorComponent* Component : AllComponents)
@@ -827,6 +870,11 @@ void ABlackholePlayerCharacter::Die()
 		{
 			if (UAbilityComponent* Ability = Cast<UAbilityComponent>(Component))
 			{
+				// Clear any timers in the ability
+				if (UWorld* World = GetWorld())
+				{
+					World->GetTimerManager().ClearAllTimersForObject(Ability);
+				}
 				Ability->SetComponentTickEnabled(false);
 			}
 		}
@@ -847,14 +895,26 @@ void ABlackholePlayerCharacter::Die()
 	
 	// Play death animation/effects here
 	// For now, just make the character fall
-	GetMesh()->SetSimulatePhysics(true);
-	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	if (IsValid(GetMesh()))
+	{
+		GetMesh()->SetSimulatePhysics(true);
+		GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	}
 	
 	// Show death message
 	if (GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("YOU DIED!"));
-		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("Press ESC to quit"));
+		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("Press ESC to restart"));
+	}
+	
+	// Notify GameStateManager
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UGameStateManager* GameStateMgr = GameInstance->GetSubsystem<UGameStateManager>())
+		{
+			GameStateMgr->EndGame(true);
+		}
 	}
 }
 

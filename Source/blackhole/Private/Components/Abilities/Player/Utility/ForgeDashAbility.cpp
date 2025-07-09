@@ -71,10 +71,13 @@ void UForgeDashAbility::ApplyMovement(ACharacter* Character)
 	
 	#if WITH_EDITOR
 	// Debug visualization
-	FVector Start = Character->GetActorLocation();
-	FVector End = Start + (ChargeDirection * ChargeSpeed * ChargeDuration);
-	DrawDebugLine(GetWorld(), Start, End, FColor::Orange, false, 2.0f, 0, 8.0f);
-	DrawDebugSphere(GetWorld(), End, ImpactRadius, 12, FColor::Red, false, 2.0f);
+	if (UWorld* World = GetWorld())
+	{
+		FVector Start = Character->GetActorLocation();
+		FVector End = Start + (ChargeDirection * ChargeSpeed * ChargeDuration);
+		DrawDebugLine(World, Start, End, FColor::Orange, false, 2.0f, 0, 8.0f);
+		DrawDebugSphere(World, End, ImpactRadius, 12, FColor::Red, false, 2.0f);
+	}
 	#endif
 }
 
@@ -109,7 +112,8 @@ void UForgeDashAbility::StopMovement()
 
 void UForgeDashAbility::OnCharacterHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	if (!bIsCharging || !OtherActor || OtherActor == GetOwner())
+	AActor* Owner = GetOwner();
+	if (!bIsCharging || !OtherActor || !Owner || OtherActor == Owner)
 	{
 		return;
 	}
@@ -126,7 +130,7 @@ void UForgeDashAbility::OnCharacterHit(UPrimitiveComponent* HitComp, AActor* Oth
 		// Apply stagger (knockback)
 		if (ACharacter* EnemyCharacter = Cast<ACharacter>(OtherActor))
 		{
-			FVector KnockbackDirection = (OtherActor->GetActorLocation() - GetOwner()->GetActorLocation()).GetSafeNormal();
+			FVector KnockbackDirection = (OtherActor->GetActorLocation() - Owner->GetActorLocation()).GetSafeNormal();
 			KnockbackDirection.Z = 0.3f; // Add slight upward component
 			
 			if (UCharacterMovementComponent* EnemyMovement = EnemyCharacter->GetCharacterMovement())
@@ -136,7 +140,10 @@ void UForgeDashAbility::OnCharacterHit(UPrimitiveComponent* HitComp, AActor* Oth
 		}
 		
 		// End charge early on impact
-		GetWorld()->GetTimerManager().ClearTimer(MovementTimerHandle);
+		if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().ClearTimer(MovementTimerHandle);
+		}
 		StopMovement();
 	}
 }

@@ -39,7 +39,14 @@ void UPulseHackAbility::Execute()
 
 	Super::Execute();
 
-	ACharacter* Character = Cast<ACharacter>(GetOwner());
+	AActor* Owner = GetOwner();
+	if (!Owner)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("PulseHackAbility: Execute failed - no owner"));
+		return;
+	}
+	
+	ACharacter* Character = Cast<ACharacter>(Owner);
 	if (!Character)
 	{
 		return;
@@ -52,15 +59,23 @@ void UPulseHackAbility::Execute()
 
 	FVector CharacterLocation = Character->GetActorLocation();
 
-	GetWorld()->SweepMultiByChannel(
-		HitResults,
-		CharacterLocation,
-		CharacterLocation,
-		FQuat::Identity,
-		ECC_Pawn,
-		FCollisionShape::MakeSphere(HackRadius),
-		QueryParams
-	);
+	if (UWorld* World = GetWorld())
+	{
+		World->SweepMultiByChannel(
+			HitResults,
+			CharacterLocation,
+			CharacterLocation,
+			FQuat::Identity,
+			ECC_Pawn,
+			FCollisionShape::MakeSphere(HackRadius),
+			QueryParams
+		);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("PulseHackAbility: Cannot sweep - no valid world"));
+		return;
+	}
 
 	// Track enemies hit for WP refund
 	int32 EnemiesHit = 0;
@@ -86,14 +101,17 @@ void UPulseHackAbility::Execute()
 	{
 		float CleansingAmount = FMath::Min(EnemiesHit * WPRefundPerEnemy, MaxWPRefund);
 		
-		if (UGameInstance* GameInstance = GetWorld()->GetGameInstance())
+		if (UWorld* World = GetWorld())
 		{
-			if (UResourceManager* ResourceMgr = GameInstance->GetSubsystem<UResourceManager>())
+			if (UGameInstance* GameInstance = World->GetGameInstance())
 			{
-				// Reduce WP corruption (negative value to AddWillPower reduces WP)
-				ResourceMgr->AddWillPower(-CleansingAmount);
-				
-				UE_LOG(LogTemp, Log, TEXT("Pulse Hack: Hit %d enemies, cleansed %.1f WP corruption"), EnemiesHit, CleansingAmount);
+				if (UResourceManager* ResourceMgr = GameInstance->GetSubsystem<UResourceManager>())
+				{
+					// Reduce WP corruption (negative value to AddWillPower reduces WP)
+					ResourceMgr->AddWillPower(-CleansingAmount);
+					
+					UE_LOG(LogTemp, Log, TEXT("Pulse Hack: Hit %d enemies, cleansed %.1f WP corruption"), EnemiesHit, CleansingAmount);
+				}
 			}
 		}
 	}
@@ -101,24 +119,33 @@ void UPulseHackAbility::Execute()
 	// Spawn visual effect
 	if (PulseEffect)
 	{
-		UGameplayStatics::SpawnEmitterAtLocation(
-			GetWorld(),
-			PulseEffect,
-			CharacterLocation,
-			FRotator::ZeroRotator,
-			FVector(1.0f)
-		);
+		if (UWorld* World = GetWorld())
+		{
+			UGameplayStatics::SpawnEmitterAtLocation(
+				World,
+				PulseEffect,
+				CharacterLocation,
+				FRotator::ZeroRotator,
+				FVector(1.0f)
+			);
+		}
 	}
 
 	// Play sound
 	if (PulseSound)
 	{
-		UGameplayStatics::PlaySoundAtLocation(GetWorld(), PulseSound, CharacterLocation);
+		if (UWorld* World = GetWorld())
+		{
+			UGameplayStatics::PlaySoundAtLocation(World, PulseSound, CharacterLocation);
+		}
 	}
 
 	// Debug visualization
 #if WITH_EDITOR
-	DrawDebugSphere(GetWorld(), CharacterLocation, HackRadius, 32, FColor::Cyan, false, 1.0f);
+	if (UWorld* World = GetWorld())
+	{
+		DrawDebugSphere(World, CharacterLocation, HackRadius, 32, FColor::Cyan, false, 1.0f);
+	}
 #endif
 }
 
@@ -146,12 +173,19 @@ void UPulseHackAbility::ApplySlowToEnemy(ABaseEnemy* Enemy)
 	FTimerDelegate RestoreDelegate;
 	RestoreDelegate.BindUObject(this, &UPulseHackAbility::RestoreEnemySpeed, Enemy, OriginalSpeed);
 
-	GetWorld()->GetTimerManager().SetTimer(
-		RestoreHandle,
-		RestoreDelegate,
-		SlowDuration,
-		false
-	);
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().SetTimer(
+			RestoreHandle,
+			RestoreDelegate,
+			SlowDuration,
+			false
+		);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("PulseHackAbility: Cannot set timer - no valid world"));
+	}
 
 	// Visual feedback on enemy
 	// TODO: Add slow effect on enemy (particle/material change)
@@ -179,7 +213,14 @@ void UPulseHackAbility::ExecuteUltimate()
 	
 	Super::ExecuteUltimate();
 	
-	ACharacter* Character = Cast<ACharacter>(GetOwner());
+	AActor* Owner = GetOwner();
+	if (!Owner)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("PulseHackAbility: ExecuteUltimate failed - no owner"));
+		return;
+	}
+	
+	ACharacter* Character = Cast<ACharacter>(Owner);
 	if (!Character)
 	{
 		return;
@@ -197,15 +238,23 @@ void UPulseHackAbility::ExecuteUltimate()
 	
 	FVector CharacterLocation = Character->GetActorLocation();
 	
-	GetWorld()->SweepMultiByChannel(
-		HitResults,
-		CharacterLocation,
-		CharacterLocation,
-		FQuat::Identity,
-		ECC_Pawn,
-		FCollisionShape::MakeSphere(UltimateRadius),
-		QueryParams
-	);
+	if (UWorld* World = GetWorld())
+	{
+		World->SweepMultiByChannel(
+			HitResults,
+			CharacterLocation,
+			CharacterLocation,
+			FQuat::Identity,
+			ECC_Pawn,
+			FCollisionShape::MakeSphere(UltimateRadius),
+			QueryParams
+		);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("PulseHackAbility: Cannot sweep - no valid world"));
+		return;
+	}
 	
 	// Stun all enemies in radius
 	int32 EnemiesAffected = 0;
@@ -231,12 +280,19 @@ void UPulseHackAbility::ExecuteUltimate()
 				FTimerDelegate RestoreDelegate;
 				RestoreDelegate.BindUObject(this, &UPulseHackAbility::RestoreEnemySpeed, Enemy, OriginalSpeed);
 				
-				GetWorld()->GetTimerManager().SetTimer(
-					RestoreHandle,
-					RestoreDelegate,
-					StunDuration,
-					false
-				);
+				if (UWorld* World = GetWorld())
+				{
+					World->GetTimerManager().SetTimer(
+						RestoreHandle,
+						RestoreDelegate,
+						StunDuration,
+						false
+					);
+				}
+				else
+				{
+					UE_LOG(LogTemp, Error, TEXT("PulseHackAbility: Cannot set timer - no valid world"));
+				}
 				
 				EnemiesAffected++;
 				
@@ -247,36 +303,48 @@ void UPulseHackAbility::ExecuteUltimate()
 	}
 	
 	// Apply massive WP cleanse
-	if (UGameInstance* GameInstance = GetWorld()->GetGameInstance())
+	if (UWorld* World = GetWorld())
 	{
-		if (UResourceManager* ResourceMgr = GameInstance->GetSubsystem<UResourceManager>())
+		if (UGameInstance* GameInstance = World->GetGameInstance())
 		{
-			ResourceMgr->AddWillPower(-UltimateWPCleanse);
-			UE_LOG(LogTemp, Warning, TEXT("Ultimate Pulse Hack: Cleansed %.0f WP, stunned %d enemies!"), 
-				UltimateWPCleanse, EnemiesAffected);
+			if (UResourceManager* ResourceMgr = GameInstance->GetSubsystem<UResourceManager>())
+			{
+				ResourceMgr->AddWillPower(-UltimateWPCleanse);
+				UE_LOG(LogTemp, Warning, TEXT("Ultimate Pulse Hack: Cleansed %.0f WP, stunned %d enemies!"), 
+					UltimateWPCleanse, EnemiesAffected);
+			}
 		}
 	}
 	
 	// Spawn massive visual effect
 	if (PulseEffect)
 	{
-		UGameplayStatics::SpawnEmitterAtLocation(
-			GetWorld(),
-			PulseEffect,
-			CharacterLocation,
-			FRotator::ZeroRotator,
-			FVector(4.0f) // Larger effect
-		);
+		if (UWorld* World = GetWorld())
+		{
+			UGameplayStatics::SpawnEmitterAtLocation(
+				World,
+				PulseEffect,
+				CharacterLocation,
+				FRotator::ZeroRotator,
+				FVector(4.0f) // Larger effect
+			);
+		}
 	}
 	
 	// Play enhanced sound
 	if (PulseSound)
 	{
-		UGameplayStatics::PlaySoundAtLocation(GetWorld(), PulseSound, CharacterLocation, 2.0f); // Louder
+		if (UWorld* World = GetWorld())
+		{
+			UGameplayStatics::PlaySoundAtLocation(World, PulseSound, CharacterLocation, 2.0f); // Louder
+		}
 	}
 	
 	// Debug visualization
 #if WITH_EDITOR
-	DrawDebugSphere(GetWorld(), CharacterLocation, UltimateRadius, 64, FColor::Purple, false, 2.0f);
+	if (UWorld* World = GetWorld())
+	{
+		DrawDebugSphere(World, CharacterLocation, UltimateRadius, 64, FColor::Purple, false, 2.0f);
+	}
 #endif
 }

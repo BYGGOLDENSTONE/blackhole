@@ -24,6 +24,8 @@ class UHackerJumpAbility;
 class UForgeJumpAbility;
 class UPulseHackAbility;
 class UFirewallBreachAbility;
+class UDataSpikeAbility;
+class USystemOverrideAbility;
 class UMoltenMaceSlashAbility;
 class UHeatShieldAbility;
 class UBlastChargeAbility;
@@ -124,6 +126,12 @@ protected:
 	UFirewallBreachAbility* FirewallBreachAbility;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
+	UDataSpikeAbility* DataSpikeAbility;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
+	USystemOverrideAbility* SystemOverrideAbility;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	UMoltenMaceSlashAbility* MoltenMaceSlashAbility;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
@@ -189,6 +197,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* SwitchPathAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* MenuToggleAction;  // Quote key for menu
+
 	// Path-based ability slots (6 total)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* AbilitySlot1Action;  // Left Mouse Button
@@ -219,6 +230,7 @@ protected:
 	void UseDash();
 	void UseUtilityJump();
 	void SwitchPath();
+	void ToggleMenu();
 	
 	// Path-based ability slots (6 total)
 	void UseAbilitySlot1();  // LMB

@@ -107,6 +107,39 @@ namespace GameplayConfig
 			constexpr int32 MAX_JUMPS = 2;						// Count (double jump)
 			constexpr float JUMP_COOLDOWN = 0.5f;				// Seconds between jumps
 		}
+
+		// Data Spike (Hacker)
+		namespace DataSpike
+		{
+			constexpr float STAMINA_COST = 12.0f;				// Stamina units
+			constexpr float WP_COST = 18.0f;					// WP units
+			constexpr float COOLDOWN = 6.0f;					// Seconds
+			constexpr float DAMAGE = 30.0f;						// HP damage
+			constexpr float RANGE = 1500.0f;					// Units
+			constexpr float PROJECTILE_SPEED = 2000.0f;		// Units/second
+			constexpr float DOT_DAMAGE = 5.0f;					// HP damage per tick
+			constexpr float DOT_DURATION = 4.0f;				// Seconds
+			constexpr float DOT_TICK_RATE = 0.5f;				// Seconds between ticks
+			constexpr int32 PIERCE_COUNT = 3;					// Number of enemies to pierce
+			
+			// Ultimate mode
+			constexpr float ULTIMATE_DAMAGE_MULT = 2.0f;		// Multiplier
+			constexpr float ULTIMATE_DOT_MULT = 3.0f;			// Multiplier
+			constexpr int32 ULTIMATE_PIERCE_COUNT = 10;		// Pierce all enemies
+			constexpr float ULTIMATE_WP_CLEANSE = 25.0f;		// WP units
+		}
+
+		// System Override (Hacker)
+		namespace SystemOverride
+		{
+			constexpr float STAMINA_COST = 30.0f;				// Stamina units
+			constexpr float WP_COST = 40.0f;					// WP units
+			constexpr float COOLDOWN = 15.0f;					// Seconds
+			constexpr float DISABLE_DURATION = 3.0f;			// Seconds
+			constexpr float RADIUS = 2000.0f;					// Units
+			constexpr float WP_CLEANSE = 30.0f;				// WP units
+			constexpr float DAMAGE = 50.0f;					// HP damage to all enemies
+		}
 	}
 
 	// Attribute System Configuration

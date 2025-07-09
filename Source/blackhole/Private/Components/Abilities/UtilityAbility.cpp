@@ -49,13 +49,20 @@ void UUtilityAbility::Execute()
 	// Set timer to stop movement after duration
 	if (MovementDuration > 0.0f)
 	{
-		GetWorld()->GetTimerManager().SetTimer(
-			MovementTimerHandle,
-			this,
-			&UUtilityAbility::StopMovement,
-			MovementDuration,
-			false
-		);
+		if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().SetTimer(
+				MovementTimerHandle,
+				this,
+				&UUtilityAbility::StopMovement,
+				MovementDuration,
+				false
+			);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("UtilityAbility: Cannot set timer - no valid world"));
+		}
 	}
 }
 
@@ -78,5 +85,10 @@ void UUtilityAbility::StopMovement()
 
 ACharacter* UUtilityAbility::GetCharacterOwner() const
 {
-	return Cast<ACharacter>(GetOwner());
+	AActor* Owner = GetOwner();
+	if (!Owner)
+	{
+		return nullptr;
+	}
+	return Cast<ACharacter>(Owner);
 }

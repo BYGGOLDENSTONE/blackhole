@@ -5,6 +5,10 @@
 #include "Components/Attributes/WillPowerComponent.h"
 #include "Components/Attributes/HeatComponent.h"
 #include "Systems/ResourceManager.h"
+#include "UI/MainMenuWidget.h"
+#include "UI/PauseMenuWidget.h"
+#include "UI/GameOverWidget.h"
+#include "UI/SimplePauseMenu.h"
 #include "Components/Abilities/Player/Basic/SlashAbilityComponent.h"
 // #include "Components/Abilities/Player/SystemFreezeAbilityComponent.h" // Removed
 #include "Components/Abilities/Player/Basic/KillAbilityComponent.h"
@@ -16,6 +20,8 @@
 #include "Components/Abilities/UtilityAbility.h"
 #include "Components/Abilities/Player/Hacker/PulseHackAbility.h"
 #include "Components/Abilities/Player/Hacker/FirewallBreachAbility.h"
+#include "Components/Abilities/Player/Hacker/DataSpikeAbility.h"
+#include "Components/Abilities/Player/Hacker/SystemOverrideAbility.h"
 #include "Components/Abilities/Player/Forge/MoltenMaceSlashAbility.h"
 #include "Components/Abilities/Player/Forge/HeatShieldAbility.h"
 #include "Components/Abilities/Player/Forge/BlastChargeAbility.h"
@@ -26,6 +32,7 @@
 #include "Engine/Canvas.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
+#include "Components/InputComponent.h"
 #include "Kismet/GameplayStatics.h"
 
 ABlackholeHUD::ABlackholeHUD()
@@ -53,6 +60,49 @@ void ABlackholeHUD::BeginPlay()
 
 	PlayerCharacter = Cast<ABlackholePlayerCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
 	
+	// Get GameStateManager and bind to state changes
+	if (UGameInstance* GameInstance = GetWorld()->GetGameInstance())
+	{
+		GameStateManager = GameInstance->GetSubsystem<UGameStateManager>();
+		if (GameStateManager)
+		{
+			GameStateManager->OnGameStateChanged.AddDynamic(this, &ABlackholeHUD::OnGameStateChanged);
+		}
+	}
+	
+	// Create menu widgets directly from C++ for prototyping
+	// No blueprint classes needed
+	if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+	{
+		// Use simplified pause menu for prototyping
+		SimplePauseMenu = USimplePauseMenu::CreateSimplePauseMenu(PC);
+		
+		// Create other menus normally
+		MainMenuWidget = CreateWidget<UMainMenuWidget>(PC, UMainMenuWidget::StaticClass());
+		PauseMenuWidget = CreateWidget<UPauseMenuWidget>(PC, UPauseMenuWidget::StaticClass());
+		GameOverWidget = CreateWidget<UGameOverWidget>(PC, UGameOverWidget::StaticClass());
+		
+		// Log widget creation
+		UE_LOG(LogTemp, Log, TEXT("Created menu widgets - SimplePause: %s, MainMenu: %s, PauseMenu: %s, GameOver: %s"),
+			SimplePauseMenu ? TEXT("Valid") : TEXT("NULL"),
+			MainMenuWidget ? TEXT("Valid") : TEXT("NULL"),
+			PauseMenuWidget ? TEXT("Valid") : TEXT("NULL"),
+			GameOverWidget ? TEXT("Valid") : TEXT("NULL"));
+	}
+	
+	// For prototyping: Start directly in Playing state instead of MainMenu
+	if (GameStateManager && GameStateManager->GetCurrentState() == EGameState::MainMenu)
+	{
+		UE_LOG(LogTemp, Log, TEXT("Starting game directly in Playing state for prototyping"));
+		GameStateManager->StartGame();
+	}
+	
+	// Set up input handling for ESC key
+	SetupInputComponent();
+	
+	// Skip showing menus on startup for prototyping
+	// The game will start directly in Playing state
+	
 	// Cache all ability components
 	if (PlayerCharacter)
 	{
@@ -64,6 +114,8 @@ void ABlackholeHUD::BeginPlay()
 		CachedFirewallBreach = PlayerCharacter->FindComponentByClass<UFirewallBreachAbility>();
 		CachedPulseHack = PlayerCharacter->FindComponentByClass<UPulseHackAbility>();
 		CachedGravityPull = PlayerCharacter->FindComponentByClass<UGravityPullAbilityComponent>();
+		CachedDataSpike = PlayerCharacter->FindComponentByClass<UDataSpikeAbility>();
+		CachedSystemOverride = PlayerCharacter->FindComponentByClass<USystemOverrideAbility>();
 		CachedHackerDash = PlayerCharacter->FindComponentByClass<UHackerDashAbility>();
 		CachedHackerJump = PlayerCharacter->FindComponentByClass<UHackerJumpAbility>();
 		
@@ -102,6 +154,59 @@ void ABlackholeHUD::BeginPlay()
 			}
 		}
 	}
+}
+
+void ABlackholeHUD::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// Unbind ResourceManager delegates
+	if (ResourceManager)
+	{
+		ResourceManager->OnWillPowerChanged.RemoveDynamic(this, &ABlackholeHUD::UpdateWPBar);
+		ResourceManager->OnHeatChanged.RemoveDynamic(this, &ABlackholeHUD::UpdateHeatBar);
+		ResourceManager = nullptr;
+	}
+	
+	// Unbind ThresholdManager delegates
+	if (ThresholdManager)
+	{
+		ThresholdManager->OnUltimateModeActivated.RemoveDynamic(this, &ABlackholeHUD::OnUltimateModeChanged);
+		ThresholdManager = nullptr;
+	}
+	
+	// Unbind GameStateManager delegates
+	if (GameStateManager)
+	{
+		GameStateManager->OnGameStateChanged.RemoveDynamic(this, &ABlackholeHUD::OnGameStateChanged);
+		GameStateManager = nullptr;
+	}
+	
+	// Clean up menu widgets
+	HideAllMenus();
+	if (MainMenuWidget) MainMenuWidget = nullptr;
+	if (PauseMenuWidget) PauseMenuWidget = nullptr;
+	if (SimplePauseMenu) SimplePauseMenu = nullptr;
+	if (GameOverWidget) GameOverWidget = nullptr;
+	
+	// Clear all cached ability pointers
+	PlayerCharacter = nullptr;
+	CachedSlashAbility = nullptr;
+	CachedKillAbility = nullptr;
+	CachedFirewallBreach = nullptr;
+	CachedPulseHack = nullptr;
+	CachedGravityPull = nullptr;
+	CachedDataSpike = nullptr;
+	CachedSystemOverride = nullptr;
+	CachedHackerDash = nullptr;
+	CachedHackerJump = nullptr;
+	CachedMoltenMace = nullptr;
+	CachedHeatShield = nullptr;
+	CachedBlastCharge = nullptr;
+	CachedHammerStrike = nullptr;
+	CachedForgeDash = nullptr;
+	CachedForgeJump = nullptr;
+	CachedComboComponent = nullptr;
+	
+	Super::EndPlay(EndPlayReason);
 }
 
 void ABlackholeHUD::DrawHUD()
@@ -403,8 +508,15 @@ TArray<ABlackholeHUD::FAbilityDisplayInfo> ABlackholeHUD::GetCurrentAbilities() 
 			Abilities.Add({TEXT("Hacker Jump"), TEXT("Space"), CachedHackerJump, true, bDisabled, bUltimate, bBasic});
 		}
 		
-		// R slot reserved for Hacker
-		Abilities.Add({TEXT("(Reserved)"), TEXT("R"), nullptr, false, false, false, false});
+		// Data Spike ability (R key)
+		if (CachedDataSpike)
+		{
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedDataSpike) : false;
+			bool bUltimate = CachedDataSpike->IsInUltimateMode();
+			bool bBasic = CachedDataSpike->IsBasicAbility();
+			FString Name = bUltimate ? TEXT("SYSTEM CORRUPTION") : TEXT("Data Spike");
+			Abilities.Add({Name, TEXT("R"), CachedDataSpike, true, bDisabled, bUltimate, bBasic});
+		}
 	}
 	else
 	{
@@ -458,8 +570,24 @@ TArray<ABlackholeHUD::FAbilityDisplayInfo> ABlackholeHUD::GetCurrentAbilities() 
 		}
 	}
 	
-	// F slot reserved for both paths
-	Abilities.Add({TEXT("(Ultimate)"), TEXT("F"), nullptr, false, false, false, false});
+	// F key ability - path specific
+	if (bIsHacker)
+	{
+		// System Override ability (F key for Hacker)
+		if (CachedSystemOverride)
+		{
+			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedSystemOverride) : false;
+			bool bUltimate = CachedSystemOverride->IsInUltimateMode();
+			bool bBasic = CachedSystemOverride->IsBasicAbility();
+			FString Name = bUltimate ? TEXT("TOTAL SYSTEM SHUTDOWN") : TEXT("System Override");
+			Abilities.Add({Name, TEXT("F"), CachedSystemOverride, true, bDisabled, bUltimate, bBasic});
+		}
+	}
+	else
+	{
+		// Forge F ability - TODO: Implement Forge ultimate ability
+		Abilities.Add({TEXT("(Forge Ultimate)"), TEXT("F"), nullptr, false, false, false, false});
+	}
 	
 	return Abilities;
 }
@@ -815,5 +943,217 @@ void ABlackholeHUD::DrawComboStatus()
 	{
 		// This will be shown through the ComboStatus string above
 		// Additional visual feedback could be added here if needed
+	}
+}
+
+void ABlackholeHUD::SetupInputComponent()
+{
+	if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+	{
+		if (UInputComponent* PlayerInputComponent = PC->InputComponent)
+		{
+			PlayerInputComponent->BindAction("Pause", IE_Pressed, this, &ABlackholeHUD::OnEscapePressed);
+		}
+	}
+}
+
+void ABlackholeHUD::OnEscapePressed()
+{
+	if (!GameStateManager)
+	{
+		return;
+	}
+	
+	EGameState CurrentState = GameStateManager->GetCurrentState();
+	
+	switch (CurrentState)
+	{
+	case EGameState::Playing:
+		GameStateManager->PauseGame();
+		ShowPauseMenu();
+		break;
+		
+	case EGameState::Paused:
+		GameStateManager->ResumeGame();
+		HideAllMenus();
+		break;
+		
+	case EGameState::GameOver:
+		// In game over state, ESC restarts the game
+		HideAllMenus();
+		GameStateManager->ResetGame();
+		GameStateManager->StartGame();
+		break;
+		
+	case EGameState::MainMenu:
+		// In main menu, ESC quits the game
+		GameStateManager->QuitGame();
+		break;
+		
+	default:
+		break;
+	}
+}
+
+void ABlackholeHUD::ShowMainMenu()
+{
+	HideAllMenus();
+	
+	if (MainMenuWidget)
+	{
+		MainMenuWidget->ShowMenu();
+	}
+	else
+	{
+		// If no menu widget exists, ensure game input is enabled
+		UE_LOG(LogTemp, Warning, TEXT("No MainMenuWidget available - enabling game input"));
+		if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+		{
+			FInputModeGameOnly InputMode;
+			PC->SetInputMode(InputMode);
+			PC->bShowMouseCursor = false;
+		}
+	}
+}
+
+void ABlackholeHUD::ShowPauseMenu()
+{
+	HideAllMenus();
+	
+	UE_LOG(LogTemp, Log, TEXT("ShowPauseMenu called - SimplePauseMenu: %s"), 
+		SimplePauseMenu ? TEXT("Valid") : TEXT("NULL"));
+	
+	// Use simplified pause menu for prototyping
+	if (SimplePauseMenu)
+	{
+		SimplePauseMenu->ShowMenu();
+		UE_LOG(LogTemp, Log, TEXT("SimplePauseMenu->ShowMenu() called"));
+	}
+	else if (PauseMenuWidget)
+	{
+		PauseMenuWidget->ShowMenu();
+		UE_LOG(LogTemp, Log, TEXT("PauseMenuWidget->ShowMenu() called"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("No pause menu widget available!"));
+	}
+}
+
+void ABlackholeHUD::ShowGameOverMenu()
+{
+	HideAllMenus();
+	
+	if (GameOverWidget)
+	{
+		GameOverWidget->ShowMenu();
+	}
+}
+
+void ABlackholeHUD::HideAllMenus()
+{
+	if (MainMenuWidget && MainMenuWidget->IsInViewport())
+	{
+		MainMenuWidget->HideMenu();
+	}
+	
+	if (SimplePauseMenu && SimplePauseMenu->IsInViewport())
+	{
+		SimplePauseMenu->HideMenu();
+	}
+	
+	if (PauseMenuWidget && PauseMenuWidget->IsInViewport())
+	{
+		PauseMenuWidget->HideMenu();
+	}
+	
+	if (GameOverWidget && GameOverWidget->IsInViewport())
+	{
+		GameOverWidget->HideMenu();
+	}
+}
+
+void ABlackholeHUD::OnMenuTogglePressed()
+{
+	if (!GameStateManager)
+	{
+		return;
+	}
+	
+	EGameState CurrentState = GameStateManager->GetCurrentState();
+	
+	// Only allow menu toggle in Playing or Paused states
+	switch (CurrentState)
+	{
+	case EGameState::Playing:
+		// Pause the game
+		GameStateManager->PauseGame();
+		break;
+		
+	case EGameState::Paused:
+		// Resume the game
+		GameStateManager->ResumeGame();
+		break;
+		
+	default:
+		// Don't toggle menu in other states (MainMenu, GameOver, etc.)
+		break;
+	}
+}
+
+void ABlackholeHUD::OnGameStateChanged(EGameState NewState)
+{
+	switch (NewState)
+	{
+	case EGameState::MainMenu:
+		ShowMainMenu();
+		// If no main menu widget, automatically start the game
+		if (!MainMenuWidget && GameStateManager)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("No MainMenuWidget - auto-starting game"));
+			// Delay to next frame to avoid state change during state change
+			GetWorld()->GetTimerManager().SetTimerForNextTick([this]()
+			{
+				if (GameStateManager)
+				{
+					GameStateManager->StartGame();
+				}
+			});
+		}
+		break;
+		
+	case EGameState::Playing:
+		HideAllMenus();
+		// Ensure game input mode - delay slightly to ensure proper setup
+		if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().SetTimerForNextTick([this]()
+			{
+				if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+				{
+					// Force unpause in case we're still paused
+					PC->SetPause(false);
+					
+					FInputModeGameOnly InputMode;
+					PC->SetInputMode(InputMode);
+					PC->bShowMouseCursor = false;
+					
+					UE_LOG(LogTemp, Log, TEXT("BlackholeHUD: Set input mode to GameOnly for Playing state"));
+				}
+			});
+		}
+		break;
+		
+	case EGameState::Paused:
+		ShowPauseMenu();
+		break;
+		
+	case EGameState::GameOver:
+		ShowGameOverMenu();
+		break;
+		
+	default:
+		HideAllMenus();
+		break;
 	}
 }

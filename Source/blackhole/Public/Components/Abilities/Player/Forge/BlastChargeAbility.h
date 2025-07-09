@@ -15,6 +15,7 @@ public:
 
 	virtual void Execute() override;
 	virtual bool CanExecute() const override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 protected:
 	// Ability parameters
