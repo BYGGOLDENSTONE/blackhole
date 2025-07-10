@@ -20,7 +20,6 @@ enum class EResourceThreshold : uint8
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnResourceChanged, float, NewValue, float, MaxValue);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnThresholdReached, EResourceThreshold, Threshold);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnWPMaxReached, int32, TimesReached);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnOverheatShutdown);
 
 UCLASS()
 class BLACKHOLE_API UResourceManager : public UGameInstanceSubsystem
@@ -35,57 +34,30 @@ public:
 	// Delegates for UI binding
 	UPROPERTY(BlueprintAssignable, Category = "Resource Events")
 	FOnResourceChanged OnWillPowerChanged;
-	
-	UPROPERTY(BlueprintAssignable, Category = "Resource Events")
-	FOnResourceChanged OnHeatChanged;
-	
+		
 	UPROPERTY(BlueprintAssignable, Category = "Resource Events")
 	FOnThresholdReached OnWillPowerThresholdReached;
 	
 	UPROPERTY(BlueprintAssignable, Category = "Resource Events")
 	FOnWPMaxReached OnWPMaxReached;
-	
-	UPROPERTY(BlueprintAssignable, Category = "Resource Events")
-	FOnOverheatShutdown OnOverheatShutdown;
-	
+		
 	// Resource modification with validation
 	UFUNCTION(BlueprintCallable, Category = "Resources")
 	bool ConsumeWillPower(float Amount);
 	
 	UFUNCTION(BlueprintCallable, Category = "Resources")
 	void AddWillPower(float Amount);
-	
-	UFUNCTION(BlueprintCallable, Category = "Resources")
-	void AddHeat(float Amount);
-	
-	UFUNCTION(BlueprintCallable, Category = "Resources")
-	void DissipateHeat(float DeltaTime);
-	
-	UFUNCTION(BlueprintCallable, Category = "Resources")
-	void SetHeatDissipationRate(float NewRate) { HeatDissipationRate = NewRate; }
-	
+		
 	// Getters
 	UFUNCTION(BlueprintPure, Category = "Resources")
 	float GetWillPowerPercent() const { return MaxWP > 0.0f ? CurrentWP / MaxWP : 0.0f; }
-	
-	UFUNCTION(BlueprintPure, Category = "Resources")
-	float GetHeatPercent() const { return MaxHeat > 0.0f ? CurrentHeat / MaxHeat : 0.0f; }
-	
+		
 	UFUNCTION(BlueprintPure, Category = "Resources")
 	float GetCurrentWillPower() const { return CurrentWP; }
 	
 	UFUNCTION(BlueprintPure, Category = "Resources")
 	float GetMaxWillPower() const { return MaxWP; }
-	
-	UFUNCTION(BlueprintPure, Category = "Resources")
-	float GetCurrentHeat() const { return CurrentHeat; }
-	
-	UFUNCTION(BlueprintPure, Category = "Resources")
-	float GetMaxHeat() const { return MaxHeat; }
-	
-	UFUNCTION(BlueprintPure, Category = "Resources")
-	bool IsOverheated() const { return bIsOverheated; }
-	
+		
 	UFUNCTION(BlueprintPure, Category = "Resources")
 	EResourceThreshold GetCurrentWPThreshold() const;
 	
@@ -96,28 +68,15 @@ public:
 	// Check if can consume resources
 	UFUNCTION(BlueprintPure, Category = "Resources")
 	bool CanConsumeWillPower(float Amount) const { return CurrentWP >= Amount; }
-
-	UFUNCTION(BlueprintPure, Category = "Resources")
-	bool CanConsumeHeat(float Amount) const { return CurrentHeat >= Amount; }
 	
 	// Check if adding resources would cause overflow
 	UFUNCTION(BlueprintPure, Category = "Resources")
 	bool WouldAddingWPCauseOverflow(float Amount) const;
-	
-	UFUNCTION(BlueprintPure, Category = "Resources")
-	bool WouldAddingHeatCauseOverflow(float Amount) const;
-	
+		
 	// Get warning thresholds
 	UFUNCTION(BlueprintPure, Category = "Resources")
 	float GetWPWarningThreshold() const { return MaxWP * GameplayConfig::Resources::WP_WARNING_PERCENT; } // 90%
-	
-	UFUNCTION(BlueprintPure, Category = "Resources")
-	float GetHeatWarningThreshold() const { return MaxHeat * GameplayConfig::Resources::HEAT_WARNING_PERCENT; } // 80%
-
-	// Consume heat (for Forge abilities)
-	UFUNCTION(BlueprintCallable, Category = "Resources")
-	bool ConsumeHeat(float Amount);
-	
+		
 	// Reset resources (for respawn, etc.)
 	UFUNCTION(BlueprintCallable, Category = "Resources")
 	void ResetResources();
@@ -129,9 +88,6 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Resources")
 	ECharacterPath GetCurrentPath() const { return CurrentPath; }
 	
-	// Check if heat system is active (Forge path only)
-	UFUNCTION(BlueprintPure, Category = "Resources")
-	bool IsHeatSystemActive() const { return CurrentPath == ECharacterPath::Forge; }
 	
 	// Get how many times WP has reached 100%
 	UFUNCTION(BlueprintPure, Category = "Resources")
@@ -148,24 +104,7 @@ private:
 	
 	UPROPERTY()
 	float MaxWP;
-	
-	UPROPERTY()
-	float CurrentHeat;
-	
-	UPROPERTY()
-	float MaxHeat;
-	
-	// Heat dissipation rate per second
-	UPROPERTY()
-	float HeatDissipationRate;
-	
-	// Overheat state
-	UPROPERTY()
-	bool bIsOverheated;
-	
-	// Overheat cooldown timer
-	FTimerHandle OverheatCooldownTimer;
-	
+		
 	// Previous threshold for change detection
 	EResourceThreshold PreviousWPThreshold;
 	
@@ -179,7 +118,6 @@ private:
 	
 	// Helper functions
 	void CheckWPThreshold();
-	void EndOverheatShutdown();
 	
 	// Default values now in GameplayConfig.h
 };

@@ -14,11 +14,7 @@ enum class EComboInputType : uint8
     Jump,
     FirewallBreach,
     PulseHack,
-    GravityPull,
-    MoltenMace,
-    HeatShield,
-    BlastCharge,
-    HammerStrike
+    GravityPull
 };
 
 USTRUCT(BlueprintType)

@@ -146,11 +146,9 @@ void AResourcePickup::ApplyPickupEffect(AActor* TargetActor)
 			break;
 			
 		case EPickupType::HeatVent:
-			// Reduce heat by the restore amount
-			float CurrentHeat = ResourceManager->GetCurrentHeat();
-			float NewHeat = FMath::Max(0.0f, CurrentHeat - RestoreAmount);
-			ResourceManager->AddHeat(NewHeat - CurrentHeat); // Add negative to reduce
-			UE_LOG(LogTemp, Log, TEXT("Pickup: Reduced Heat by %.0f"), RestoreAmount);
+			// Heat system removed - convert heat vents to WP pickups
+			ResourceManager->AddWillPower(RestoreAmount);
+			UE_LOG(LogTemp, Log, TEXT("Pickup: Restored %.0f WillPower (Heat system removed)"), RestoreAmount);
 			break;
 	}
 }

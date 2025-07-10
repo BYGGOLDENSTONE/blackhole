@@ -363,12 +363,4 @@ void UComboSystem::RegisterDefaultCombos()
     TempestBlade.DamageMultiplier = 2.0f;
     RegisterComboPattern(TempestBlade);
 
-    // Slash + Slash = Blade Dance (start)
-    FComboPattern BladeDance;
-    BladeDance.ComboName = "BladeDance";
-    BladeDance.RequiredInputs = { EComboInputType::Slash, EComboInputType::Slash };
-    BladeDance.TimingWindows = { 0.0f, 0.8f }; // Rhythm window
-    BladeDance.ResourceDiscount = 0.2f;
-    BladeDance.DamageMultiplier = 1.0f; // Increases per hit
-    RegisterComboPattern(BladeDance);
 }

@@ -23,12 +23,6 @@ public:
 	
 	// Basic abilities don't have ultimate versions
 	virtual void ExecuteUltimate() override { Execute(); }
-	
-	// Combo execution methods
-	void ExecutePhantomStrike();  // Dash + Slash combo
-	void ExecuteAerialRave();     // Jump + Slash combo
-	void ExecuteTempestBlade();   // Jump + Dash + Slash combo
-	void ExecuteBladeDance(int32 HitCount); // Slash chain combo
 
 protected:
 	virtual void BeginPlay() override;
@@ -40,7 +34,4 @@ private:
 	// Cached owner reference
 	UPROPERTY()
 	class ABlackholePlayerCharacter* OwnerCharacter;
-	
-	// Prevent recursive combo execution
-	bool bIsExecutingCombo = false;
 };

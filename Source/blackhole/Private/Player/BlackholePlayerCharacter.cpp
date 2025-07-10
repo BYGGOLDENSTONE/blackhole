@@ -8,11 +8,11 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "Engine/Engine.h"
+#include "Engine/GameInstance.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/Attributes/IntegrityComponent.h"
 #include "Components/Attributes/StaminaComponent.h"
 #include "Components/Attributes/WillPowerComponent.h"
-#include "Components/Attributes/HeatComponent.h"
 #include "Systems/ResourceManager.h"
 #include "Systems/ThresholdManager.h"
 #include "Systems/GameStateManager.h"
@@ -22,22 +22,16 @@
 #include "Components/Abilities/Player/Basic/KillAbilityComponent.h"
 #include "Components/Abilities/Player/Hacker/GravityPullAbilityComponent.h"
 #include "Components/Abilities/Player/Utility/HackerDashAbility.h"
-#include "Components/Abilities/Player/Utility/ForgeDashAbility.h"
 #include "Components/Abilities/Player/Utility/HackerJumpAbility.h"
-#include "Components/Abilities/Player/Utility/ForgeJumpAbility.h"
 #include "Components/Abilities/Player/Hacker/PulseHackAbility.h"
 #include "Components/Abilities/Player/Hacker/FirewallBreachAbility.h"
 #include "Components/Abilities/Player/Hacker/DataSpikeAbility.h"
 #include "Components/Abilities/Player/Hacker/SystemOverrideAbility.h"
-#include "Components/Abilities/Player/Forge/MoltenMaceSlashAbility.h"
-#include "Components/Abilities/Player/Forge/HeatShieldAbility.h"
-#include "Components/Abilities/Player/Forge/BlastChargeAbility.h"
-#include "Components/Abilities/Player/Forge/HammerStrikeAbility.h"
-#include "Systems/ComboTracker.h"
-#include "Systems/ComboSystem.h"
-#include "Components/ComboComponent.h"
+#include "Components/Abilities/Combos/DashSlashCombo.h"
+#include "Components/Abilities/Combos/JumpSlashCombo.h"
 #include "Components/Abilities/AbilityComponent.h"
 #include "Config/GameplayConfig.h"
+#include "Engine/World.h"
 
 ABlackholePlayerCharacter::ABlackholePlayerCharacter()
 {
@@ -66,53 +60,32 @@ ABlackholePlayerCharacter::ABlackholePlayerCharacter()
 	IntegrityComponent = CreateDefaultSubobject<UIntegrityComponent>(TEXT("Integrity"));
 	StaminaComponent = CreateDefaultSubobject<UStaminaComponent>(TEXT("Stamina"));
 	WillPowerComponent = CreateDefaultSubobject<UWillPowerComponent>(TEXT("WillPower"));
-	HeatComponent = CreateDefaultSubobject<UHeatComponent>(TEXT("Heat"));
 
 	SlashAbility = CreateDefaultSubobject<USlashAbilityComponent>(TEXT("SlashAbility"));
 	// SystemFreezeAbility removed
 	KillAbility = CreateDefaultSubobject<UKillAbilityComponent>(TEXT("KillAbility"));
 	GravityPullAbility = CreateDefaultSubobject<UGravityPullAbilityComponent>(TEXT("GravityPullAbility"));
 
-	// Create all utility abilities
+	// Create utility abilities
 	HackerDashAbility = CreateDefaultSubobject<UHackerDashAbility>(TEXT("HackerDashAbility"));
-	ForgeDashAbility = CreateDefaultSubobject<UForgeDashAbility>(TEXT("ForgeDashAbility"));
 	HackerJumpAbility = CreateDefaultSubobject<UHackerJumpAbility>(TEXT("HackerJumpAbility"));
-	ForgeJumpAbility = CreateDefaultSubobject<UForgeJumpAbility>(TEXT("ForgeJumpAbility"));
 
-	// Create path-specific combat abilities
+	// Create Hacker abilities
 	PulseHackAbility = CreateDefaultSubobject<UPulseHackAbility>(TEXT("PulseHackAbility"));
 	FirewallBreachAbility = CreateDefaultSubobject<UFirewallBreachAbility>(TEXT("FirewallBreachAbility"));
 	DataSpikeAbility = CreateDefaultSubobject<UDataSpikeAbility>(TEXT("DataSpikeAbility"));
 	SystemOverrideAbility = CreateDefaultSubobject<USystemOverrideAbility>(TEXT("SystemOverrideAbility"));
-	MoltenMaceSlashAbility = CreateDefaultSubobject<UMoltenMaceSlashAbility>(TEXT("MoltenMaceSlashAbility"));
-	HeatShieldAbility = CreateDefaultSubobject<UHeatShieldAbility>(TEXT("HeatShieldAbility"));
-	BlastChargeAbility = CreateDefaultSubobject<UBlastChargeAbility>(TEXT("BlastChargeAbility"));
-	HammerStrikeAbility = CreateDefaultSubobject<UHammerStrikeAbility>(TEXT("HammerStrikeAbility"));
-
-	// Default to Hacker path
-	CurrentPath = ECharacterPath::Hacker;
 	
-	// Create combo tracker
-	ComboTracker = CreateDefaultSubobject<UComboTracker>(TEXT("ComboTracker"));
-	
-	// Create new combo system
-	ComboSystem = CreateDefaultSubobject<UComboSystem>(TEXT("ComboSystem"));
-	
-	// Create component-based combo system
-	ComboComponent = CreateDefaultSubobject<UComboComponent>(TEXT("ComboComponent"));
+	// Create combo ability components
+	DashSlashCombo = CreateDefaultSubobject<UDashSlashCombo>(TEXT("DashSlashCombo"));
+	JumpSlashCombo = CreateDefaultSubobject<UJumpSlashCombo>(TEXT("JumpSlashCombo"));
 
 	bIsFirstPerson = false;
 	FirstPersonCameraOffset = GameplayConfig::Movement::FIRST_PERSON_OFFSET;
 	HeadBoneName = "head"; // Default head bone name - adjust in Blueprint if different
 	WeaponSocketName = "weaponsocket"; // Default socket name - adjust in Blueprint if different
 	
-	// Create mace weapon mesh component (Forge path)
-	MaceWeaponMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MaceWeapon"));
-	MaceWeaponMesh->SetupAttachment(GetMesh());
-	MaceWeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	MaceWeaponMesh->SetCastShadow(true);
-	
-	// Create katana weapon mesh component (Hacker path)
+	// Create katana weapon mesh component
 	KatanaWeaponMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("KatanaWeapon"));
 	KatanaWeaponMesh->SetupAttachment(GetMesh());
 	KatanaWeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -135,30 +108,24 @@ void ABlackholePlayerCharacter::BeginPlay()
 		}
 	}
 	
-	// Sync initial path with ResourceManager
+	// Set Hacker path in ResourceManager
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
 		if (UResourceManager* ResourceMgr = GameInstance->GetSubsystem<UResourceManager>())
 		{
-			ResourceMgr->SetCurrentPath(CurrentPath);
+			ResourceMgr->SetCurrentPath(ECharacterPath::Hacker);
 		}
 	}
 	
-	// Attach weapons to the specified socket
+	// Attach weapon to the specified socket
 	if (GetMesh() && !WeaponSocketName.IsNone())
 	{
-		if (MaceWeaponMesh)
-		{
-			MaceWeaponMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponSocketName);
-		}
 		if (KatanaWeaponMesh)
 		{
 			KatanaWeaponMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponSocketName);
+			KatanaWeaponMesh->SetVisibility(true);
 		}
 	}
-	
-	// Set initial weapon visibility based on current path
-	UpdateWeaponVisibility();
 	
 	// Bind to ThresholdManager death event
 	if (UWorld* World = GetWorld())
@@ -175,11 +142,6 @@ void ABlackholePlayerCharacter::BeginPlay()
 		IntegrityComponent->OnReachedZero.AddDynamic(this, &ABlackholePlayerCharacter::Die);
 	}
 	
-	// Bind to combo component events
-	if (IsValid(ComboComponent))
-	{
-		ComboComponent->OnComboPerformed.AddDynamic(this, &ABlackholePlayerCharacter::OnComboPerformed);
-	}
 }
 
 void ABlackholePlayerCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -207,10 +169,6 @@ void ABlackholePlayerCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason
 	}
 	
 	// Unbind from all events to prevent dangling references
-	if (IsValid(ComboComponent))
-	{
-		ComboComponent->OnComboPerformed.RemoveDynamic(this, &ABlackholePlayerCharacter::OnComboPerformed);
-	}
 	
 	if (UWorld* World = GetWorld())
 	{
@@ -234,14 +192,6 @@ void ABlackholePlayerCharacter::Tick(float DeltaTime)
 	
 	// Death is now handled by event from IntegrityComponent
 	
-	// Dissipate heat through ResourceManager
-	if (UGameInstance* GameInstance = GetGameInstance())
-	{
-		if (UResourceManager* ResourceMgr = GameInstance->GetSubsystem<UResourceManager>())
-		{
-			ResourceMgr->DissipateHeat(DeltaTime);
-		}
-	}
 }
 
 void ABlackholePlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -271,11 +221,7 @@ void ABlackholePlayerCharacter::SetupPlayerInputComponent(UInputComponent* Playe
 		EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Triggered, this, &ABlackholePlayerCharacter::UseDash);
 		EnhancedInputComponent->BindAction(UtilityJumpAction, ETriggerEvent::Triggered, this, &ABlackholePlayerCharacter::UseUtilityJump);
 		
-		// Path switching
-		EnhancedInputComponent->BindAction(SwitchPathAction, ETriggerEvent::Triggered, this, &ABlackholePlayerCharacter::SwitchPath);
 		
-		// Menu toggle (Quote key)
-		EnhancedInputComponent->BindAction(MenuToggleAction, ETriggerEvent::Triggered, this, &ABlackholePlayerCharacter::ToggleMenu);
 		
 		// Path-based ability slots (6 total)
 		EnhancedInputComponent->BindAction(AbilitySlot1Action, ETriggerEvent::Triggered, this, &ABlackholePlayerCharacter::UseAbilitySlot1);
@@ -343,10 +289,6 @@ void ABlackholePlayerCharacter::UseKill()
 	if (KillAbility)
 	{
 		KillAbility->Execute();
-		if (ComboTracker)
-		{
-			ComboTracker->RegisterAbilityUse(KillAbility);
-		}
 	}
 }
 
@@ -487,8 +429,6 @@ void ABlackholePlayerCharacter::ToggleCamera()
 		}
 	}
 	
-	// Update weapon visibility based on camera mode
-	UpdateWeaponVisibility();
 }
 
 void ABlackholePlayerCharacter::SetHeadVisibility(bool bVisible)
@@ -518,30 +458,6 @@ void ABlackholePlayerCharacter::SetHeadVisibility(bool bVisible)
 	GetMesh()->HideBoneByName(HeadBoneName, bVisible ? EPhysBodyOp::PBO_None : EPhysBodyOp::PBO_Term);
 }
 
-void ABlackholePlayerCharacter::ExecutePathBasedAbility(UAbilityComponent* HackerAbility, UAbilityComponent* ForgeAbility)
-{
-	// Unified path checker for ability execution
-	UAbilityComponent* AbilityToExecute = nullptr;
-	
-	if (CurrentPath == ECharacterPath::Hacker && IsValid(HackerAbility))
-	{
-		AbilityToExecute = HackerAbility;
-	}
-	else if (CurrentPath == ECharacterPath::Forge && IsValid(ForgeAbility))
-	{
-		AbilityToExecute = ForgeAbility;
-	}
-	
-	// Execute the ability and register it with combo tracker
-	if (IsValid(AbilityToExecute))
-	{
-		AbilityToExecute->Execute();
-		if (IsValid(ComboTracker))
-		{
-			ComboTracker->RegisterAbilityUse(AbilityToExecute);
-		}
-	}
-}
 
 void ABlackholePlayerCharacter::UseDash()
 {
@@ -551,28 +467,15 @@ void ABlackholePlayerCharacter::UseDash()
 		return;
 	}
 	
-	// Get the ability we're about to execute
-	UAbilityComponent* AbilityToExecute = nullptr;
-	if (CurrentPath == ECharacterPath::Hacker && IsValid(HackerDashAbility))
-	{
-		AbilityToExecute = HackerDashAbility;
-	}
-	else if (CurrentPath == ECharacterPath::Forge && IsValid(ForgeDashAbility))
-	{
-		AbilityToExecute = ForgeDashAbility;
-	}
-	
 	// Only register input if ability can execute
-	if (IsValid(AbilityToExecute) && AbilityToExecute->CanExecute())
+	if (IsValid(HackerDashAbility) && HackerDashAbility->CanExecute())
 	{
-		// Register input with combo system BEFORE execution
-		if (IsValid(ComboComponent))
-		{
-			ComboComponent->RegisterInput("Dash");
-		}
+		// Execute the dash ability
+		HackerDashAbility->Execute();
 		
-		// Execute the ability
-		ExecutePathBasedAbility(HackerDashAbility, ForgeDashAbility);
+		// Record dash was used for combo detection
+		LastAbilityUsed = ELastAbilityUsed::Dash;
+		LastAbilityTime = GetWorld()->GetTimeSeconds();
 	}
 }
 
@@ -584,70 +487,18 @@ void ABlackholePlayerCharacter::UseUtilityJump()
 		return;
 	}
 	
-	// Get the ability we're about to execute
-	UAbilityComponent* AbilityToExecute = nullptr;
-	if (CurrentPath == ECharacterPath::Hacker && IsValid(HackerJumpAbility))
-	{
-		AbilityToExecute = HackerJumpAbility;
-	}
-	else if (CurrentPath == ECharacterPath::Forge && IsValid(ForgeJumpAbility))
-	{
-		AbilityToExecute = ForgeJumpAbility;
-	}
-	
 	// Only register input if ability can execute
-	if (IsValid(AbilityToExecute) && AbilityToExecute->CanExecute())
+	if (IsValid(HackerJumpAbility) && HackerJumpAbility->CanExecute())
 	{
-		// Register input with combo system BEFORE execution
-		if (IsValid(ComboComponent))
-		{
-			ComboComponent->RegisterInput("Jump");
-		}
+		// Execute the jump ability
+		HackerJumpAbility->Execute();
 		
-		// Execute the ability
-		ExecutePathBasedAbility(HackerJumpAbility, ForgeJumpAbility);
+		// Record jump was used for combo detection
+		LastAbilityUsed = ELastAbilityUsed::Jump;
+		LastAbilityTime = GetWorld()->GetTimeSeconds();
 	}
 }
 
-void ABlackholePlayerCharacter::SwitchPath()
-{
-	// Toggle between Hacker and Forge paths
-	if (CurrentPath == ECharacterPath::Hacker)
-	{
-		CurrentPath = ECharacterPath::Forge;
-		UE_LOG(LogTemp, Log, TEXT("Switched to Forge path"));
-	}
-	else
-	{
-		CurrentPath = ECharacterPath::Hacker;
-		UE_LOG(LogTemp, Log, TEXT("Switched to Hacker path"));
-	}
-	
-	// Update ResourceManager's path
-	if (UGameInstance* GameInstance = GetGameInstance())
-	{
-		if (UResourceManager* ResourceMgr = GameInstance->GetSubsystem<UResourceManager>())
-		{
-			ResourceMgr->SetCurrentPath(CurrentPath);
-			
-			// Reset heat when switching to Hacker path
-			if (CurrentPath == ECharacterPath::Hacker)
-			{
-				ResourceMgr->AddHeat(-ResourceMgr->GetCurrentHeat());
-			}
-		}
-	}
-	
-	// Update weapon visibility
-	UpdateWeaponVisibility();
-	
-	// Optional: Broadcast an event for UI updates
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Yellow, 
-			FString::Printf(TEXT("Path Changed: %s"), *GetCurrentPathName()));
-	}
-}
 
 void ABlackholePlayerCharacter::ToggleMenu()
 {
@@ -661,41 +512,7 @@ void ABlackholePlayerCharacter::ToggleMenu()
 	}
 }
 
-void ABlackholePlayerCharacter::SetCurrentPath(ECharacterPath NewPath)
-{
-	CurrentPath = NewPath;
-	
-	// Sync with ResourceManager
-	if (UGameInstance* GameInstance = GetGameInstance())
-	{
-		if (UResourceManager* ResourceMgr = GameInstance->GetSubsystem<UResourceManager>())
-		{
-			ResourceMgr->SetCurrentPath(CurrentPath);
-			
-			// Reset heat when setting to Hacker path
-			if (CurrentPath == ECharacterPath::Hacker)
-			{
-				ResourceMgr->AddHeat(-ResourceMgr->GetCurrentHeat());
-			}
-		}
-	}
-	
-	// Update weapon visibility when path is set
-	UpdateWeaponVisibility();
-}
 
-FString ABlackholePlayerCharacter::GetCurrentPathName() const
-{
-	switch (CurrentPath)
-	{
-		case ECharacterPath::Hacker:
-			return TEXT("Hacker");
-		case ECharacterPath::Forge:
-			return TEXT("Forge");
-		default:
-			return TEXT("None");
-	}
-}
 
 void ABlackholePlayerCharacter::UseAbilitySlot1()
 {
@@ -726,83 +543,92 @@ void ABlackholePlayerCharacter::UseAbilitySlot1()
 	// Only register input if ability can execute and we're in a valid state
 	if (bCanSlash && IsValid(SlashAbility) && SlashAbility->CanExecute())
 	{
-		// Register input with combo system BEFORE execution
-		if (IsValid(ComboComponent))
+		// Check for combo execution
+		float CurrentTime = GetWorld()->GetTimeSeconds();
+		float TimeSinceLastAbility = CurrentTime - LastAbilityTime;
+		
+		// Check if we're within the combo window
+		if (TimeSinceLastAbility <= ComboWindowDuration)
 		{
-			ComboComponent->RegisterInput("Slash");
+			// Check which combo to execute
+			if (LastAbilityUsed == ELastAbilityUsed::Dash && IsValid(DashSlashCombo) && DashSlashCombo->CanExecute())
+			{
+				// Execute Dash + Slash combo (Phantom Strike)
+				UE_LOG(LogTemp, Log, TEXT("Executing DashSlashCombo (Phantom Strike)"));
+				DashSlashCombo->Execute();
+				
+				// Reset combo tracking
+				LastAbilityUsed = ELastAbilityUsed::None;
+				LastAbilityTime = 0.0f;
+				return; // Don't execute normal slash
+			}
+			else if (LastAbilityUsed == ELastAbilityUsed::Jump && IsValid(JumpSlashCombo) && JumpSlashCombo->CanExecute())
+			{
+				// Execute Jump + Slash combo (Aerial Rave)
+				UE_LOG(LogTemp, Log, TEXT("Executing JumpSlashCombo (Aerial Rave)"));
+				JumpSlashCombo->Execute();
+				
+				// Reset combo tracking
+				LastAbilityUsed = ELastAbilityUsed::None;
+				LastAbilityTime = 0.0f;
+				return; // Don't execute normal slash
+			}
 		}
 		
-		// Execute the ability
-		ExecutePathBasedAbility(SlashAbility, SlashAbility);
+		// No combo detected or combo window expired - execute normal slash
+		SlashAbility->Execute();
+		
+		// Reset combo tracking since we used slash
+		LastAbilityUsed = ELastAbilityUsed::None;
+		LastAbilityTime = 0.0f;
 	}
 }
 
 void ABlackholePlayerCharacter::UseAbilitySlot2()
 {
-	// Right Mouse Button - Secondary attack
-	// Hacker: Firewall Breach | Forge: Molten Mace Slash
-	ExecutePathBasedAbility(FirewallBreachAbility, MoltenMaceSlashAbility);
+	// Right Mouse Button - Firewall Breach
+	if (IsValid(FirewallBreachAbility))
+	{
+		FirewallBreachAbility->Execute();
+	}
 }
 
 void ABlackholePlayerCharacter::UseAbilitySlot3()
 {
-	// Q key
-	// Hacker: Pulse Hack | Forge: Heat Shield
-	ExecutePathBasedAbility(PulseHackAbility, HeatShieldAbility);
+	// Q key - Pulse Hack
+	if (IsValid(PulseHackAbility))
+	{
+		PulseHackAbility->Execute();
+	}
 }
 
 void ABlackholePlayerCharacter::UseAbilitySlot4()
 {
-	// E key
-	// Hacker: Gravity Pull | Forge: Blast Charge
-	ExecutePathBasedAbility(GravityPullAbility, BlastChargeAbility);
+	// E key - Gravity Pull
+	if (IsValid(GravityPullAbility))
+	{
+		GravityPullAbility->Execute();
+	}
 }
 
 void ABlackholePlayerCharacter::UseAbilitySlot5()
 {
-	// R key
-	// Hacker: Data Spike | Forge: Hammer Strike
-	ExecutePathBasedAbility(DataSpikeAbility, HammerStrikeAbility);
+	// R key - Data Spike
+	if (IsValid(DataSpikeAbility))
+	{
+		DataSpikeAbility->Execute();
+	}
 }
 
 void ABlackholePlayerCharacter::UseAbilitySlot6()
 {
-	// F key - Ultimate abilities
-	// Hacker: System Override | Forge: Reserved
-	// TODO: Implement Forge F key ability
-	ExecutePathBasedAbility(SystemOverrideAbility, nullptr);
+	// F key - System Override
+	if (IsValid(SystemOverrideAbility))
+	{
+		SystemOverrideAbility->Execute();
+	}
 }
 
-void ABlackholePlayerCharacter::UpdateWeaponVisibility()
-{
-	// Safety checks - don't update weapon visibility if character is invalid or dead
-	if (!IsValid(this) || bIsDead)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: Cannot update weapon visibility - character is invalid or dead"));
-		return;
-	}
-	
-	// Show/hide weapons based on current path
-	if (IsValid(MaceWeaponMesh) && IsValid(KatanaWeaponMesh))
-	{
-		if (CurrentPath == ECharacterPath::Hacker)
-		{
-			// Hacker path uses Katana
-			KatanaWeaponMesh->SetVisibility(true);
-			MaceWeaponMesh->SetVisibility(false);
-		}
-		else // Forge path
-		{
-			// Forge path uses Mace weapon
-			MaceWeaponMesh->SetVisibility(true);
-			KatanaWeaponMesh->SetVisibility(false);
-		}
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: Cannot update weapon visibility - weapon mesh components are invalid"));
-	}
-}
 
 void ABlackholePlayerCharacter::Die()
 {
@@ -822,10 +648,6 @@ void ABlackholePlayerCharacter::Die()
 	}
 	
 	// Unbind from all delegates BEFORE disabling components
-	if (IsValid(ComboComponent))
-	{
-		ComboComponent->OnComboPerformed.RemoveDynamic(this, &ABlackholePlayerCharacter::OnComboPerformed);
-	}
 	
 	if (IsValid(IntegrityComponent))
 	{
@@ -926,66 +748,3 @@ void ABlackholePlayerCharacter::OnThresholdDeath()
 	Die();
 }
 
-void ABlackholePlayerCharacter::OnComboPerformed(const FComboSequence& Combo)
-{
-	// Safety check - don't execute combos if dead or invalid
-	if (!IsValid(this) || bIsDead)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: Cannot execute combo - character is dead or invalid"));
-		return;
-	}
-	
-	// Handle combo execution based on combo name
-	if (!IsValid(SlashAbility))
-	{
-		UE_LOG(LogTemp, Error, TEXT("PlayerCharacter: SlashAbility is null or invalid!"));
-		return;
-	}
-	
-	// Check if SlashAbility component is enabled and can execute
-	if (!SlashAbility->IsComponentTickEnabled())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: SlashAbility is disabled - cannot execute combo"));
-		return;
-	}
-	
-	// Additional safety check - ensure ability can execute
-	if (!SlashAbility->CanExecute())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: SlashAbility cannot execute - combo cancelled"));
-		return;
-	}
-	
-	UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: Combo performed - %s"), *Combo.ComboName.ToString());
-	
-	// Execute the appropriate combo effect with additional safety checks
-	if (Combo.ComboName == "PhantomStrike")
-	{
-		// Check if we're in a valid state for PhantomStrike (not currently in another movement ability)
-		if (IsValid(GetCharacterMovement()) && GetCharacterMovement()->MovementMode == MOVE_Walking)
-		{
-			SlashAbility->ExecutePhantomStrike();
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("PlayerCharacter: Cannot execute PhantomStrike - invalid movement state"));
-		}
-	}
-	else if (Combo.ComboName == "AerialRave")
-	{
-		SlashAbility->ExecuteAerialRave();
-	}
-	else if (Combo.ComboName == "TempestBlade")
-	{
-		SlashAbility->ExecuteTempestBlade();
-	}
-	else if (Combo.ComboName == "BladeDance")
-	{
-		// For blade dance, track hit count
-		static int32 BladeDanceHitCount = 0;
-		BladeDanceHitCount++;
-		if (BladeDanceHitCount > 5) BladeDanceHitCount = 1;
-		
-		SlashAbility->ExecuteBladeDance(BladeDanceHitCount);
-	}
-}

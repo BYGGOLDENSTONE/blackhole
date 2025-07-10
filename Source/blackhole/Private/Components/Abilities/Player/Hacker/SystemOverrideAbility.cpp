@@ -19,9 +19,9 @@ USystemOverrideAbility::USystemOverrideAbility()
 	Cost = 30.0f; // Legacy field
 	StaminaCost = GameplayConfig::Abilities::SystemOverride::STAMINA_COST;
 	WPCost = GameplayConfig::Abilities::SystemOverride::WP_COST;
-	HeatCost = 0.0f; // Hacker abilities don't consume heat
+	// HeatCost removed - heat system no longer exists
 	Cooldown = GameplayConfig::Abilities::SystemOverride::COOLDOWN;
-	HeatGenerationMultiplier = 0.0f; // No heat generation
+	// HeatGenerationMultiplier removed - heat system no longer exists
 	
 	// This is a high-level ability, not basic
 	bIsBasicAbility = false;

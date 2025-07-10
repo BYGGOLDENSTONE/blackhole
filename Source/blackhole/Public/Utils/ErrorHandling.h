@@ -125,3 +125,44 @@ FORCEINLINE bool IsActorValidForOperation(const AActor* Actor)
 #else
 	#define BLACKHOLE_ASSERT(Condition, Message)
 #endif
+
+// Safe subsystem getters with null checks
+template<typename T>
+FORCEINLINE T* GetGameInstanceSubsystemSafe(const UObject* WorldContextObject)
+{
+	if (!IsValid(WorldContextObject))
+	{
+		return nullptr;
+	}
+	
+	UWorld* World = WorldContextObject->GetWorld();
+	if (!IsValid(World))
+	{
+		return nullptr;
+	}
+	
+	UGameInstance* GameInstance = World->GetGameInstance();
+	if (!IsValid(GameInstance))
+	{
+		return nullptr;
+	}
+	
+	return GameInstance->GetSubsystem<T>();
+}
+
+template<typename T>
+FORCEINLINE T* GetWorldSubsystemSafe(const UObject* WorldContextObject)
+{
+	if (!IsValid(WorldContextObject))
+	{
+		return nullptr;
+	}
+	
+	UWorld* World = WorldContextObject->GetWorld();
+	if (!IsValid(World))
+	{
+		return nullptr;
+	}
+	
+	return World->GetSubsystem<T>();
+}

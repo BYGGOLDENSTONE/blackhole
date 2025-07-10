@@ -1,360 +1,217 @@
-# Blackhole - Combo System Design
-**Date**: 2025-07-09  
-**System**: Advanced Combat Combos
+# Blackhole - Combo System Documentation
+**System**: Simple Input-Based Combo Detection
+**Status**: Fully Implemented
 
 ## Core Design Philosophy
 
 Combos should:
 1. **Reward Skill**: Higher execution difficulty = greater rewards
-2. **Feel Different**: Each path (Hacker/Forge) has unique combo properties
+2. **Component-Based**: Each combo is a self-contained component with Blueprint-editable parameters
 3. **Resource Efficient**: Combos cost less resources than individual abilities
 4. **Visually Distinct**: Clear visual feedback for successful combos
 5. **Strategic Value**: Each combo serves a tactical purpose
+6. **Stability First**: All crash issues resolved, proper cleanup implemented
 
 ---
 
-## Combo Definitions
+## System Architecture
 
-### 1. Dash + Slash → "Phantom Strike"
+### Simple Input Detection
+The combo system uses straightforward last-input tracking in the player character:
 
-**Input Window**: 0.5 seconds  
+```cpp
+// In player character
+enum class ELastAbilityUsed : uint8
+{
+    None,
+    Dash,
+    Jump,
+    Slash
+};
+
+ELastAbilityUsed LastAbilityUsed = ELastAbilityUsed::None;
+float LastAbilityTime = 0.0f;
+float ComboWindowDuration = 0.5f; // Blueprint-editable
+```
+
+When slash is used:
+1. Check if dash or jump was used within combo window
+2. If yes, execute corresponding combo component instead of normal slash
+3. Reset tracking after combo execution
+
+### Key Features:
+- **Simple Detection**: Last-input tracking with timing window
+- **Component Execution**: Each combo is a separate ability component
+- **Blueprint Editable**: All parameters exposed to designers
+- **Time Slow System**: Real-time based using FPlatformTime::Seconds()
+- **HitStop Disabled**: Avoided conflicts by disabling HitStop during combos
+
+---
+
+## Implemented Combos
+
+### 1. Dash + Slash → "Phantom Strike" (DashSlashCombo)
+
+**Component**: `UDashSlashCombo`  
+**Input Window**: 0.5 seconds (Blueprint editable)  
 **Execution**: Dash followed immediately by Slash
 
 #### Hacker Version - "Phase Cutter"
 - **Effect**: Teleport behind target and deliver critical backstab
-- **Damage**: 150% normal slash damage
-- **Special**: Applies "Disrupted" debuff (-50% turn speed for 2s)
-- **Resource Cost**: 5 Stamina (50% off normal cost)
-- **WP Generation**: +10 (reduced from +15)
+- **Base Damage**: 150% normal slash damage
+- **Backstab Multiplier**: 2.0x (Blueprint editable)
+- **Teleport Distance**: 150 units (Blueprint editable)
+- **Time Slow**: 0.1 scale for 0.25s (Blueprint editable)
+- **Resource Cost**: 20 Stamina, 25 WP
 - **Visual**: Blue afterimage trail, digital glitch on enemy
 
-#### Forge Version - "Meteor Rush"
-- **Effect**: Charge through enemies with flaming trail
-- **Damage**: 100% slash + burn DoT (20 damage/sec for 3s)
-- **Special**: Pierces through multiple enemies
-- **Resource Cost**: 5 Stamina (50% off)
-- **Heat Generation**: +15 (reduced from +20)
-- **Visual**: Fire trail, enemies ignite on contact
-
+#### Blueprint Parameters:
 ```cpp
-// Implementation approach
-void ABlackholePlayerCharacter::OnDashComplete()
-{
-    // Start combo window
-    bDashComboWindow = true;
-    GetWorld()->GetTimerManager().SetTimer(
-        ComboWindowTimer,
-        [this]() { bDashComboWindow = false; },
-        0.5f,
-        false
-    );
-}
+UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phantom Strike")
+float TeleportDistance = 150.0f;
 
-void USlashAbilityComponent::Execute()
-{
-    if (Character->bDashComboWindow)
-    {
-        ExecutePhantomStrike();
-        return;
-    }
-    // Normal slash
-}
+UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phantom Strike")
+float BackstabDamageMultiplier = 2.0f;
+
+UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phantom Strike")
+bool bAutoRotateToTarget = true;
 ```
 
-### 2. Jump + Slash → "Aerial Rave"
+### 2. Jump + Slash → "Aerial Rave" (JumpSlashCombo)
 
-**Input Window**: 0.3 seconds after jump  
+**Component**: `UJumpSlashCombo`  
+**Input Window**: 0.3 seconds after jump (Blueprint editable)  
 **Execution**: Slash while airborne
 
 #### Hacker Version - "Sky Blade"
 - **Effect**: Downward slash creating shockwave on landing
-- **Damage**: 100% slash + 50 AoE damage
-- **Special**: Shockwave slows enemies by 30% for 2s
-- **Resource Cost**: 8 Stamina (combined discount)
-- **WP Generation**: +12
+- **Base Damage**: 125% slash damage
+- **Shockwave Radius**: 300 units (Blueprint editable)
+- **Shockwave Damage**: 50 with distance falloff (Blueprint editable)
+- **Downward Force**: 1000 units/s (Blueprint editable)
+- **Resource Cost**: 20 Stamina, 25 WP
 - **Visual**: Cyan energy wave on impact
 
-#### Forge Version - "Hammer Drop"
-- **Effect**: Plunging attack with ground crater
-- **Damage**: 200% slash damage in AoE
-- **Special**: Knockback all nearby enemies
-- **Resource Cost**: 8 Stamina
-- **Heat Generation**: +20
-- **Visual**: Molten impact crater, screen shake
-
+#### Blueprint Parameters:
 ```cpp
-void USlashAbilityComponent::Execute()
-{
-    if (Character->GetCharacterMovement()->IsFalling())
-    {
-        ExecuteAerialRave();
-        return;
-    }
-}
+UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Aerial Rave")
+float ShockwaveRadius = 300.0f;
+
+UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Aerial Rave")
+float ShockwaveDamage = 50.0f;
+
+UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Aerial Rave")
+float DownwardForce = 1000.0f;
 ```
 
-### 3. Jump + Dash + Slash → "Tempest Blade"
+### 3. Jump + Dash + Slash → "Tempest Blade" (Not Yet Implemented)
 
+**Status**: Planned for future implementation as component  
 **Input Window**: 0.3s → 0.3s  
-**Execution**: Complex aerial maneuver  
 **Difficulty**: High
-
-#### Hacker Version - "Quantum Assassinate"
-- **Effect**: Teleport to up to 3 enemies in sequence with slashes
-- **Damage**: 80% per hit (240% total if all 3 hit)
-- **Special**: Brief invulnerability during teleports
-- **Resource Cost**: 15 Stamina (major discount)
-- **WP Generation**: +20 (instead of +40)
-- **Visual**: Multiple afterimages, time dilation effect
-
-#### Forge Version - "Phoenix Dive"
-- **Effect**: Aerial spin creating fire tornado
-- **Damage**: Continuous 50 damage/tick for 2s
-- **Special**: Pulls enemies into center
-- **Resource Cost**: 15 Stamina
-- **Heat Generation**: +30
-- **Visual**: Fire tornado, enemies lifted
-
-```cpp
-// Track combo state
-enum class EComboState
-{
-    None,
-    JumpInitiated,
-    JumpDashComplete,
-    ComboComplete
-};
-
-void ABlackholePlayerCharacter::UpdateComboState()
-{
-    switch (CurrentComboState)
-    {
-        case EComboState::JumpInitiated:
-            if (bDashExecuted)
-            {
-                CurrentComboState = EComboState::JumpDashComplete;
-                StartComboWindow(0.3f);
-            }
-            break;
-    }
-}
-```
-
-### 4. Slash + Slash → "Blade Dance"
-
-**Input Window**: 0.8 seconds  
-**Execution**: Rhythm-based slashing
-
-#### Progressive Chain System
-Instead of just 2 slashes, this becomes a rhythm combo up to 5 hits:
-
-**Hit 1-2**: Normal damage  
-**Hit 3**: 125% damage + mini stun (0.2s)  
-**Hit 4**: 150% damage + armor break (-20%)  
-**Hit 5**: 200% damage + special finisher
-
-#### Hacker Version - "Data Storm"
-- **Finisher**: 360° data wave that corrupts all enemies
-- **Effect**: -5 WP per enemy hit
-- **Special**: Each hit is faster than the last
-- **Visual**: Increasing digital effects per hit
-
-#### Forge Version - "Forge Fury"
-- **Finisher**: Massive overhead slam
-- **Effect**: -10 Heat on completion
-- **Special**: Each hit does more damage
-- **Visual**: Weapon glows brighter per hit
-
-```cpp
-class USlashComboTracker : public UObject
-{
-    int32 CurrentHitCount = 0;
-    float LastHitTime = 0.0f;
-    float ComboWindow = 0.8f;
-    
-    void RegisterHit()
-    {
-        float CurrentTime = GetWorld()->GetTimeSeconds();
-        if (CurrentTime - LastHitTime <= ComboWindow)
-        {
-            CurrentHitCount++;
-            ApplyComboEffects(CurrentHitCount);
-            
-            // Tighten window for rhythm
-            ComboWindow *= 0.9f;
-        }
-        else
-        {
-            ResetCombo();
-        }
-        
-        LastHitTime = CurrentTime;
-    }
-};
-```
 
 ---
 
 ## Resource Economy
 
-### Combo Discounts
-- **2-ability combo**: 25% resource discount
-- **3-ability combo**: 40% resource discount
-- **Perfect timing**: Additional 10% discount
+### Combo Resource Costs
+All combo components inherit from `UComboAbilityComponent` with these default costs:
+- **Base Stamina Cost**: 20 (editable per combo)
+- **Base WP Cost**: 25 (editable per combo)
+- **Cooldown**: 0.5s (editable per combo)
 
-### WP/Heat Management
-- Combos generate less corruption/heat than individual abilities
-- Successful combos can cleanse WP or vent Heat
-- Failed combos cost full resources
+### Resource Management
+- Combos cost less than executing abilities separately
+- Failed combo attempts still consume resources
+- Blueprint parameters allow fine-tuning per combo
 
 ---
 
 ## Visual Feedback System
 
-### Combo Indicators
-1. **Input Buffer Visual**: Show remaining combo window as shrinking circle
-2. **Success Flash**: Screen edge flash on successful combo
-3. **Combo Counter**: Stylish UI element showing current combo
-4. **Trail Effects**: Unique particle trails for each combo
+### Per-Component Visual Settings
+Each combo component includes customizable visual parameters:
 
-### Audio Design
-- **Input Success**: Distinct "ching" per successful input
-- **Combo Complete**: Satisfying crescendo sound
-- **Perfect Timing**: Special audio cue
-- **Music Sync**: Combos align with beat for rhythm bonus
+```cpp
+// Trail color for combo execution
+UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual")
+FLinearColor ComboTrailColor;
+
+// Particle effects
+UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual")
+UParticleSystem* ComboParticle;
+
+// Sound effects
+UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Audio")
+USoundBase* ComboSound;
+
+// Camera shake intensity
+UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback")
+float CameraShakeScale = 1.0f;
+```
+
+### Hit Stop Integration
+Combos automatically apply hit stop based on damage dealt:
+- Light hit stop: < 25 damage
+- Medium hit stop: 25-50 damage
+- Heavy hit stop: 50-100 damage
+- Critical hit stop: > 100 damage
 
 ---
 
-## Advanced Combo Mechanics
+## Implementation Details
 
-### 1. Combo Canceling
-Allow certain abilities to cancel recovery frames:
+### Player Character Detection
+In `UseAbilitySlot1()` (slash ability):
+
 ```cpp
-bool UAbilityComponent::CanCancelIntoCombo()
+float CurrentTime = GetWorld()->GetTimeSeconds();
+float TimeSinceLastAbility = CurrentTime - LastAbilityTime;
+
+if (TimeSinceLastAbility <= ComboWindowDuration)
 {
-    return CurrentRecoveryTime > 0.0f && 
-           CurrentRecoveryTime < MaxRecoveryTime * 0.7f;
+    if (LastAbilityUsed == ELastAbilityUsed::Dash && DashSlashCombo->CanExecute())
+    {
+        DashSlashCombo->Execute();
+        LastAbilityUsed = ELastAbilityUsed::None;
+        return; // Don't execute normal slash
+    }
+    else if (LastAbilityUsed == ELastAbilityUsed::Jump && JumpSlashCombo->CanExecute())
+    {
+        JumpSlashCombo->Execute();
+        LastAbilityUsed = ELastAbilityUsed::None;
+        return;
+    }
+}
+// No combo - execute normal slash
+SlashAbility->Execute();
+```
+
+---
+
+## Adding New Combos
+
+1. Create a new C++ class inheriting from `UComboAbilityComponent`
+2. Override `ExecuteCombo()` with combo logic
+3. Add component to player character
+4. Add detection case in player's slash function
+5. Configure parameters in Blueprint
+
+---
+
+## Time Slow System
+
+### Implementation:
+- Uses `FPlatformTime::Seconds()` for real-time duration tracking
+- Automatically resets after duration expires via TickComponent
+- HitStop disabled during combos to avoid conflicts
+- Proper cleanup in EndPlay to prevent PIE issues
+
+```cpp
+void ApplyTimeSlow()
+{
+    UGameplayStatics::SetGlobalTimeDilation(World, TimeSlowScale);
+    TimeSlowEndTime = FPlatformTime::Seconds() + TimeSlowDuration;
+    bIsTimeSlowActive = true;
 }
 ```
-
-### 2. Directional Inputs
-Add directional variants:
-- **Forward + Slash**: Lunge attack
-- **Back + Slash**: Defensive spin
-- **Side + Slash**: Wide sweep
-
-### 3. Resource Combos
-Combine different ability types:
-- **Firewall Breach + Slash**: "Exploit Strike" (true damage)
-- **Heat Shield + Hammer Strike**: "Molten Fortress" (AoE reflect)
-
-### 4. Environmental Combos
-- **Near Wall + Dash + Slash**: Wall bounce attack
-- **Near Ledge + Jump + Slash**: Extended aerial time
-
----
-
-## Implementation Priority
-
-### Phase 1: Core System (Day 1-2)
-1. Implement combo state machine
-2. Create input buffer system
-3. Add basic 2-hit combos
-
-### Phase 2: Visual Polish (Day 3)
-4. Add particle effects
-5. Implement hit stop on combo hits
-6. Create combo UI
-
-### Phase 3: Advanced Features (Day 4-5)
-7. Add 3-hit combo
-8. Implement rhythm system
-9. Add combo canceling
-
----
-
-## Balancing Considerations
-
-### Skill vs Reward
-- Easy combos: Small damage boost, resource efficiency
-- Hard combos: Major damage, unique effects, style points
-
-### Anti-Spam
-- Diminishing returns on repeated same combo
-- Combo variety bonus (using different combos = more rewards)
-
-### PvE Balance
-- Enemies should react to combos (block, dodge, interrupt)
-- Elite enemies might have combo-breaker moves
-- Bosses could require specific combos to break shields
-
----
-
-## Technical Implementation
-
-### Combo Detection System
-```cpp
-UCLASS()
-class UComboSystem : public UActorComponent
-{
-    GENERATED_BODY()
-    
-private:
-    // Circular buffer for input history
-    TCircularBuffer<FAbilityInput> InputHistory;
-    
-    // Registered combo patterns
-    TArray<FComboPattern> RegisteredCombos;
-    
-    // Active combo window
-    float ComboWindowRemaining;
-    
-public:
-    void RegisterInput(EAbilityType AbilityType);
-    bool CheckForCombo();
-    void ExecuteCombo(const FComboPattern& Combo);
-};
-```
-
-### Combo Data Structure
-```cpp
-USTRUCT()
-struct FComboPattern
-{
-    GENERATED_BODY()
-    
-    UPROPERTY(EditAnywhere)
-    TArray<EAbilityType> RequiredInputs;
-    
-    UPROPERTY(EditAnywhere)
-    TArray<float> TimingWindows;
-    
-    UPROPERTY(EditAnywhere)
-    TSubclassOf<UComboEffect> EffectClass;
-    
-    UPROPERTY(EditAnywhere)
-    float ResourceDiscount = 0.25f;
-};
-```
-
----
-
-## Player Mastery Path
-
-### Combo Grades
-- **C**: Basic execution
-- **B**: Good timing
-- **A**: Perfect timing
-- **S**: Perfect timing + style (no damage taken)
-- **SSS**: Full combo chain with variety
-
-### Rewards for Mastery
-- Unlock new combo effects at higher grades
-- Cosmetic changes (cooler VFX at S rank)
-- Resource bonuses for perfect execution
-
----
-
-## Conclusion
-
-This combo system adds depth without complexity. Players can enjoy the game using basic attacks, but mastery reveals a rich combat system with satisfying rewards for skilled play. The path-specific variations ensure both Hacker and Forge players have unique combo experiences that reinforce their chosen playstyle.

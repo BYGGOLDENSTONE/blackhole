@@ -10,10 +10,6 @@ void UResourceManager::Initialize(FSubsystemCollectionBase& Collection)
 	// Initialize default values from config
 	MaxWP = GameplayConfig::Resources::MAX_WILLPOWER;
 	CurrentWP = 0.0f; // WP starts at 0, gained from ability usage
-	MaxHeat = GameplayConfig::Resources::MAX_HEAT;
-	CurrentHeat = 0.0f;
-	HeatDissipationRate = GameplayConfig::Resources::HEAT_DISSIPATION_RATE;
-	bIsOverheated = false;
 	PreviousWPThreshold = EResourceThreshold::Normal; // Starting at 0% WP = Normal state
 	CurrentPath = ECharacterPath::Hacker; // Default to Hacker
 	WPMaxReachedCount = 0; // Track how many times WP reached 100%
@@ -22,17 +18,11 @@ void UResourceManager::Initialize(FSubsystemCollectionBase& Collection)
 void UResourceManager::Deinitialize()
 {
 	// Clear any active timers
-	if (GetGameInstance() && GetGameInstance()->GetWorld())
-	{
-		GetGameInstance()->GetWorld()->GetTimerManager().ClearTimer(OverheatCooldownTimer);
-	}
 	
 	// Clear all delegate bindings to prevent crashes
 	OnWillPowerChanged.Clear();
-	OnHeatChanged.Clear();
 	OnWillPowerThresholdReached.Clear();
 	OnWPMaxReached.Clear();
-	OnOverheatShutdown.Clear();
 	
 	Super::Deinitialize();
 }
@@ -49,13 +39,6 @@ bool UResourceManager::ConsumeWillPower(float Amount)
 	if (CurrentWP < Amount)
 	{
 		UE_LOG(LogTemp, Verbose, TEXT("ConsumeWillPower: Insufficient WP (%.1f/%.1f required)"), CurrentWP, Amount);
-		return false;
-	}
-	
-	// Check if we're overheated (abilities disabled) - only in Forge path
-	if (IsHeatSystemActive() && bIsOverheated)
-	{
-		UE_LOG(LogTemp, Verbose, TEXT("ConsumeWillPower: Cannot consume while overheated"));
 		return false;
 	}
 	
@@ -98,102 +81,6 @@ void UResourceManager::AddWillPower(float Amount)
 	}
 }
 
-void UResourceManager::AddHeat(float Amount)
-{
-	// Heat system only active in Forge path
-	if (!IsHeatSystemActive())
-	{
-		return;
-	}
-	
-	if (Amount < 0.0f)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("AddHeat called with negative amount: %f"), Amount);
-		return;
-	}
-	
-	float OldHeat = CurrentHeat;
-	CurrentHeat = FMath::Clamp(CurrentHeat + Amount, 0.0f, MaxHeat);
-	
-	if (CurrentHeat != OldHeat)
-	{
-		OnHeatChanged.Broadcast(CurrentHeat, MaxHeat);
-		
-		// Check for overheat
-		if (!bIsOverheated && GetHeatPercent() >= GameplayConfig::Resources::HEAT_WARNING_PERCENT)
-		{
-			bIsOverheated = true;
-			OnOverheatShutdown.Broadcast();
-			
-			// Start cooldown timer
-			if (GetGameInstance() && GetGameInstance()->GetWorld())
-			{
-				GetGameInstance()->GetWorld()->GetTimerManager().SetTimer(
-					OverheatCooldownTimer,
-					this,
-					&UResourceManager::EndOverheatShutdown,
-					GameplayConfig::Resources::OVERHEAT_DURATION,
-					false
-				);
-			}
-		}
-	}
-}
-
-bool UResourceManager::ConsumeHeat(float Amount)
-{
-	if (Amount < 0.0f)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("ConsumeHeat called with negative amount: %f"), Amount);
-		return false;
-	}
-	
-	// Heat system only active in Forge path
-	if (!IsHeatSystemActive())
-	{
-		return false;
-	}
-	
-	// Check if we have enough heat
-	if (CurrentHeat < Amount)
-	{
-		return false;
-	}
-	
-	// Consume the heat
-	float OldHeat = CurrentHeat;
-	CurrentHeat = FMath::Clamp(CurrentHeat - Amount, 0.0f, MaxHeat);
-	
-	if (CurrentHeat != OldHeat)
-	{
-		OnHeatChanged.Broadcast(CurrentHeat, MaxHeat);
-	}
-	
-	return true;
-}
-
-void UResourceManager::DissipateHeat(float DeltaTime)
-{
-	// Heat system only active in Forge path
-	if (!IsHeatSystemActive())
-	{
-		return;
-	}
-	
-	if (CurrentHeat <= 0.0f)
-	{
-		return;
-	}
-	
-	float OldHeat = CurrentHeat;
-	CurrentHeat = FMath::Max(0.0f, CurrentHeat - (HeatDissipationRate * DeltaTime));
-	
-	if (CurrentHeat != OldHeat)
-	{
-		OnHeatChanged.Broadcast(CurrentHeat, MaxHeat);
-	}
-}
-
 EResourceThreshold UResourceManager::GetCurrentWPThreshold() const
 {
 	float Percent = GetWillPowerPercent();
@@ -216,19 +103,12 @@ EResourceThreshold UResourceManager::GetCurrentWPThreshold() const
 void UResourceManager::ResetResources()
 {
 	CurrentWP = 0.0f; // Reset to 0 (good state)
-	CurrentHeat = 0.0f;
-	bIsOverheated = false;
 	WPMaxReachedCount = 0; // Reset the counter
 	
 	// Clear overheat timer if active
-	if (GetGameInstance() && GetGameInstance()->GetWorld())
-	{
-		GetGameInstance()->GetWorld()->GetTimerManager().ClearTimer(OverheatCooldownTimer);
-	}
 	
 	// Broadcast updates
 	OnWillPowerChanged.Broadcast(CurrentWP, MaxWP);
-	OnHeatChanged.Broadcast(CurrentHeat, MaxHeat);
 	
 	// Reset threshold
 	PreviousWPThreshold = EResourceThreshold::Normal;
@@ -257,13 +137,6 @@ void UResourceManager::CheckWPThreshold()
 	}
 }
 
-void UResourceManager::EndOverheatShutdown()
-{
-	bIsOverheated = false;
-	// Optionally broadcast an event for UI to show overheat ended
-	UE_LOG(LogTemp, Log, TEXT("Overheat shutdown ended"));
-}
-
 bool UResourceManager::WouldAddingWPCauseOverflow(float Amount) const
 {
 	// For Hacker path, we want to allow reaching 100% WP to trigger ultimate mode
@@ -272,19 +145,4 @@ bool UResourceManager::WouldAddingWPCauseOverflow(float Amount) const
 	
 	// Allow abilities that would bring us exactly to 100% or less
 	return ResultingWP > MaxWP;
-}
-
-bool UResourceManager::WouldAddingHeatCauseOverflow(float Amount) const
-{
-	// Check if adding this amount would exceed max or warning threshold
-	float ResultingHeat = CurrentHeat + Amount;
-	
-	// Prevent abilities at 80% or higher (warning threshold)
-	if (CurrentHeat >= GetHeatWarningThreshold())
-	{
-		return true;
-	}
-	
-	// Check if it would exceed max
-	return ResultingHeat > MaxHeat;
 }

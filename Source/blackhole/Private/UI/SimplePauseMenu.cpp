@@ -11,6 +11,7 @@
 #include "Systems/GameStateManager.h"
 #include "Engine/GameInstance.h"
 #include "Kismet/GameplayStatics.h"
+#include "Debug/CrashLogger.h"
 
 USimplePauseMenu* USimplePauseMenu::CreateSimplePauseMenu(APlayerController* PlayerController)
 {
@@ -181,42 +182,97 @@ void USimplePauseMenu::OnResumeClicked()
 
 void USimplePauseMenu::OnRestartClicked()
 {
+	CRASH_CHECKPOINT_MSG("OnRestartClicked Start");
+	
+	// Prevent multiple clicks during transition
+	if (!IsValid(this) || !IsInViewport())
+	{
+		CRASH_LOG_ERROR("Widget invalid or not in viewport");
+		return;
+	}
+	
+	CRASH_CHECKPOINT_MSG("Getting GameInstance");
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
+		CRASH_CHECKPOINT_MSG("Getting GameStateManager");
 		if (UGameStateManager* GameStateMgr = GameInstance->GetSubsystem<UGameStateManager>())
 		{
+			CRASH_CHECKPOINT_MSG("Disabling buttons");
+			// Disable all buttons in the map to prevent clicks during transition
+			for (auto& Pair : ButtonCallbacks)
+			{
+				if (UButton* Button = Pair.Key)
+				{
+					Button->SetIsEnabled(false);
+				}
+			}
+			
+			CRASH_CHECKPOINT_MSG("Clearing button callbacks");
+			// Clear button callbacks after disabling to prevent any further input
+			ButtonCallbacks.Empty();
+			
 			// First, ensure we're in game-only input mode to prevent UI access during transition
+			CRASH_CHECKPOINT_MSG("Getting World");
 			if (UWorld* World = GetWorld())
 			{
+				CRASH_CHECKPOINT_MSG("Getting PlayerController");
 				if (APlayerController* PC = World->GetFirstPlayerController())
 				{
+					CRASH_CHECKPOINT_MSG("Setting input mode");
 					FInputModeGameOnly InputMode;
 					PC->SetInputMode(InputMode);
 					PC->bShowMouseCursor = false;
 					
 					// Unpause the game before restart
+					CRASH_CHECKPOINT_MSG("Unpausing game");
 					PC->SetPause(false);
 				}
 			}
 			
-			// Clear button callbacks to prevent dangling references
-			ButtonCallbacks.Empty();
+			// Mark widget for pending kill to prevent access during level transition
+			CRASH_CHECKPOINT_MSG("Marking widget as garbage");
+			MarkAsGarbage();
 			
-			// Remove from viewport immediately to prevent access during level transition
-			RemoveFromParent();
+			// Hide widget instead of removing immediately
+			CRASH_CHECKPOINT_MSG("Hiding widget");
+			SetVisibility(ESlateVisibility::Collapsed);
 			
-			// Perform restart with new safer approach
+			// Perform restart - GameStateManager will handle cleanup
+			CRASH_CHECKPOINT_MSG("Calling RestartGame");
 			GameStateMgr->RestartGame();
+			
+			CRASH_CHECKPOINT_MSG("OnRestartClicked End");
 		}
 	}
 }
 
 void USimplePauseMenu::OnQuitClicked()
 {
+	// Prevent multiple clicks during transition
+	if (!IsValid(this) || !IsInViewport())
+	{
+		return;
+	}
+	
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
 		if (UGameStateManager* GameStateMgr = GameInstance->GetSubsystem<UGameStateManager>())
 		{
+			// Disable all buttons in the map
+			for (auto& Pair : ButtonCallbacks)
+			{
+				if (UButton* Button = Pair.Key)
+				{
+					Button->SetIsEnabled(false);
+				}
+			}
+			
+			// Clear button callbacks after disabling
+			ButtonCallbacks.Empty();
+			
+			// Hide widget before quitting
+			SetVisibility(ESlateVisibility::Collapsed);
+			
 			GameStateMgr->QuitGame();
 		}
 	}

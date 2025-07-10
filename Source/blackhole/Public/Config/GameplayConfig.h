@@ -24,10 +24,6 @@ namespace GameplayConfig
 	namespace Resources
 	{
 		constexpr float MAX_WILLPOWER = 100.0f;				// WP units
-		constexpr float MAX_HEAT = 100.0f;						// Heat units
-		constexpr float HEAT_DISSIPATION_RATE = 5.0f;			// Per second
-		constexpr float OVERHEAT_DURATION = 3.0f;				// Seconds
-		constexpr float HEAT_WARNING_PERCENT = 0.8f;			// 80%
 		constexpr float WP_WARNING_PERCENT = 0.9f;				// 90%
 		constexpr float WP_BUFFED_THRESHOLD = 0.5f;			// 50%
 	}
@@ -58,7 +54,6 @@ namespace GameplayConfig
 		{
 			constexpr float COOLDOWN = 1.0f;					// Seconds
 			constexpr float RANGE = 1000.0f;					// Units
-			constexpr float HEAT_GENERATION_MULT = 0.5f;		// Multiplier
 		}
 
 		// Pulse Hack (Hacker)
@@ -77,25 +72,6 @@ namespace GameplayConfig
 			constexpr float ULTIMATE_RADIUS_MULT = 4.0f;		// Multiplier
 			constexpr float ULTIMATE_STUN_DURATION = 3.0f;		// Seconds
 			constexpr float ULTIMATE_WP_CLEANSE = 50.0f;		// WP units
-		}
-
-		// Hammer Strike (Forge)
-		namespace HammerStrike
-		{
-			constexpr float HEAT_COST = 20.0f;					// Heat units
-			constexpr float STAMINA_COST = 15.0f;				// Stamina units
-			constexpr float COOLDOWN = 6.0f;					// Seconds
-			constexpr float HEAT_GENERATION_MULT = 0.7f;		// Multiplier
-			constexpr float DAMAGE = 40.0f;						// HP damage
-			constexpr float RANGE = 250.0f;						// Units
-			constexpr float STUN_DURATION = 2.0f;				// Seconds
-			constexpr float COMBO_WINDOW = 3.0f;				// Seconds
-			constexpr float COMBO_DAMAGE_MULT = 1.5f;			// Multiplier
-			constexpr int32 MAX_COMBO_HITS = 3;				// Count
-			constexpr float SWEEP_RADIUS = 100.0f;				// Units
-			constexpr float EFFECT_FORWARD_OFFSET = 150.0f;	// Units
-			constexpr float EFFECT_SCALE_PER_COMBO = 0.2f;		// Scale increment
-			constexpr float CAMERA_SHAKE_PER_COMBO = 0.5f;		// Intensity increment
 		}
 
 		// Hacker Jump

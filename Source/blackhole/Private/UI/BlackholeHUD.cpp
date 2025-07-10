@@ -3,7 +3,6 @@
 #include "Components/Attributes/IntegrityComponent.h"
 #include "Components/Attributes/StaminaComponent.h"
 #include "Components/Attributes/WillPowerComponent.h"
-#include "Components/Attributes/HeatComponent.h"
 #include "Systems/ResourceManager.h"
 #include "UI/MainMenuWidget.h"
 #include "UI/PauseMenuWidget.h"
@@ -14,20 +13,13 @@
 #include "Components/Abilities/Player/Basic/KillAbilityComponent.h"
 #include "Components/Abilities/Player/Hacker/GravityPullAbilityComponent.h"
 #include "Components/Abilities/Player/Utility/HackerDashAbility.h"
-#include "Components/Abilities/Player/Utility/ForgeDashAbility.h"
 #include "Components/Abilities/Player/Utility/HackerJumpAbility.h"
-#include "Components/Abilities/Player/Utility/ForgeJumpAbility.h"
 #include "Components/Abilities/UtilityAbility.h"
 #include "Components/Abilities/Player/Hacker/PulseHackAbility.h"
 #include "Components/Abilities/Player/Hacker/FirewallBreachAbility.h"
 #include "Components/Abilities/Player/Hacker/DataSpikeAbility.h"
 #include "Components/Abilities/Player/Hacker/SystemOverrideAbility.h"
-#include "Components/Abilities/Player/Forge/MoltenMaceSlashAbility.h"
-#include "Components/Abilities/Player/Forge/HeatShieldAbility.h"
-#include "Components/Abilities/Player/Forge/BlastChargeAbility.h"
-#include "Components/Abilities/Player/Forge/HammerStrikeAbility.h"
 #include "Components/Abilities/AbilityComponent.h"
-#include "Components/ComboComponent.h"
 #include "Systems/ThresholdManager.h"
 #include "Engine/Canvas.h"
 #include "Engine/World.h"
@@ -44,13 +36,10 @@ ABlackholeHUD::ABlackholeHUD()
 	IntegrityColor = FColor::Red;
 	StaminaColor = FColor::Green;
 	WillPowerColor = FColor::Blue;
-	HeatColor = FColor::Orange;
 	
 	// Initialize cached values
 	CachedWP = 100.0f;
 	CachedMaxWP = 100.0f;
-	CachedHeat = 0.0f;
-	CachedMaxHeat = 100.0f;
 	bUltimateModeActive = false;
 }
 
@@ -119,13 +108,6 @@ void ABlackholeHUD::BeginPlay()
 		CachedHackerDash = PlayerCharacter->FindComponentByClass<UHackerDashAbility>();
 		CachedHackerJump = PlayerCharacter->FindComponentByClass<UHackerJumpAbility>();
 		
-		// Forge abilities
-		CachedMoltenMace = PlayerCharacter->FindComponentByClass<UMoltenMaceSlashAbility>();
-		CachedHeatShield = PlayerCharacter->FindComponentByClass<UHeatShieldAbility>();
-		CachedBlastCharge = PlayerCharacter->FindComponentByClass<UBlastChargeAbility>();
-		CachedHammerStrike = PlayerCharacter->FindComponentByClass<UHammerStrikeAbility>();
-		CachedForgeDash = PlayerCharacter->FindComponentByClass<UForgeDashAbility>();
-		CachedForgeJump = PlayerCharacter->FindComponentByClass<UForgeJumpAbility>();
 	}
 	
 	// Bind to ResourceManager events
@@ -135,13 +117,10 @@ void ABlackholeHUD::BeginPlay()
 		if (ResourceManager)
 		{
 			ResourceManager->OnWillPowerChanged.AddDynamic(this, &ABlackholeHUD::UpdateWPBar);
-			ResourceManager->OnHeatChanged.AddDynamic(this, &ABlackholeHUD::UpdateHeatBar);
 			
 			// Initialize with current values
 			CachedWP = ResourceManager->GetCurrentWillPower();
 			CachedMaxWP = ResourceManager->GetMaxWillPower();
-			CachedHeat = ResourceManager->GetCurrentHeat();
-			CachedMaxHeat = ResourceManager->GetMaxHeat();
 		}
 		
 		// Get ThresholdManager (it's a WorldSubsystem, not GameInstanceSubsystem)
@@ -162,7 +141,6 @@ void ABlackholeHUD::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	if (ResourceManager)
 	{
 		ResourceManager->OnWillPowerChanged.RemoveDynamic(this, &ABlackholeHUD::UpdateWPBar);
-		ResourceManager->OnHeatChanged.RemoveDynamic(this, &ABlackholeHUD::UpdateHeatBar);
 		ResourceManager = nullptr;
 	}
 	
@@ -198,13 +176,6 @@ void ABlackholeHUD::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	CachedSystemOverride = nullptr;
 	CachedHackerDash = nullptr;
 	CachedHackerJump = nullptr;
-	CachedMoltenMace = nullptr;
-	CachedHeatShield = nullptr;
-	CachedBlastCharge = nullptr;
-	CachedHammerStrike = nullptr;
-	CachedForgeDash = nullptr;
-	CachedForgeJump = nullptr;
-	CachedComboComponent = nullptr;
 	
 	Super::EndPlay(EndPlayReason);
 }
@@ -238,29 +209,14 @@ void ABlackholeHUD::DrawHUD()
 
 	// Draw WP only in Hacker path
 	int resourceBarIndex = 2;
-	if (PlayerCharacter->GetCurrentPath() == ECharacterPath::Hacker)
-	{
-		DrawAttribute("Will Power", CachedWP, CachedMaxWP, 
-					  StartX, StartY + VerticalSpacing * resourceBarIndex, WillPowerColor);
-		resourceBarIndex++;
-	}
+	// Always draw Will Power for Hacker path
+	DrawAttribute("Will Power", CachedWP, CachedMaxWP, 
+				  StartX, StartY + VerticalSpacing * resourceBarIndex, WillPowerColor);
+	resourceBarIndex++;
 	
-	// Draw Heat bar only in Forge path
-	if (ResourceManager && ResourceManager->IsHeatSystemActive())
-	{
-		DrawAttribute("Heat", CachedHeat, CachedMaxHeat,
-					  StartX, StartY + VerticalSpacing * resourceBarIndex, HeatColor);
-		resourceBarIndex++;
-	}
-	
-	// Draw current path
-	if (PlayerCharacter)
-	{
-		FString PathText = FString::Printf(TEXT("Path: %s"), *PlayerCharacter->GetCurrentPathName());
-		DrawText(PathText, 
-				 PlayerCharacter->GetCurrentPath() == ECharacterPath::Hacker ? FColor::Cyan : FColor::Orange, 
-				 StartX, StartY + VerticalSpacing * resourceBarIndex);
-	}
+	// Path is always Hacker now
+	FString PathText = TEXT("Path: Hacker");
+	DrawText(PathText, FColor::Cyan, StartX, StartY + VerticalSpacing * resourceBarIndex, nullptr, 1.0f, false);
 
 	// Draw all abilities
 	DrawAbilityInfo();
@@ -273,7 +229,8 @@ void ABlackholeHUD::DrawHUD()
 
 void ABlackholeHUD::DrawAttribute(const FString& Name, float Current, float Max, float X, float Y, const FColor& Color)
 {
-	DrawText(Name, Color, X, Y);
+	FFontRenderInfo RenderInfo;
+	DrawText(Name, Color, X, Y, nullptr, 1.0f, false);
 
 	float BarX = X + 100.0f;
 	float BarY = Y;
@@ -313,11 +270,11 @@ void ABlackholeHUD::DrawAttribute(const FString& Name, float Current, float Max,
 		// Draw threshold text
 		if (Current >= Max)
 		{
-			DrawText(TEXT("ULTIMATE!"), FColor::Red, BarX + AttributeBarWidth / 2 - 30, BarY - 15);
+			DrawText(TEXT("ULTIMATE!"), FColor::Red, BarX + AttributeBarWidth / 2 - 30, BarY - 15, nullptr, 1.0f, false);
 		}
 		else if (Current >= Max * 0.5f)
 		{
-			DrawText(TEXT("BUFFED"), FColor::Cyan, BarX + AttributeBarWidth / 2 - 20, BarY - 15);
+			DrawText(TEXT("BUFFED"), FColor::Cyan, BarX + AttributeBarWidth / 2 - 20, BarY - 15, nullptr, 1.0f, false);
 		}
 	}
 	else
@@ -327,7 +284,7 @@ void ABlackholeHUD::DrawAttribute(const FString& Name, float Current, float Max,
 
 	// Use pre-allocated buffer to avoid per-frame allocation
 	FCString::Sprintf(AttributeTextBuffer, TEXT("%.0f/%.0f"), Current, Max);
-	DrawText(AttributeTextBuffer, FColor::White, BarX + AttributeBarWidth + 10, Y);
+	DrawText(AttributeTextBuffer, FColor::White, BarX + AttributeBarWidth + 10, Y, nullptr, 1.0f, false);
 }
 
 void ABlackholeHUD::DrawAbilityCooldown(const FString& Name, float CooldownPercent, float X, float Y)
@@ -419,19 +376,6 @@ void ABlackholeHUD::UpdateWPBar(float NewValue, float MaxValue)
 	CachedMaxWP = MaxValue;
 }
 
-void ABlackholeHUD::UpdateHeatBar(float NewValue, float MaxValue)
-{
-	CachedHeat = NewValue;
-	CachedMaxHeat = MaxValue;
-	
-	// Flash warning at 80%
-	float Percent = MaxValue > 0.0f ? NewValue / MaxValue : 0.0f;
-	if (Percent >= 0.8f)
-	{
-		// TODO: Trigger warning animation
-		UE_LOG(LogTemp, Warning, TEXT("Heat warning: %.1f%%"), Percent * 100.0f);
-	}
-}
 
 TArray<ABlackholeHUD::FAbilityDisplayInfo> ABlackholeHUD::GetCurrentAbilities() const
 {
@@ -442,7 +386,7 @@ TArray<ABlackholeHUD::FAbilityDisplayInfo> ABlackholeHUD::GetCurrentAbilities() 
 		return Abilities;
 	}
 	
-	bool bIsHacker = PlayerCharacter->GetCurrentPath() == ECharacterPath::Hacker;
+	bool bIsHacker = true; // Always Hacker path now
 	
 	// Always available abilities
 	if (CachedSlashAbility)
@@ -518,75 +462,15 @@ TArray<ABlackholeHUD::FAbilityDisplayInfo> ABlackholeHUD::GetCurrentAbilities() 
 			Abilities.Add({Name, TEXT("R"), CachedDataSpike, true, bDisabled, bUltimate, bBasic});
 		}
 	}
-	else
-	{
-		// Forge abilities
-		if (CachedMoltenMace)
-		{
-			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedMoltenMace) : false;
-			bool bUltimate = CachedMoltenMace->IsInUltimateMode();
-			bool bBasic = CachedMoltenMace->IsBasicAbility();
-			Abilities.Add({TEXT("Molten Mace"), TEXT("RMB"), CachedMoltenMace, true, bDisabled, bUltimate, bBasic});
-		}
-		
-		if (CachedHeatShield)
-		{
-			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedHeatShield) : false;
-			bool bUltimate = CachedHeatShield->IsInUltimateMode();
-			bool bBasic = CachedHeatShield->IsBasicAbility();
-			Abilities.Add({TEXT("Heat Shield"), TEXT("Q"), CachedHeatShield, true, bDisabled, bUltimate, bBasic});
-		}
-		
-		if (CachedBlastCharge)
-		{
-			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedBlastCharge) : false;
-			bool bUltimate = CachedBlastCharge->IsInUltimateMode();
-			bool bBasic = CachedBlastCharge->IsBasicAbility();
-			Abilities.Add({TEXT("Blast Charge"), TEXT("E"), CachedBlastCharge, true, bDisabled, bUltimate, bBasic});
-		}
-		
-		if (CachedHammerStrike)
-		{
-			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedHammerStrike) : false;
-			bool bUltimate = CachedHammerStrike->IsInUltimateMode();
-			bool bBasic = CachedHammerStrike->IsBasicAbility();
-			Abilities.Add({TEXT("Hammer Strike"), TEXT("R"), CachedHammerStrike, true, bDisabled, bUltimate, bBasic});
-		}
-		
-		if (CachedForgeDash)
-		{
-			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedForgeDash) : false;
-			bool bUltimate = CachedForgeDash->IsInUltimateMode();
-			bool bBasic = CachedForgeDash->IsBasicAbility();
-			Abilities.Add({TEXT("Forge Dash"), TEXT("Shift"), CachedForgeDash, true, bDisabled, bUltimate, bBasic});
-		}
-		
-		if (CachedForgeJump)
-		{
-			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedForgeJump) : false;
-			bool bUltimate = CachedForgeJump->IsInUltimateMode();
-			bool bBasic = CachedForgeJump->IsBasicAbility();
-			Abilities.Add({TEXT("Forge Jump"), TEXT("Space"), CachedForgeJump, true, bDisabled, bUltimate, bBasic});
-		}
-	}
 	
-	// F key ability - path specific
-	if (bIsHacker)
+	// System Override ability (F key for Hacker)
+	if (CachedSystemOverride)
 	{
-		// System Override ability (F key for Hacker)
-		if (CachedSystemOverride)
-		{
-			bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedSystemOverride) : false;
-			bool bUltimate = CachedSystemOverride->IsInUltimateMode();
-			bool bBasic = CachedSystemOverride->IsBasicAbility();
-			FString Name = bUltimate ? TEXT("TOTAL SYSTEM SHUTDOWN") : TEXT("System Override");
-			Abilities.Add({Name, TEXT("F"), CachedSystemOverride, true, bDisabled, bUltimate, bBasic});
-		}
-	}
-	else
-	{
-		// Forge F ability - TODO: Implement Forge ultimate ability
-		Abilities.Add({TEXT("(Forge Ultimate)"), TEXT("F"), nullptr, false, false, false, false});
+		bool bDisabled = ThresholdManager ? ThresholdManager->IsAbilityDisabled(CachedSystemOverride) : false;
+		bool bUltimate = CachedSystemOverride->IsInUltimateMode();
+		bool bBasic = CachedSystemOverride->IsBasicAbility();
+		FString Name = bUltimate ? TEXT("TOTAL SYSTEM SHUTDOWN") : TEXT("System Override");
+		Abilities.Add({Name, TEXT("F"), CachedSystemOverride, true, bDisabled, bUltimate, bBasic});
 	}
 	
 	return Abilities;
@@ -856,93 +740,6 @@ void ABlackholeHUD::DrawDebugStatus()
 		{
 			DrawText(TEXT("ABILITIES BUFFED"), FColor::Cyan, X, Y);
 		}
-	}
-}
-
-void ABlackholeHUD::DrawComboStatus()
-{
-	if (!Canvas || !IsValid(CachedComboComponent))
-	{
-		return;
-	}
-	
-	// Position for combo display (center top)
-	float X = Canvas->SizeX * 0.5f - 150.0f;
-	float Y = 200.0f;
-	
-	// Get current combo status
-	FString ComboStatus = CachedComboComponent->GetCurrentComboStatus();
-	
-	if (!ComboStatus.IsEmpty())
-	{
-		// Draw background box
-		float BoxWidth = 300.0f;
-		float BoxHeight = 60.0f;
-		DrawRect(FColor(0, 0, 0, 180), X - 10, Y - 10, BoxWidth + 20, BoxHeight + 20);
-		
-		// Determine color based on combo status
-		FColor TextColor = FColor::White;
-		float TextScale = 1.5f;
-		
-		if (ComboStatus.Contains(TEXT("COMBO:")))
-		{
-			// Active combo - make it stand out
-			TextColor = FColor::Yellow;
-			TextScale = 2.0f;
-			
-			// Add pulsing effect
-			float Pulse = FMath::Sin(GetWorld()->GetTimeSeconds() * 4.0f) * 0.5f + 0.5f;
-			TextColor.R = FMath::Lerp(200, 255, Pulse);
-		}
-		else if (ComboStatus.Contains(TEXT("Inputs:")))
-		{
-			// Input sequence - show in cyan
-			TextColor = FColor::Cyan;
-		}
-		
-		// Draw the combo text
-		DrawText(ComboStatus, TextColor, X, Y, nullptr, TextScale);
-		
-		// Add visual effects for specific combos
-		if (ComboStatus.Contains(TEXT("COMBO: PhantomStrike")))
-		{
-			// Dash + Slash visual
-			DrawText(TEXT("💨⚔️ PHANTOM STRIKE!"), FColor::Cyan, X - 50, Y + 35, nullptr, 1.2f);
-			DrawText(TEXT("Teleport Backstab Critical Hit!"), FColor::White, X - 70, Y + 55, nullptr, 0.9f);
-		}
-		else if (ComboStatus.Contains(TEXT("COMBO: BladeDance")))
-		{
-			// Slash + Slash visual
-			DrawText(TEXT("⚔️⚔️ BLADE DANCE!"), FColor::Red, X - 50, Y + 35, nullptr, 1.2f);
-			DrawText(TEXT("Progressive Combo Damage!"), FColor::White, X - 60, Y + 55, nullptr, 0.9f);
-		}
-		else if (ComboStatus.Contains(TEXT("COMBO: AerialRave")))
-		{
-			// Jump + Slash visual
-			DrawText(TEXT("🚀⚔️ AERIAL RAVE!"), FColor::Green, X - 50, Y + 35, nullptr, 1.2f);
-			DrawText(TEXT("Shockwave Ground Slam!"), FColor::White, X - 60, Y + 55, nullptr, 0.9f);
-		}
-		else if (ComboStatus.Contains(TEXT("COMBO: TempestBlade")))
-		{
-			// Jump + Dash + Slash visual
-			DrawText(TEXT("🌪️⚔️ TEMPEST BLADE!"), FColor::Purple, X - 50, Y + 35, nullptr, 1.2f);
-			DrawText(TEXT("Multi-Teleport Strike!"), FColor::White, X - 50, Y + 55, nullptr, 0.9f);
-		}
-		
-		// Draw combo hints below if showing inputs
-		if (ComboStatus.Contains(TEXT("Inputs:")))
-		{
-			FString HintText = TEXT("Combos: Dash+Slash | Jump+Slash | Jump+Dash+Slash | Slash+Slash");
-			DrawText(HintText, FColor(150, 150, 150), X - 50, Y + 30, nullptr, 0.8f);
-		}
-	}
-	
-	// Show last performed combo if recent
-	FName LastCombo = CachedComboComponent->GetLastPerformedCombo();
-	if (LastCombo != NAME_None)
-	{
-		// This will be shown through the ComboStatus string above
-		// Additional visual feedback could be added here if needed
 	}
 }
 

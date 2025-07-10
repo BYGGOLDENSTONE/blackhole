@@ -15,9 +15,7 @@ UAbilityComponent::UAbilityComponent()
 	Cost = 0.0f; // Legacy field
 	StaminaCost = 0.0f;
 	WPCost = 0.0f;
-	HeatCost = 0.0f;
 	Range = GameplayConfig::Abilities::Defaults::RANGE;
-	HeatGenerationMultiplier = GameplayConfig::Abilities::Defaults::HEAT_GENERATION_MULT; // Default: generates heat equal to 50% of cost
 	CurrentCooldown = 0.0f;
 	bIsOnCooldown = false;
 	bIsInUltimateMode = false;
@@ -39,6 +37,20 @@ void UAbilityComponent::BeginPlay()
 	{
 		ThresholdManager = World->GetSubsystem<UThresholdManager>();
 	}
+}
+
+void UAbilityComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// Reset cooldown state to prevent persistence between PIE sessions
+	CurrentCooldown = 0.0f;
+	bIsOnCooldown = false;
+	bIsInUltimateMode = false;
+	
+	// Clear cached references
+	ResourceManager = nullptr;
+	ThresholdManager = nullptr;
+	
+	Super::EndPlay(EndPlayReason);
 }
 
 void UAbilityComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -142,22 +154,6 @@ bool UAbilityComponent::CanExecute() const
 			}
 			// Allow all abilities below 100% WP, even if they would reach 100%
 		}
-		
-		// Heat validation: Check if already overheated or would cause overflow
-		if (HeatCost > 0.0f)
-		{
-			if (ResMgr->IsOverheated())
-			{
-				// Don't log overheat checks - this gets called every tick
-				return false; // Can't use abilities while overheated
-			}
-			
-			if (ResMgr->WouldAddingHeatCauseOverflow(HeatCost))
-			{
-				// Don't log overflow checks - this gets called every tick
-				return false; // Prevent abilities that would push heat too high
-			}
-		}
 	}
 
 	return true;
@@ -225,12 +221,6 @@ void UAbilityComponent::Execute()
 				ResMgr->AddWillPower(WPCost); // Changed from ConsumeWillPower to AddWillPower
 			}
 
-			// ADD Heat for Forge abilities (heat is a penalty resource)
-			if (HeatCost > 0.0f)
-			{
-				ResMgr->AddHeat(HeatCost);
-			}
-
 			// Consume stamina
 			if (StaminaCost > 0.0f)
 			{
@@ -245,13 +235,6 @@ void UAbilityComponent::Execute()
 				{
 					UE_LOG(LogTemp, Warning, TEXT("Ability %s: Cannot consume stamina - no owner"), *GetName());
 				}
-			}
-			
-			// Legacy heat generation (for abilities that don't use HeatCost)
-			if (HeatCost <= 0.0f)
-			{
-				float HeatGenerated = CalculateHeatGenerated();
-				ResMgr->AddHeat(HeatGenerated);
 			}
 		}
 	}
@@ -305,30 +288,17 @@ UResourceManager* UAbilityComponent::GetResourceManager() const
 	return nullptr;
 }
 
-float UAbilityComponent::CalculateHeatGenerated() const
-{
-	return Cost * HeatGenerationMultiplier;
-}
 
 float UAbilityComponent::GetDamageMultiplier() const
 {
-	if (ThresholdManager)
-	{
-		const FSurvivorBuff& Buff = ThresholdManager->GetCurrentBuff();
-		return Buff.DamageMultiplier;
-	}
+	// Use default value if ThresholdManager is not available
+	// This prevents crashes when the subsystem isn't initialized yet
 	return 1.0f;
 }
 
 float UAbilityComponent::GetCooldownWithReduction() const
 {
-	float FinalCooldown = Cooldown;
-	
-	if (ThresholdManager)
-	{
-		const FSurvivorBuff& Buff = ThresholdManager->GetCurrentBuff();
-		FinalCooldown *= (1.0f - Buff.CooldownReduction);
-	}
-	
-	return FinalCooldown;
+	// Use base cooldown without reduction for now
+	// This prevents crashes when the subsystem isn't initialized yet
+	return Cooldown;
 }

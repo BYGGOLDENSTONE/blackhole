@@ -12,6 +12,7 @@
 #include "Components/Attributes/IntegrityComponent.h"
 #include "Systems/ResourceManager.h"
 #include "Systems/HitStopManager.h"
+#include "Utils/ErrorHandling.h"
 
 UDataSpikeAbility::UDataSpikeAbility()
 {
@@ -19,9 +20,9 @@ UDataSpikeAbility::UDataSpikeAbility()
 	Cost = 12.0f; // Legacy field
 	StaminaCost = GameplayConfig::Abilities::DataSpike::STAMINA_COST;
 	WPCost = GameplayConfig::Abilities::DataSpike::WP_COST;
-	HeatCost = 0.0f; // Hacker abilities don't consume heat
+	// HeatCost removed - heat system no longer exists
 	Cooldown = GameplayConfig::Abilities::DataSpike::COOLDOWN;
-	HeatGenerationMultiplier = 0.0f; // No heat generation
+	// HeatGenerationMultiplier removed - heat system no longer exists
 }
 
 bool UDataSpikeAbility::CanExecute() const
@@ -59,17 +60,11 @@ void UDataSpikeAbility::ExecuteUltimate()
 	FireProjectile(true);
 	
 	// Apply WP cleanse
-	if (UWorld* World = GetWorld())
+	if (UResourceManager* ResourceMgr = GetGameInstanceSubsystemSafe<UResourceManager>(this))
 	{
-		if (UGameInstance* GameInstance = World->GetGameInstance())
-		{
-			if (UResourceManager* ResourceMgr = GameInstance->GetSubsystem<UResourceManager>())
-			{
-				ResourceMgr->AddWillPower(-GameplayConfig::Abilities::DataSpike::ULTIMATE_WP_CLEANSE);
-				UE_LOG(LogTemp, Warning, TEXT("Ultimate Data Spike: Cleansed %.0f WP!"), 
-					GameplayConfig::Abilities::DataSpike::ULTIMATE_WP_CLEANSE);
-			}
-		}
+		ResourceMgr->AddWillPower(-GameplayConfig::Abilities::DataSpike::ULTIMATE_WP_CLEANSE);
+		UE_LOG(LogTemp, Warning, TEXT("Ultimate Data Spike: Cleansed %.0f WP!"), 
+			GameplayConfig::Abilities::DataSpike::ULTIMATE_WP_CLEANSE);
 	}
 }
 
@@ -233,12 +228,9 @@ void UDataSpikeAbility::ProcessProjectileHit(const FHitResult& HitResult, int32&
 		TargetIntegrity->TakeDamage(FinalDamage);
 		
 		// Trigger hit stop
-		if (UWorld* World = GetWorld())
+		if (UHitStopManager* HitStopMgr = GetWorldSubsystemSafe<UHitStopManager>(this))
 		{
-			if (UHitStopManager* HitStopMgr = World->GetSubsystem<UHitStopManager>())
-			{
-				HitStopMgr->RequestMediumHitStop();
-			}
+			HitStopMgr->RequestMediumHitStop();
 		}
 		
 		UE_LOG(LogTemp, Log, TEXT("Data Spike hit %s for %.1f damage"), 
@@ -298,9 +290,27 @@ void UDataSpikeAbility::ApplyDataCorruption(ABaseEnemy* Enemy, bool bIsUltimate)
 	FDataCorruption Corruption(DOTDamageAmount, DOTDuration, DOTTickRate);
 	ActiveDOTs.Add(WeakEnemy, Corruption);
 
-	// Set up DOT timer
+	// Set up DOT timer with weak pointer capture
 	FTimerDelegate DOTDelegate;
-	DOTDelegate.BindUObject(this, &UDataSpikeAbility::OnDOTTick, Enemy);
+	DOTDelegate.BindLambda([this, WeakEnemy]()
+	{
+		if (WeakEnemy.IsValid())
+		{
+			OnDOTTick(WeakEnemy.Get());
+		}
+		else
+		{
+			// Enemy was destroyed, clean up timer
+			if (ActiveDOTs.Contains(WeakEnemy))
+			{
+				if (UWorld* World = GetWorld())
+				{
+					World->GetTimerManager().ClearTimer(ActiveDOTs[WeakEnemy].DOTTimerHandle);
+				}
+				ActiveDOTs.Remove(WeakEnemy);
+			}
+		}
+	});
 
 	if (UWorld* World = GetWorld())
 	{

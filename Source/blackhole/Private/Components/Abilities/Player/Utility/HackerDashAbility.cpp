@@ -19,7 +19,6 @@ UHackerDashAbility::UHackerDashAbility()
 	Cost = 5.0f; // Legacy field
 	StaminaCost = 5.0f; // Per GDD: 5 stamina cost
 	WPCost = 0.0f; // Utility abilities don't add WP corruption
-	HeatCost = 0.0f; // Hacker abilities don't generate heat
 	Cooldown = 1.0f; // Per GDD: 1s cooldown
 	MovementDuration = DashDuration;
 	

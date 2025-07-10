@@ -17,7 +17,6 @@ UKillAbilityComponent::UKillAbilityComponent()
 	Cost = 0.0f;
 	StaminaCost = 0.0f;
 	WPCost = 0.0f;
-	HeatCost = 0.0f;
 	Cooldown = 5.0f;
 	Range = 3000.0f;
 	

@@ -11,6 +11,7 @@
 #include "TimerManager.h"
 #include "Engine/Engine.h"
 #include "Blueprint/UserWidget.h"
+#include "Debug/CrashLogger.h"
 
 void UGameStateManager::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -21,8 +22,24 @@ void UGameStateManager::Initialize(FSubsystemCollectionBase& Collection)
 	
 	UE_LOG(LogTemp, Log, TEXT("GameStateManager: Initialized"));
 	
-	// For prototyping: Start directly in Playing state
-	SetGameState(EGameState::Playing);
+	// Start with main menu
+	// Note: This will be called after level load, so we check the level name
+	if (UWorld* World = GetWorld())
+	{
+		FString MapName = World->GetMapName();
+		// Remove PIE prefix if in editor
+		MapName.RemoveFromStart("UEDPIE_0_");
+		
+		if (MapName.Contains("MainMenu"))
+		{
+			SetGameState(EGameState::MainMenu);
+		}
+		else
+		{
+			// If we're in a game level, start playing directly
+			SetGameState(EGameState::Playing);
+		}
+	}
 }
 
 void UGameStateManager::Deinitialize()
@@ -80,15 +97,7 @@ void UGameStateManager::PauseGame()
 	
 	UE_LOG(LogTemp, Log, TEXT("GameStateManager: Pausing game"));
 	
-	// Pause game world
-	if (UWorld* World = GetWorld())
-	{
-		if (APlayerController* PC = World->GetFirstPlayerController())
-		{
-			PC->SetPause(true);
-		}
-	}
-	
+	// The pause menu will handle actual pausing
 	SetGameState(EGameState::Paused);
 }
 
@@ -101,15 +110,7 @@ void UGameStateManager::ResumeGame()
 	
 	UE_LOG(LogTemp, Log, TEXT("GameStateManager: Resuming game"));
 	
-	// Unpause game world
-	if (UWorld* World = GetWorld())
-	{
-		if (APlayerController* PC = World->GetFirstPlayerController())
-		{
-			PC->SetPause(false);
-		}
-	}
-	
+	// The pause menu will handle actual unpausing
 	SetGameState(EGameState::Playing);
 }
 
@@ -216,11 +217,10 @@ void UGameStateManager::PerformStateTransition(EGameState FromState, EGameState 
 	// Handle specific transitions
 	if (ToState == EGameState::GameOver)
 	{
-		// Show game over UI
+		// Show game over debug message
 		if (GEngine)
 		{
 			GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("GAME OVER"));
-			GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::White, TEXT("Press ESC to return to menu"));
 		}
 	}
 	else if (ToState == EGameState::Playing && FromState == EGameState::MainMenu)
@@ -300,38 +300,29 @@ void UGameStateManager::CleanupDelegates()
 
 void UGameStateManager::RestartGame()
 {
+	CRASH_CHECKPOINT_MSG("RestartGame Start");
 	UE_LOG(LogTemp, Log, TEXT("GameStateManager: Restarting game"));
 	
 	// Set transitioning state
+	CRASH_CHECKPOINT_MSG("Setting transitioning state");
 	SetGameState(EGameState::Transitioning);
 	
+	CRASH_CHECKPOINT_MSG("Getting World");
 	if (UWorld* World = GetWorld())
 	{
-		// Clean up all widgets first
-		TArray<UUserWidget*> WidgetsToRemove;
-		for (TObjectIterator<UUserWidget> It; It; ++It)
-		{
-			if (It->GetWorld() == World && It->IsInViewport())
-			{
-				WidgetsToRemove.Add(*It);
-			}
-		}
-		
-		for (UUserWidget* Widget : WidgetsToRemove)
-		{
-			Widget->RemoveFromParent();
-		}
-		
 		// Clean up game systems
+		CRASH_CHECKPOINT_MSG("Cleaning up game systems");
 		CleanupGameSystems();
 		
 		// Reset resource manager
+		CRASH_CHECKPOINT_MSG("Resetting resource manager");
 		if (UResourceManager* ResourceMgr = GetGameInstance()->GetSubsystem<UResourceManager>())
 		{
 			ResourceMgr->ResetResources();
 		}
 		
 		// Get current level name
+		CRASH_CHECKPOINT_MSG("Getting current level name");
 		FString CurrentLevelName = World->GetMapName();
 		// Remove PIE prefix if in editor
 		CurrentLevelName.RemoveFromStart("UEDPIE_0_");
@@ -339,19 +330,33 @@ void UGameStateManager::RestartGame()
 		UE_LOG(LogTemp, Log, TEXT("GameStateManager: Reloading level %s"), *CurrentLevelName);
 		
 		// Use ServerTravel for more reliable level reload
+		CRASH_CHECKPOINT_MSG("Getting PlayerController");
 		if (APlayerController* PC = World->GetFirstPlayerController())
 		{
 			// Ensure we're not paused
-			PC->SetPause(false);
+			CRASH_CHECKPOINT_MSG("Unpausing");
+			UGameplayStatics::SetGamePaused(World, false);
 			
 			// Clean up input state
+			CRASH_CHECKPOINT_MSG("Setting input mode");
 			FInputModeGameOnly InputMode;
 			PC->SetInputMode(InputMode);
 			PC->bShowMouseCursor = false;
 			
 			// Use ClientTravel for single player
+			CRASH_CHECKPOINT_MSG(FString::Printf(TEXT("Calling ClientTravel to %s"), *CurrentLevelName));
 			PC->ClientTravel(CurrentLevelName, ETravelType::TRAVEL_Absolute, false);
+			
+			CRASH_CHECKPOINT_MSG("RestartGame End");
 		}
+		else
+		{
+			CRASH_LOG_ERROR("No PlayerController found");
+		}
+	}
+	else
+	{
+		CRASH_LOG_ERROR("No World found");
 	}
 }
 

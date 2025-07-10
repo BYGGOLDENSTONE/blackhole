@@ -15,9 +15,9 @@ UPulseHackAbility::UPulseHackAbility()
 	Cost = 10.0f; // Legacy field
 	StaminaCost = 5.0f; // New dual resource system
 	WPCost = 10.0f; // New dual resource system
-	HeatCost = 0.0f; // Hacker abilities don't consume heat
+	// HeatCost removed - heat system no longer exists
 	Cooldown = 8.0f;
-	HeatGenerationMultiplier = 0.5f;
+	// HeatGenerationMultiplier removed - heat system no longer exists
 }
 
 bool UPulseHackAbility::CanExecute() const

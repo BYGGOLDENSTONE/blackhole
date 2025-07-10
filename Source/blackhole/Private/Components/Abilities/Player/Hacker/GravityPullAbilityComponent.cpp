@@ -16,7 +16,7 @@ UGravityPullAbilityComponent::UGravityPullAbilityComponent()
     Cost = 15.0f; // Legacy field
     StaminaCost = 10.0f; // New dual resource system
     WPCost = 15.0f; // New dual resource system
-    HeatCost = 0.0f; // Hacker abilities don't consume heat
+    // HeatCost removed - heat system no longer exists
     Cooldown = 3.0f;       // 3 second cooldown
     Range = 2000.0f;       // 20 meter range
     

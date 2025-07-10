@@ -1,38 +1,29 @@
 #pragma once
 
+#pragma once
+
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
-#include "blackhole.h"
 #include "BlackholePlayerCharacter.generated.h"
-
-struct FComboSequence;
 
 class USpringArmComponent;
 class UCameraComponent;
 class UIntegrityComponent;
 class UStaminaComponent;
 class UWillPowerComponent;
-class UHeatComponent;
 class USlashAbilityComponent;
 // class USystemFreezeAbilityComponent; // Removed
 class UKillAbilityComponent;
 class UGravityPullAbilityComponent;
 class UHackerDashAbility;
-class UForgeDashAbility;
 class UHackerJumpAbility;
-class UForgeJumpAbility;
 class UPulseHackAbility;
 class UFirewallBreachAbility;
 class UDataSpikeAbility;
 class USystemOverrideAbility;
-class UMoltenMaceSlashAbility;
-class UHeatShieldAbility;
-class UBlastChargeAbility;
-class UHammerStrikeAbility;
-class UComboTracker;
-class UComboSystem;
-class UComboComponent;
+class UDashSlashCombo;
+class UJumpSlashCombo;
 class UInputMappingContext;
 class UInputAction;
 class UStaticMeshComponent;
@@ -45,16 +36,6 @@ class BLACKHOLE_API ABlackholePlayerCharacter : public ACharacter
 public:
 	ABlackholePlayerCharacter();
 
-	// Path access for CheatManager
-	UFUNCTION(BlueprintPure, Category = "Character")
-	ECharacterPath GetCurrentPath() const { return CurrentPath; }
-	
-	UFUNCTION(BlueprintCallable, Category = "Character")
-	void SetCurrentPath(ECharacterPath NewPath);
-
-	// Get current path name for UI
-	UFUNCTION(BlueprintPure, Category = "Character")
-	FString GetCurrentPathName() const;
 	
 	// Death handling
 	UFUNCTION(BlueprintCallable, Category = "Character")
@@ -63,13 +44,6 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Character")
 	bool IsDead() const { return bIsDead; }
 
-	// Get combo system for abilities to register inputs
-	UFUNCTION(BlueprintPure, Category = "Systems")
-	UComboSystem* GetComboSystem() const { return ComboSystem; }
-	
-	// Get component-based combo system
-	UFUNCTION(BlueprintPure, Category = "Systems")
-	UComboComponent* GetComboComponent() const { return ComboComponent; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -91,8 +65,6 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
 	UWillPowerComponent* WillPowerComponent;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
-	UHeatComponent* HeatComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	USlashAbilityComponent* SlashAbility;
@@ -109,14 +81,10 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	UHackerDashAbility* HackerDashAbility;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
-	UForgeDashAbility* ForgeDashAbility;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	UHackerJumpAbility* HackerJumpAbility;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
-	UForgeJumpAbility* ForgeJumpAbility;
 
 	// Path-specific Combat Abilities
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
@@ -131,33 +99,14 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	USystemOverrideAbility* SystemOverrideAbility;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
-	UMoltenMaceSlashAbility* MoltenMaceSlashAbility;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
-	UHeatShieldAbility* HeatShieldAbility;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
-	UBlastChargeAbility* BlastChargeAbility;
+	// Combo ability components
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combos")
+	UDashSlashCombo* DashSlashCombo;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
-	UHammerStrikeAbility* HammerStrikeAbility;
-
-	// Current active path (for switching between abilities)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Character")
-	ECharacterPath CurrentPath;
-
-	// Combo tracking
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Systems")
-	UComboTracker* ComboTracker;
-
-	// New combo system
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Systems")
-	UComboSystem* ComboSystem;
-	
-	// New component-based combo system
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Systems")
-	UComboComponent* ComboComponent;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combos")
+	UJumpSlashCombo* JumpSlashCombo;
 
 	// Enhanced Input
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
@@ -194,8 +143,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* UtilityJumpAction;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* SwitchPathAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* MenuToggleAction;  // Quote key for menu
@@ -229,7 +176,6 @@ protected:
 	void ToggleCamera();
 	void UseDash();
 	void UseUtilityJump();
-	void SwitchPath();
 	void ToggleMenu();
 	
 	// Path-based ability slots (6 total)
@@ -246,10 +192,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
 	float FirstPersonCameraOffset;
 	
-	// Weapon mesh components
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
-	UStaticMeshComponent* MaceWeaponMesh;
-	
+	// Weapon mesh component
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	UStaticMeshComponent* KatanaWeaponMesh;
 	
@@ -265,8 +208,6 @@ private:
 	// Hide/show head bone for first person
 	void SetHeadVisibility(bool bVisible);
 	
-	// Unified path-based ability execution
-	void ExecutePathBasedAbility(class UAbilityComponent* HackerAbility, class UAbilityComponent* ForgeAbility);
 	
 	// Update weapon visibility based on current path
 	void UpdateWeaponVisibility();
@@ -274,13 +215,22 @@ private:
 	// Death state
 	bool bIsDead = false;
 	
+	// Combo tracking
+	enum class ELastAbilityUsed : uint8
+	{
+		None,
+		Dash,
+		Jump
+	};
+	
+	ELastAbilityUsed LastAbilityUsed = ELastAbilityUsed::None;
+	float LastAbilityTime = 0.0f;
+	const float ComboWindowDuration = 0.5f; // 500ms window for combos
+	
 	// Handle ThresholdManager death event
 	UFUNCTION()
 	void OnThresholdDeath();
 	
-	// Handle combo execution
-	UFUNCTION()
-	void OnComboPerformed(const FComboSequence& Combo);
 
 public:
 	virtual void Tick(float DeltaTime) override;

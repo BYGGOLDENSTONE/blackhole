@@ -21,9 +21,7 @@ UHackerJumpAbility::UHackerJumpAbility()
 	Cost = 10.0f; // Legacy field
 	StaminaCost = 10.0f; // Per GDD: 10 stamina cost
 	WPCost = 0.0f; // Utility abilities don't add WP corruption
-	HeatCost = 0.0f; // Hacker abilities don't generate heat
 	Cooldown = 0.0f; // No cooldown for jumps
-	HeatGenerationMultiplier = 0.0f; // No heat generation
 	
 	// Jump specifics
 	JumpVelocity = 1200.0f;
@@ -78,14 +76,7 @@ void UHackerJumpAbility::Execute()
 	// Call parent implementation
 	Super::Execute();
 	
-	// Register with combo system after successful execution
-	if (ABlackholePlayerCharacter* PlayerOwner = Cast<ABlackholePlayerCharacter>(GetOwner()))
-	{
-		if (UComboSystem* ComboSystem = PlayerOwner->GetComboSystem())
-		{
-			ComboSystem->RegisterInput(EComboInputType::Jump);
-		}
-	}
+	// Combo registration removed - now handled by individual combo components
 }
 
 void UHackerJumpAbility::ApplyMovement(ACharacter* Character)

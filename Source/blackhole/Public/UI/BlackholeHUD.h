@@ -10,7 +10,6 @@ class ABlackholePlayerCharacter;
 class UIntegrityComponent;
 class UStaminaComponent;
 class UWillPowerComponent;
-class UHeatComponent;
 class UResourceManager;
 class USlashAbilityComponent;
 // class USystemFreezeAbilityComponent; // Removed
@@ -22,13 +21,6 @@ class UDataSpikeAbility;
 class USystemOverrideAbility;
 class UHackerDashAbility;
 class UHackerJumpAbility;
-class UMoltenMaceSlashAbility;
-class UHeatShieldAbility;
-class UBlastChargeAbility;
-class UHammerStrikeAbility;
-class UForgeDashAbility;
-class UForgeJumpAbility;
-class UComboComponent;
 class USimplePauseMenu;
 
 UCLASS()
@@ -126,28 +118,6 @@ protected:
 	UPROPERTY()
 	class UHackerJumpAbility* CachedHackerJump;
 	
-	// Forge abilities
-	UPROPERTY()
-	class UMoltenMaceSlashAbility* CachedMoltenMace;
-	
-	UPROPERTY()
-	class UHeatShieldAbility* CachedHeatShield;
-	
-	UPROPERTY()
-	class UBlastChargeAbility* CachedBlastCharge;
-	
-	UPROPERTY()
-	class UHammerStrikeAbility* CachedHammerStrike;
-	
-	UPROPERTY()
-	class UForgeDashAbility* CachedForgeDash;
-	
-	UPROPERTY()
-	class UForgeJumpAbility* CachedForgeJump;
-	
-	// Combo component
-	UPROPERTY()
-	class UComboComponent* CachedComboComponent;
 
 	void DrawAttribute(const FString& Name, float Current, float Max, float X, float Y, const FColor& Color);
 	void DrawAbilityCooldown(const FString& Name, float CooldownPercent, float X, float Y);
@@ -172,14 +142,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "HUD")
 	FColor WillPowerColor;
 	
-	UPROPERTY(EditDefaultsOnly, Category = "HUD")
-	FColor HeatColor;
-	
 	// Resource values cached from delegates
 	float CachedWP;
 	float CachedMaxWP;
-	float CachedHeat;
-	float CachedMaxHeat;
 	
 	// Ultimate mode state
 	bool bUltimateModeActive;
@@ -187,9 +152,6 @@ protected:
 	// Update methods for resource delegates
 	UFUNCTION()
 	void UpdateWPBar(float NewValue, float MaxValue);
-	
-	UFUNCTION()
-	void UpdateHeatBar(float NewValue, float MaxValue);
 	
 	// Ultimate mode delegate
 	UFUNCTION()
@@ -203,9 +165,6 @@ private:
 	
 	// Draw debug status panel
 	void DrawDebugStatus();
-	
-	// Draw combo status
-	void DrawComboStatus();
 	
 	// Structure to hold ability display info
 	struct FAbilityDisplayInfo

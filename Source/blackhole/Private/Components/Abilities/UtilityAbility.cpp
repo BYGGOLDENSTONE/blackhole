@@ -10,7 +10,6 @@ UUtilityAbility::UUtilityAbility()
 	// Utility abilities have lower costs and shorter cooldowns
 	Cost = 5.0f;
 	Cooldown = 1.0f;
-	HeatGenerationMultiplier = 0.3f; // Generate less heat than combat abilities
 }
 
 void UUtilityAbility::BeginPlay()

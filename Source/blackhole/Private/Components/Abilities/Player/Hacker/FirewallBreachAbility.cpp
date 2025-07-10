@@ -12,7 +12,7 @@ UFirewallBreachAbility::UFirewallBreachAbility()
 	Cost = 20.0f; // Legacy field
 	StaminaCost = 15.0f; // New dual resource system
 	WPCost = 20.0f; // New dual resource system
-	HeatCost = 0.0f; // Hacker abilities don't consume heat
+	// HeatCost removed - heat system no longer exists
 	Cooldown = 4.0f;
 	Range = 1500.0f;
 	ArmorReductionPercent = 0.5f;
