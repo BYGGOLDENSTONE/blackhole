@@ -4,7 +4,6 @@
 #include "Components/Abilities/AbilityComponent.h"
 #include "SlashAbilityComponent.generated.h"
 
-class UStaminaComponent;
 class UIntegrityComponent;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
@@ -28,9 +27,6 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
-	UPROPERTY()
-	UStaminaComponent* StaminaComponent;
-	
 	// Cached owner reference
 	UPROPERTY()
 	class ABlackholePlayerCharacter* OwnerCharacter;

@@ -1,16 +1,15 @@
 #pragma once
 
-#pragma once
-
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
+#include "Interfaces/ResourceConsumer.h"
+#include "Data/ComboDataAsset.h"
 #include "BlackholePlayerCharacter.generated.h"
 
 class USpringArmComponent;
 class UCameraComponent;
 class UIntegrityComponent;
-class UStaminaComponent;
 class UWillPowerComponent;
 class USlashAbilityComponent;
 // class USystemFreezeAbilityComponent; // Removed
@@ -29,7 +28,7 @@ class UInputAction;
 class UStaticMeshComponent;
 
 UCLASS()
-class BLACKHOLE_API ABlackholePlayerCharacter : public ACharacter
+class BLACKHOLE_API ABlackholePlayerCharacter : public ACharacter, public IResourceConsumer
 {
 	GENERATED_BODY()
 
@@ -43,6 +42,18 @@ public:
 	
 	UFUNCTION(BlueprintPure, Category = "Character")
 	bool IsDead() const { return bIsDead; }
+	
+	// Update camera settings at runtime
+	UFUNCTION(BlueprintCallable, Category = "Camera Settings")
+	void UpdateCameraSettings();
+	
+	// Get what the crosshair is aiming at
+	UFUNCTION(BlueprintCallable, Category = "Aiming")
+	bool GetCrosshairTarget(FHitResult& OutHit, float MaxRange = 10000.0f) const;
+	
+	// Get aim direction and location from camera
+	UFUNCTION(BlueprintCallable, Category = "Aiming")
+	void GetAimLocationAndDirection(FVector& OutLocation, FVector& OutDirection) const;
 
 
 protected:
@@ -55,12 +66,34 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	UCameraComponent* CameraComponent;
+	
+	// Camera Settings - Editable in Blueprint
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Settings", meta = (DisplayName = "Camera Distance"))
+	float CameraArmLength = 300.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Settings", meta = (DisplayName = "Camera Offset (Left/Right)"))
+	float CameraOffsetY = 50.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Settings", meta = (DisplayName = "Camera Offset (Up/Down)"))
+	float CameraOffsetZ = 30.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Settings", meta = (DisplayName = "Camera Target Height"))
+	float CameraTargetOffsetZ = 60.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Settings", meta = (DisplayName = "Camera Field of View"))
+	float CameraFOV = 100.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Settings", meta = (DisplayName = "Enable Camera Lag"))
+	bool bEnableCameraLag = true;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Settings", meta = (DisplayName = "Camera Lag Speed"))
+	float CameraLagSpeed = 10.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Settings", meta = (DisplayName = "Camera Rotation Lag Speed"))
+	float CameraRotationLagSpeed = 12.0f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
 	UIntegrityComponent* IntegrityComponent;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
-	UStaminaComponent* StaminaComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
 	UWillPowerComponent* WillPowerComponent;
@@ -215,7 +248,7 @@ private:
 	// Death state
 	bool bIsDead = false;
 	
-	// Combo tracking
+	// Combo tracking (legacy - will be replaced by ComboDetectionSubsystem)
 	enum class ELastAbilityUsed : uint8
 	{
 		None,
@@ -225,7 +258,13 @@ private:
 	
 	ELastAbilityUsed LastAbilityUsed = ELastAbilityUsed::None;
 	float LastAbilityTime = 0.0f;
-	const float ComboWindowDuration = 0.5f; // 500ms window for combos
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combo", meta = (AllowPrivateAccess = "true"))
+	float ComboWindowDuration = 0.5f; // 500ms window for combos
+	
+	// Combo data asset for new system
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combo", meta = (AllowPrivateAccess = "true"))
+	UComboDataAsset* ComboDataAsset;
 	
 	// Handle ThresholdManager death event
 	UFUNCTION()
@@ -238,4 +277,9 @@ public:
 	// Getter for camera component - used by abilities for camera-based aiming
 	UFUNCTION(BlueprintCallable, Category = "Camera")
 	UCameraComponent* GetCameraComponent() const { return CameraComponent; }
+	
+	// IResourceConsumer interface implementation
+	virtual bool HasResources_Implementation(float StaminaCost, float WPCost) const override;
+	virtual bool ConsumeResources_Implementation(float StaminaCost, float WPCost) override;
+	virtual void GetResourcePercentages_Implementation(float& OutStaminaPercent, float& OutWPPercent) const override;
 };

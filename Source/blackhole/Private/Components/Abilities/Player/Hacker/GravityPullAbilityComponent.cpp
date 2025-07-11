@@ -14,7 +14,6 @@ UGravityPullAbilityComponent::UGravityPullAbilityComponent()
 {
     // Set default values
     Cost = 15.0f; // Legacy field
-    StaminaCost = 10.0f; // New dual resource system
     WPCost = 15.0f; // New dual resource system
     // HeatCost removed - heat system no longer exists
     Cooldown = 3.0f;       // 3 second cooldown
@@ -23,6 +22,9 @@ UGravityPullAbilityComponent::UGravityPullAbilityComponent()
     // Default force values (will be applied as impulse)
     LaunchForceMultiplier = 1.0f;
     BaseLaunchForce = 50000.0f;  // Impulse needs to be higher since mass is accounted for by physics
+    
+    // Ensure this is NOT a basic ability
+    bIsBasicAbility = false;
 }
 
 void UGravityPullAbilityComponent::BeginPlay()
@@ -34,6 +36,17 @@ void UGravityPullAbilityComponent::Execute()
 {
     if (!CanExecute()) return;
 
+    // ALWAYS call base class first - it will handle ultimate detection and execution
+    Super::Execute();
+
+    // If we executed as ultimate, we're done
+    if (IsInUltimateMode())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("GravityPull: Ultimate version was executed"));
+        return;
+    }
+
+    // Normal (non-ultimate) execution continues here
     // Find best hackable target
     AActor* Target = FindBestHackableTarget();
     if (!Target) 
@@ -49,9 +62,6 @@ void UGravityPullAbilityComponent::Execute()
         UE_LOG(LogTemp, Warning, TEXT("GravityPull: Target is not hackable"));
         return;
     }
-
-    // Call base class to handle resource costs (stamina + WP corruption) and cooldown
-    Super::Execute();
 
     // Calculate final launch force
     // Don't multiply by object mass - the physics engine already accounts for mass
@@ -205,12 +215,11 @@ void UGravityPullAbilityComponent::ExecuteUltimate()
     GetCameraLocationAndDirection(CameraLocation, CameraDirection);
     
     // Create singularity point ahead of player
-    float SingularityDistance = 1000.0f;
-    FVector SingularityPoint = CameraLocation + (CameraDirection * SingularityDistance);
+    FVector SingularityPoint = CameraLocation + (CameraDirection * UltimateSingularityDistance);
     
     // Ultimate version: Pull ALL enemies in massive radius
-    float UltimateRadius = Range * 3.0f; // 6000 units
-    float UltimatePullForce = BaseLaunchForce * 5.0f; // 5x pull force
+    float UltimateRadius = Range * UltimateRadiusMultiplier;
+    float UltimatePullForce = BaseLaunchForce * UltimatePullForceMultiplier;
     
     // Find all actors in massive radius
     TArray<AActor*> ActorsToIgnore;

@@ -60,7 +60,6 @@ namespace GameplayConfig
 		namespace PulseHack
 		{
 			constexpr float WP_COST = 10.0f;					// WP units
-			constexpr float STAMINA_COST = 5.0f;				// Stamina units
 			constexpr float COOLDOWN = 8.0f;					// Seconds
 			constexpr float RADIUS = 500.0f;					// Units
 			constexpr float SLOW_DURATION = 3.0f;				// Seconds
@@ -77,7 +76,6 @@ namespace GameplayConfig
 		// Hacker Jump
 		namespace HackerJump
 		{
-			constexpr float STAMINA_COST = 10.0f;				// Stamina units
 			constexpr float JUMP_VELOCITY = 1200.0f;			// Units/second
 			constexpr float AIR_CONTROL_BOOST = 2.0f;			// Multiplier
 			constexpr int32 MAX_JUMPS = 2;						// Count (double jump)
@@ -87,7 +85,6 @@ namespace GameplayConfig
 		// Data Spike (Hacker)
 		namespace DataSpike
 		{
-			constexpr float STAMINA_COST = 12.0f;				// Stamina units
 			constexpr float WP_COST = 18.0f;					// WP units
 			constexpr float COOLDOWN = 6.0f;					// Seconds
 			constexpr float DAMAGE = 30.0f;						// HP damage
@@ -108,7 +105,6 @@ namespace GameplayConfig
 		// System Override (Hacker)
 		namespace SystemOverride
 		{
-			constexpr float STAMINA_COST = 30.0f;				// Stamina units
 			constexpr float WP_COST = 40.0f;					// WP units
 			constexpr float COOLDOWN = 15.0f;					// Seconds
 			constexpr float DISABLE_DURATION = 3.0f;			// Seconds
@@ -123,13 +119,6 @@ namespace GameplayConfig
 	{
 		constexpr float DEFAULT_MAX_VALUE = 100.0f;			// Default for all attributes
 		constexpr float DEFAULT_REGEN_RATE = 0.0f;				// Per second
-		
-		// Stamina specific
-		namespace Stamina
-		{
-			constexpr float MAX_VALUE = 100.0f;				// Stamina units
-			constexpr float REGEN_RATE = 10.0f;				// Per second
-		}
 		
 		// Integrity (Health) specific
 		namespace Integrity

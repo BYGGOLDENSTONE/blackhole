@@ -17,7 +17,6 @@ USystemOverrideAbility::USystemOverrideAbility()
 {
 	// Ability costs and cooldown (per GDD)
 	Cost = 30.0f; // Legacy field
-	StaminaCost = GameplayConfig::Abilities::SystemOverride::STAMINA_COST;
 	WPCost = GameplayConfig::Abilities::SystemOverride::WP_COST;
 	// HeatCost removed - heat system no longer exists
 	Cooldown = GameplayConfig::Abilities::SystemOverride::COOLDOWN;
@@ -46,7 +45,14 @@ void USystemOverrideAbility::Execute()
 
 	Super::Execute();
 	
-	// Perform system override
+	// IMPORTANT: If we're in ultimate mode, the base class already called ExecuteUltimate()
+	// We should not continue with normal execution
+	if (IsInUltimateMode())
+	{
+		return;
+	}
+	
+	// Perform normal system override
 	PerformSystemOverride();
 }
 
@@ -68,9 +74,10 @@ void USystemOverrideAbility::ExecuteUltimate()
 		{
 			if (UResourceManager* ResourceMgr = GameInstance->GetSubsystem<UResourceManager>())
 			{
-				ResourceMgr->AddWillPower(-WPCleanse * 1.5f); // 1.5x cleanse in ultimate
+				float UltimateWPCleanse = WPCleanse * UltimateWPCleanseMultiplier;
+				ResourceMgr->AddWillPower(-UltimateWPCleanse);
 				UE_LOG(LogTemp, Warning, TEXT("Ultimate System Override: Enhanced WP cleanse %.0f!"), 
-					WPCleanse * 1.5f);
+					UltimateWPCleanse);
 			}
 		}
 	}

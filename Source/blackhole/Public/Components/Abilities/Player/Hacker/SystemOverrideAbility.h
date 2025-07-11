@@ -64,6 +64,16 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
 	float AreaDamage = GameplayConfig::Abilities::SystemOverride::DAMAGE;
 
+	// Ultimate version parameters
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate System Override", meta = (ClampMin = "1.0", ClampMax = "3.0"))
+	float UltimateWPCleanseMultiplier = 1.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate System Override", meta = (ClampMin = "1.0", ClampMax = "3.0"))
+	float UltimateSystemDamageMultiplier = 1.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate System Override", meta = (ClampMin = "1.0", ClampMax = "3.0"))
+	float UltimateSystemDurationMultiplier = 1.5f;
+
 	// Visual and audio effects
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effects")
 	UParticleSystem* OverrideEffect;

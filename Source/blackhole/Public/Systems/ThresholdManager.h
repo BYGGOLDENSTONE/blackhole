@@ -137,6 +137,12 @@ private:
 	// Track if ultimate mode is active
 	bool bUltimateModeActive = false;
 	
+	// Track if we're currently processing ultimate deactivation
+	bool bIsDeactivatingUltimate = false;
+	
+	// Time when ultimate mode was activated
+	float UltimateModeActivationTime = 0.0f;
+	
 	// Disabled abilities
 	UPROPERTY()
 	TArray<UAbilityComponent*> DisabledAbilities;

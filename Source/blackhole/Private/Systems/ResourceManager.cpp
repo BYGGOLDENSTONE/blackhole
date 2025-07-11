@@ -42,8 +42,13 @@ bool UResourceManager::ConsumeWillPower(float Amount)
 		return false;
 	}
 	
+	float OldWP = CurrentWP;
+	
 	// Consume the WP
 	CurrentWP = FMath::Clamp(CurrentWP - Amount, 0.0f, MaxWP);
+	
+	UE_LOG(LogTemp, Warning, TEXT("ResourceManager::ConsumeWillPower: WP changed from %.1f to %.1f (consumed %.1f)"), 
+		OldWP, CurrentWP, Amount);
 	
 	// Broadcast the change
 	OnWillPowerChanged.Broadcast(CurrentWP, MaxWP);
@@ -60,7 +65,12 @@ void UResourceManager::AddWillPower(float Amount)
 	float OldWP = CurrentWP;
 	CurrentWP = FMath::Clamp(CurrentWP + Amount, 0.0f, MaxWP);
 	
-	// No need to log WP changes - visible in UI
+	// Log significant WP changes
+	if (FMath::Abs(CurrentWP - OldWP) > 0.1f)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ResourceManager: WP changed from %.1f to %.1f (delta: %.1f)"), 
+			OldWP, CurrentWP, CurrentWP - OldWP);
+	}
 	
 	if (CurrentWP != OldWP)
 	{
@@ -73,10 +83,13 @@ void UResourceManager::AddWillPower(float Amount)
 			WPMaxReachedCount++;
 			OnWPMaxReached.Broadcast(WPMaxReachedCount);
 			
-			UE_LOG(LogTemp, Warning, TEXT("WP reached 100%% (Count: %d)"), WPMaxReachedCount);
+			UE_LOG(LogTemp, Error, TEXT("ResourceManager: WP reached 100%% (Count: %d) - NO AUTO RESET, waiting for ultimate use"), WPMaxReachedCount);
 			
-			// Automatically reset WP to 0 after reaching 100%
-			// This will be handled by ThresholdManager after ability loss
+			// DO NOT automatically reset WP to 0 after reaching 100%
+			// WP should only be reset when an ultimate ability is used via ThresholdManager
+			
+			// Ensure WP stays at max
+			CurrentWP = MaxWP;
 		}
 	}
 }
@@ -102,6 +115,8 @@ EResourceThreshold UResourceManager::GetCurrentWPThreshold() const
 
 void UResourceManager::ResetResources()
 {
+	UE_LOG(LogTemp, Error, TEXT("ResourceManager::ResetResources called! WP was %.1f, resetting to 0"), CurrentWP);
+	
 	CurrentWP = 0.0f; // Reset to 0 (good state)
 	WPMaxReachedCount = 0; // Reset the counter
 	
@@ -116,6 +131,21 @@ void UResourceManager::ResetResources()
 
 void UResourceManager::ResetWPAfterMax()
 {
+	UE_LOG(LogTemp, Error, TEXT("!!! ResourceManager::ResetWPAfterMax CALLED !!!"));
+	
+	// Safety check - only reset if we're actually at max
+	if (CurrentWP < MaxWP * 0.95f)
+	{
+		UE_LOG(LogTemp, Error, TEXT("ResourceManager::ResetWPAfterMax called but WP is only %.1f/%.1f - IGNORING!"), CurrentWP, MaxWP);
+		return;
+	}
+	
+	UE_LOG(LogTemp, Error, TEXT("ResourceManager::ResetWPAfterMax - WP was %.1f, resetting to 0"), CurrentWP);
+	
+	// Print call stack for debugging
+	const FString CallStack = FFrame::GetScriptCallstack();
+	UE_LOG(LogTemp, Error, TEXT("Call stack:\n%s"), *CallStack);
+	
 	CurrentWP = 0.0f;
 	OnWillPowerChanged.Broadcast(CurrentWP, MaxWP);
 	
@@ -123,7 +153,7 @@ void UResourceManager::ResetWPAfterMax()
 	PreviousWPThreshold = EResourceThreshold::Normal;
 	CheckWPThreshold();
 	
-	UE_LOG(LogTemp, Warning, TEXT("ResourceManager: WP RESET TO 0 after ultimate ability use!"));
+	UE_LOG(LogTemp, Error, TEXT("!!! ResourceManager: WP RESET TO 0 - This should only happen after ultimate ability use !!!"));
 }
 
 void UResourceManager::CheckWPThreshold()

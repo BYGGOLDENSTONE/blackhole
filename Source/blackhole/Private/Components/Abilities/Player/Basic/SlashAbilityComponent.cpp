@@ -1,5 +1,4 @@
 #include "Components/Abilities/Player/Basic/SlashAbilityComponent.h"
-#include "Components/Attributes/StaminaComponent.h"
 #include "Components/Attributes/IntegrityComponent.h"
 #include "GameFramework/Actor.h"
 #include "Engine/World.h"
@@ -12,12 +11,12 @@
 #include "Engine/OverlapResult.h"
 #include "WorldCollision.h"
 #include "Systems/HitStopManager.h"
+#include "GameFramework/PlayerController.h"
 
 USlashAbilityComponent::USlashAbilityComponent()
 {
 	Damage = 20.0f;
 	Cost = 10.0f; // Legacy compatibility
-	StaminaCost = 10.0f; // New dual resource system
 	WPCost = 15.0f; // For Hacker path slash
 	Cooldown = 2.0f;
 	Range = 200.0f;
@@ -59,62 +58,109 @@ void USlashAbilityComponent::Execute()
 		// Normal slash logic
 		if (AActor* Owner = GetOwner())
 		{
-		FVector Start;
-		FVector Forward;
-		
-		// Use camera for aiming if this is the player
-		if (ABlackholePlayerCharacter* PlayerOwner = Cast<ABlackholePlayerCharacter>(Owner))
-		{
-			if (UCameraComponent* Camera = PlayerOwner->GetCameraComponent())
+			// Use camera for aiming if this is the player
+			if (ABlackholePlayerCharacter* PlayerOwner = Cast<ABlackholePlayerCharacter>(Owner))
 			{
-				Start = Camera->GetComponentLocation();
-				Forward = Camera->GetForwardVector();
+				if (UCameraComponent* Camera = PlayerOwner->GetCameraComponent())
+			{
+				// Step 1: Find what the crosshair is pointing at with a line trace
+				FVector CameraLocation = Camera->GetComponentLocation();
+				FVector CameraForward = Camera->GetForwardVector();
+				FVector TraceEnd = CameraLocation + (CameraForward * Range);
+				
+				FHitResult AimHit;
+				FCollisionQueryParams AimParams;
+				AimParams.AddIgnoredActor(Owner);
+				
+				// Line trace to find target
+				bool bHit = GetWorld()->LineTraceSingleByChannel(AimHit, CameraLocation, TraceEnd, ECC_Pawn, AimParams);
+				
+				if (bHit && AimHit.GetActor())
+				{
+					// We hit something - check if it's a valid target
+					if (UIntegrityComponent* TargetIntegrity = AimHit.GetActor()->FindComponentByClass<UIntegrityComponent>())
+					{
+						// Apply damage with survivor buff multiplier
+						float FinalDamage = Damage * GetDamageMultiplier();
+						TargetIntegrity->TakeDamage(FinalDamage);
+						
+						// Trigger hit stop
+						if (UHitStopManager* HitStopMgr = GetWorld()->GetSubsystem<UHitStopManager>())
+						{
+							HitStopMgr->RequestLightHitStop();
+						}
+						
+						#if WITH_EDITOR
+						// Show hit location
+						DrawDebugSphere(GetWorld(), AimHit.Location, 20.0f, 8, FColor::Red, false, 0.5f);
+						DrawDebugLine(GetWorld(), CameraLocation, AimHit.Location, FColor::Green, false, 0.5f, 0, 2.0f);
+						#endif
+					}
+				}
+				else
+				{
+					#if WITH_EDITOR
+					// Show miss
+					DrawDebugLine(GetWorld(), CameraLocation, TraceEnd, FColor::Red, false, 0.5f, 0, 2.0f);
+					#endif
+				}
 			}
 			else
 			{
-				// Fallback to character location
-				Start = Owner->GetActorLocation();
-				Forward = Owner->GetActorForwardVector();
+				// Fallback for no camera - use old method
+				FVector Start = Owner->GetActorLocation() + FVector(0, 0, 50.0f);
+				FVector End = Start + (Owner->GetActorForwardVector() * Range);
+				
+				FHitResult HitResult;
+				FCollisionQueryParams QueryParams;
+				QueryParams.AddIgnoredActor(Owner);
+				
+				if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Pawn, QueryParams))
+				{
+					if (AActor* HitActor = HitResult.GetActor())
+					{
+						if (UIntegrityComponent* TargetIntegrity = HitActor->FindComponentByClass<UIntegrityComponent>())
+						{
+							float FinalDamage = Damage * GetDamageMultiplier();
+							TargetIntegrity->TakeDamage(FinalDamage);
+							
+							if (UHitStopManager* HitStopMgr = GetWorld()->GetSubsystem<UHitStopManager>())
+							{
+								HitStopMgr->RequestLightHitStop();
+							}
+						}
+					}
+				}
 			}
 		}
 		else
 		{
 			// Non-player owners use their actor location
-			Start = Owner->GetActorLocation();
-			Forward = Owner->GetActorForwardVector();
-		}
-		
-		FVector End = Start + (Forward * Range);
-		
-		FHitResult HitResult;
-		FCollisionQueryParams QueryParams;
-		QueryParams.AddIgnoredActor(Owner);
-		
-		if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Pawn, QueryParams))
-		{
-			if (AActor* HitActor = HitResult.GetActor())
+			FVector Start = Owner->GetActorLocation();
+			FVector End = Start + (Owner->GetActorForwardVector() * Range);
+			
+			FHitResult HitResult;
+			FCollisionQueryParams QueryParams;
+			QueryParams.AddIgnoredActor(Owner);
+			
+			if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Pawn, QueryParams))
 			{
-				if (UIntegrityComponent* TargetIntegrity = HitActor->FindComponentByClass<UIntegrityComponent>())
+				if (AActor* HitActor = HitResult.GetActor())
 				{
-					// Apply damage with survivor buff multiplier
-					float FinalDamage = Damage * GetDamageMultiplier();
-					TargetIntegrity->TakeDamage(FinalDamage);
-					
-					// Trigger hit stop
-					if (UHitStopManager* HitStopMgr = GetWorld()->GetSubsystem<UHitStopManager>())
+					if (UIntegrityComponent* TargetIntegrity = HitActor->FindComponentByClass<UIntegrityComponent>())
 					{
-						HitStopMgr->RequestLightHitStop();
+						// Apply damage with survivor buff multiplier
+						float FinalDamage = Damage * GetDamageMultiplier();
+						TargetIntegrity->TakeDamage(FinalDamage);
+						
+						// Trigger hit stop
+						if (UHitStopManager* HitStopMgr = GetWorld()->GetSubsystem<UHitStopManager>())
+						{
+							HitStopMgr->RequestLightHitStop();
+						}
 					}
 				}
 			}
 		}
-		
-		#if WITH_EDITOR
-		// Only draw debug line for non-player owners (enemies)
-		if (!Owner->IsA<ABlackholePlayerCharacter>())
-		{
-			DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 1.0f, 0, 2.0f);
-		}
-		#endif
-		}
+	}
 }

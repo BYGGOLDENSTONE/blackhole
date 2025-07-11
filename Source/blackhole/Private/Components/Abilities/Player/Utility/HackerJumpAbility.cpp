@@ -10,6 +10,7 @@ UHackerJumpAbility::UHackerJumpAbility()
 {
 	// Enable ticking for jump cooldown
 	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bStartWithTickEnabled = true; // IMPORTANT: Override parent's disabled tick
 	
 	// Set hacker path
 	PathType = ECharacterPath::Hacker;
@@ -17,9 +18,11 @@ UHackerJumpAbility::UHackerJumpAbility()
 	// Mark as basic ability - not affected by ultimate system
 	bIsBasicAbility = true;
 	
+	// Disable tick optimization since we need constant ticking for jump timer
+	bTickOnlyWhenActive = false;
+	
 	// Jump costs stamina but no cooldown for the ability itself
 	Cost = 10.0f; // Legacy field
-	StaminaCost = 10.0f; // Per GDD: 10 stamina cost
 	WPCost = 0.0f; // Utility abilities don't add WP corruption
 	Cooldown = 0.0f; // No cooldown for jumps
 	
@@ -27,7 +30,7 @@ UHackerJumpAbility::UHackerJumpAbility()
 	JumpVelocity = 1200.0f;
 	AirControlBoost = 2.0f;
 	MaxJumpCount = 2;
-	JumpCooldown = 0.5f; // Half second between jumps
+	JumpCooldown = 0.1f; // Much shorter cooldown for responsive double jump
 }
 
 void UHackerJumpAbility::BeginPlay()
@@ -55,26 +58,31 @@ bool UHackerJumpAbility::CanExecute() const
 		return false;
 	}
 	
-	// Check if on cooldown (shouldn't happen with 0 cooldown)
-	if (IsOnCooldown())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("HackerJump: On cooldown"));
-		return false;
-	}
+	// Skip parent's cooldown check since we manage our own jump cooldown
+	// The parent's IsOnCooldown() was preventing double jumps
 	
-	// Check jump count
+	// Check jump count and internal jump cooldown
 	bool bCanJump = CanJump();
 	if (!bCanJump)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("HackerJump: CanJump returned false (CurrentJump: %d, Max: %d)"), CurrentJumpCount, MaxJumpCount);
+		UE_LOG(LogTemp, Warning, TEXT("HackerJump: CanJump returned false (CurrentJump: %d, Max: %d, TimeSinceLastJump: %.2f)"), CurrentJumpCount, MaxJumpCount, TimeSinceLastJump);
 	}
 	return bCanJump;
 }
 
 void UHackerJumpAbility::Execute()
 {
-	// Call parent implementation
-	Super::Execute();
+	// Skip parent's Execute to avoid cooldown application
+	// We manage our own jump cooldown internally
+	
+	// Consume resources manually
+	ConsumeAbilityResources();
+	
+	// Directly apply the movement without parent's resource/cooldown checks
+	if (ACharacter* Character = GetCharacterOwner())
+	{
+		ApplyMovement(Character);
+	}
 	
 	// Combo registration removed - now handled by individual combo components
 }
@@ -83,12 +91,17 @@ void UHackerJumpAbility::ApplyMovement(ACharacter* Character)
 {
 	if (!Character || !CachedMovement || !CanJump())
 	{
+		UE_LOG(LogTemp, Warning, TEXT("HackerJump: ApplyMovement failed - Character=%s, Movement=%s, CanJump=%s"),
+			Character ? TEXT("Valid") : TEXT("NULL"),
+			CachedMovement ? TEXT("Valid") : TEXT("NULL"),
+			CanJump() ? TEXT("TRUE") : TEXT("FALSE"));
 		return;
 	}
 	
 	// For first jump, use the character's built-in jump
 	if (CurrentJumpCount == 0 && CachedMovement->IsMovingOnGround())
 	{
+		UE_LOG(LogTemp, Warning, TEXT("HackerJump: First jump - CurrentJumpCount=%d"), CurrentJumpCount);
 		Character->Jump();
 		CurrentJumpCount = 1;
 		TimeSinceLastJump = 0.0f; // Reset jump timer
@@ -98,6 +111,7 @@ void UHackerJumpAbility::ApplyMovement(ACharacter* Character)
 	}
 	else if (CurrentJumpCount < MaxJumpCount && TimeSinceLastJump >= JumpCooldown)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("HackerJump: Double jump - CurrentJumpCount=%d, TimeSince=%.2f"), CurrentJumpCount, TimeSinceLastJump);
 		// For double jump, manually apply velocity
 		CurrentJumpCount++;
 		TimeSinceLastJump = 0.0f; // Reset jump timer
@@ -124,6 +138,14 @@ void UHackerJumpAbility::ApplyMovement(ACharacter* Character)
 		DrawDebugString(GetWorld(), CharLocation + FVector(0, 0, 100), JumpText, nullptr, FColor::White, 1.0f);
 		#endif
 	}
+	else
+	{
+		// Log why we can't jump
+		UE_LOG(LogTemp, Warning, TEXT("HackerJump: Cannot jump - CurrentJump=%d/%d, OnGround=%s, TimeSince=%.2f, Cooldown=%.2f"), 
+			CurrentJumpCount, MaxJumpCount, 
+			CachedMovement->IsMovingOnGround() ? TEXT("YES") : TEXT("NO"),
+			TimeSinceLastJump, JumpCooldown);
+	}
 }
 
 void UHackerJumpAbility::OnLanded(const FHitResult& Hit)
@@ -147,12 +169,14 @@ bool UHackerJumpAbility::CanJump() const
 {
 	if (!CachedMovement)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("HackerJump: CanJump - No CachedMovement"));
 		return false;
 	}
 	
 	// Can jump if on ground (first jump)
 	if (CachedMovement->IsMovingOnGround())
 	{
+		UE_LOG(LogTemp, VeryVerbose, TEXT("HackerJump: CanJump - On ground, can jump"));
 		return true;
 	}
 	
@@ -160,9 +184,13 @@ bool UHackerJumpAbility::CanJump() const
 	if (CurrentJumpCount < MaxJumpCount)
 	{
 		// Must wait for cooldown between jumps
-		return TimeSinceLastJump >= JumpCooldown;
+		bool bCanDoubleJump = TimeSinceLastJump >= JumpCooldown;
+		UE_LOG(LogTemp, Warning, TEXT("HackerJump: CanJump - In air, CurrentJump=%d/%d, TimeSince=%.3f, Cooldown=%.3f, CanDoubleJump=%s"), 
+			CurrentJumpCount, MaxJumpCount, TimeSinceLastJump, JumpCooldown, bCanDoubleJump ? TEXT("YES") : TEXT("NO"));
+		return bCanDoubleJump;
 	}
 	
+	UE_LOG(LogTemp, Warning, TEXT("HackerJump: CanJump - Jump count exhausted (%d/%d)"), CurrentJumpCount, MaxJumpCount);
 	return false;
 }
 
@@ -174,5 +202,15 @@ void UHackerJumpAbility::TickComponent(float DeltaTime, ELevelTick TickType, FAc
 	if (CurrentJumpCount > 0)
 	{
 		TimeSinceLastJump += DeltaTime;
+		
+		// Debug log every 0.1 seconds
+		static float LogTimer = 0.0f;
+		LogTimer += DeltaTime;
+		if (LogTimer >= 0.1f)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("HackerJump: Tick - JumpCount=%d, TimeSinceLastJump=%.2f, JumpCooldown=%.2f"), 
+				CurrentJumpCount, TimeSinceLastJump, JumpCooldown);
+			LogTimer = 0.0f;
+		}
 	}
 }

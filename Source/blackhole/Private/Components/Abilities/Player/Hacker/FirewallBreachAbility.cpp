@@ -10,13 +10,15 @@
 UFirewallBreachAbility::UFirewallBreachAbility()
 {
 	Cost = 20.0f; // Legacy field
-	StaminaCost = 15.0f; // New dual resource system
 	WPCost = 20.0f; // New dual resource system
 	// HeatCost removed - heat system no longer exists
 	Cooldown = 4.0f;
 	Range = 1500.0f;
 	ArmorReductionPercent = 0.5f;
 	EffectDuration = 5.0f;
+	
+	// Ensure this is NOT a basic ability
+	bIsBasicAbility = false;
 }
 
 void UFirewallBreachAbility::BeginPlay()
@@ -40,32 +42,42 @@ void UFirewallBreachAbility::Execute()
 	// Call base class to handle resource costs and cooldown
 	Super::Execute();
 	
+	// IMPORTANT: If we're in ultimate mode, the base class already called ExecuteUltimate()
+	// We should not continue with normal execution
+	if (IsInUltimateMode())
+	{
+		return;
+	}
+	
+	// Normal ability execution continues below
 	if (AActor* Owner = GetOwner())
 	{
 		FVector Start;
-		FVector Forward;
+		FVector End;
 		
-		// Use camera for aiming
+		// Use camera for aiming - trace directly from camera through crosshair
 		if (ABlackholePlayerCharacter* PlayerOwner = Cast<ABlackholePlayerCharacter>(Owner))
 		{
 			if (UCameraComponent* Camera = PlayerOwner->GetCameraComponent())
 			{
+				// IMPORTANT: Trace directly from camera for consistent aiming
 				Start = Camera->GetComponentLocation();
-				Forward = Camera->GetForwardVector();
+				FVector CameraForward = Camera->GetForwardVector();
+				End = Start + (CameraForward * Range);
 			}
 			else
 			{
+				// Fallback - use character position
 				Start = Owner->GetActorLocation();
-				Forward = Owner->GetActorForwardVector();
+				End = Start + (Owner->GetActorForwardVector() * Range);
 			}
 		}
 		else
 		{
+			// Non-player owners use their actor location
 			Start = Owner->GetActorLocation();
-			Forward = Owner->GetActorForwardVector();
+			End = Start + (Owner->GetActorForwardVector() * Range);
 		}
-		
-		FVector End = Start + (Forward * Range);
 		
 		FHitResult HitResult;
 		FCollisionQueryParams QueryParams;
@@ -121,9 +133,8 @@ void UFirewallBreachAbility::ExecuteUltimate()
 	if (AActor* Owner = GetOwner())
 	{
 		// Ultimate version: Affect ALL enemies in massive radius
-		float UltimateRadius = Range * 2.0f; // 3000 units
-		float UltimateArmorReduction = 1.0f; // 100% armor reduction
-		float UltimateDuration = 10.0f; // Longer duration
+		float UltimateRadius = Range * UltimateRadiusMultiplier;
+		// Use editable ultimate properties instead of hardcoded values
 		
 		// Find all enemies in radius
 		TArray<FHitResult> HitResults;

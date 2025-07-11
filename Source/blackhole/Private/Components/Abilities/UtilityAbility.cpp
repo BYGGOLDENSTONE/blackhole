@@ -36,10 +36,10 @@ void UUtilityAbility::Execute()
 		return;
 	}
 	
-	// Utility abilities only consume stamina, not WP or Heat
-	// The parent class will handle stamina consumption
+	// Utility abilities don't consume WP
+	// The parent class will handle resource consumption
 	
-	// Call parent to handle stamina consumption and cooldown
+	// Call parent to handle resource consumption and cooldown
 	Super::Execute();
 	
 	// Apply the movement
@@ -67,7 +67,7 @@ void UUtilityAbility::Execute()
 
 bool UUtilityAbility::CanExecute() const
 {
-	// Let the parent class handle resource checks (stamina)
+	// Let the parent class handle resource checks
 	// Utility abilities don't have additional WP/Heat requirements
 	return Super::CanExecute();
 }

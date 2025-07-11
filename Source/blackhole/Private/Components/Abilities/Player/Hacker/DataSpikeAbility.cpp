@@ -18,11 +18,13 @@ UDataSpikeAbility::UDataSpikeAbility()
 {
 	// Ability costs and cooldown (per GDD)
 	Cost = 12.0f; // Legacy field
-	StaminaCost = GameplayConfig::Abilities::DataSpike::STAMINA_COST;
 	WPCost = GameplayConfig::Abilities::DataSpike::WP_COST;
 	// HeatCost removed - heat system no longer exists
 	Cooldown = GameplayConfig::Abilities::DataSpike::COOLDOWN;
 	// HeatGenerationMultiplier removed - heat system no longer exists
+	
+	// Ensure this is NOT a basic ability
+	bIsBasicAbility = false;
 }
 
 bool UDataSpikeAbility::CanExecute() const
@@ -44,6 +46,13 @@ void UDataSpikeAbility::Execute()
 
 	Super::Execute();
 	
+	// IMPORTANT: If we're in ultimate mode, the base class already called ExecuteUltimate()
+	// We should not continue with normal execution
+	if (IsInUltimateMode())
+	{
+		return;
+	}
+	
 	// Fire the data spike projectile
 	FireProjectile(false);
 }
@@ -62,9 +71,9 @@ void UDataSpikeAbility::ExecuteUltimate()
 	// Apply WP cleanse
 	if (UResourceManager* ResourceMgr = GetGameInstanceSubsystemSafe<UResourceManager>(this))
 	{
-		ResourceMgr->AddWillPower(-GameplayConfig::Abilities::DataSpike::ULTIMATE_WP_CLEANSE);
+		ResourceMgr->AddWillPower(-UltimateWPCleanse);
 		UE_LOG(LogTemp, Warning, TEXT("Ultimate Data Spike: Cleansed %.0f WP!"), 
-			GameplayConfig::Abilities::DataSpike::ULTIMATE_WP_CLEANSE);
+			UltimateWPCleanse);
 	}
 }
 

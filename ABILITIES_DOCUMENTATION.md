@@ -1,6 +1,6 @@
 # Blackhole - Hacker Path Abilities Documentation
 **Engine**: Unreal Engine 5.5  
-**Last Updated**: 2025-07-10  
+**Last Updated**: 2025-07-11  
 **Architecture**: Custom C++ Component System (No GAS)
 
 ## 📋 Table of Contents
@@ -18,7 +18,7 @@
 ## 🎯 System Overview
 
 ### Core Concepts
-- **Dual Resource System**: Stamina (universal) + Willpower (WP)
+- **Single Resource System**: Willpower (WP) only - Stamina has been removed
 - **Single Character Path**: Hacker (focuses on digital warfare and agility)
 - **Component-Based Abilities**: Each ability is a self-contained component
 - **Blueprint Editable**: All ability parameters can be tweaked in editor
@@ -74,11 +74,13 @@ Basic abilities are always available and never disabled by WP levels or ultimate
 - **Special**: Can trigger combo abilities when combined with Dash or Jump
 
 ### Hacker Dash (Shift)
-- **Type**: Quick teleport dash
+- **Type**: Directional dash based on movement input
 - **Distance**: 500 units
-- **Stamina Cost**: 10
+- **WP Cost**: 0
 - **Cooldown**: 1 second
 - **Special Features**:
+  - Dashes in the direction of movement input (WASD)
+  - W+Dash: Special case - follows camera angle for vertical movement
   - Phase through enemies
   - Brief invulnerability frames
   - Can combo with Slash for "Phantom Strike"
@@ -86,7 +88,7 @@ Basic abilities are always available and never disabled by WP levels or ultimate
 ### Hacker Jump (Space)
 - **Type**: Enhanced double jump
 - **Jump Height**: Variable based on hold time
-- **Stamina Cost**: 5 per jump
+- **WP Cost**: 0
 - **Air Control**: Enhanced air movement
 - **Special Features**:
   - Double jump capability
@@ -146,29 +148,46 @@ Basic abilities are always available and never disabled by WP levels or ultimate
 
 ## 🎯 Combo Abilities
 
-Combo abilities are executed by specific input sequences and use the component-based system.
+Combo abilities are executed by specific input sequences and use the component-based system with advanced targeting.
 
 ### Phantom Strike (Dash + Slash)
 - **Component**: `UDashSlashCombo`
 - **Input Window**: 0.5 seconds
 - **Effect**: Teleport behind enemy for backstab
 - **Damage**: 150% slash damage × 2.0 backstab multiplier
+- **Targeting System**:
+  - **Ground Mode**: Prioritizes closest enemy to prevent targeting past enemies
+  - **Air Mode**: Uses sophisticated scoring (angle 50% + vertical 30% + distance 20%)
+  - **Aim Forgiveness**: 180-unit radius sphere for easier targeting
 - **Blueprint Parameters**:
   - Teleport Distance (150 units)
   - Backstab Multiplier (2.0x)
   - Time Slow Scale (0.1)
   - Auto-rotate to target (true)
+  - Aim Forgiveness Radius (10.0-300.0 units)
 
 ### Aerial Rave (Jump + Slash)
 - **Component**: `UJumpSlashCombo`
 - **Input Window**: 0.3 seconds while airborne
 - **Effect**: Downward slash with shockwave
 - **Damage**: 125% slash + 50 shockwave damage
+- **Targeting System**:
+  - **Ground Mode**: Direct crosshair trace with closest enemy fallback
+  - **Air Mode**: Sophisticated scoring for fluid aerial combat
+  - **Aim Forgiveness**: 200-unit radius sphere
 - **Blueprint Parameters**:
   - Shockwave Radius (300 units)
   - Shockwave Damage (50)
   - Downward Force (1000)
+  - Aim Forgiveness Radius (10.0-300.0 units)
   - Damage falloff with distance
+
+### Combo Targeting Features
+- **Ground vs Air Detection**: Different targeting behaviors for different contexts
+- **Direct Line Trace**: Prioritizes what you're directly aiming at
+- **Sphere Forgiveness**: Large radius fallback for easier TPS targeting
+- **Debug Visualization**: Color-coded debug spheres show targeting behavior
+- **Score-Based Selection**: Balances angle, distance, and vertical offset for best target
 
 ### Tempest Blade (Jump + Dash + Slash)
 - **Status**: Planned for implementation
@@ -181,17 +200,55 @@ Combo abilities are executed by specific input sequences and use the component-b
 
 ### Mechanics
 1. **Activation**: Abilities transform at 100% WP
-2. **One-Time Use**: Using an ultimate permanently disables that ability
-3. **Strategic Choice**: Choose which abilities to sacrifice
-4. **Death Trigger**: 4th ultimate use or 3 abilities lost = death
+2. **Grace Period**: 2-second window after reaching 100% WP to use abilities
+3. **One-Time Use**: Using an ultimate permanently disables that ability
+4. **Strategic Choice**: Choose which abilities to sacrifice
+5. **Death Trigger**: 4th ultimate use or 3 abilities lost = death
 
 ### Ultimate Transformations
-Each combat ability has an ultimate form:
-- **Firewall Breach** → Mass system corruption
-- **Pulse Hack** → EMP blast
-- **Gravity Pull** → Black hole singularity
-- **Data Spike** → Reality tear
-- **System Override** → Total digital dominance
+Each combat ability has an ultimate form with fully customizable stats:
+
+#### **Firewall Breach** → Total System Compromise
+- **Effect**: Instantly removes ALL armor from ALL enemies on screen
+- **Editable Properties**:
+  - Ultimate Radius Multiplier (1.0-5.0x base range)
+  - Ultimate Armor Reduction (0.0-1.0, default 100%)
+  - Ultimate Duration (1.0-30.0 seconds)
+
+#### **System Override** → Total System Shutdown  
+- **Effect**: Enhanced system override with longer duration and more damage
+- **Editable Properties**:
+  - Ultimate WP Cleanse Multiplier (1.0-3.0x)
+  - Ultimate System Damage Multiplier (1.0-3.0x)
+  - Ultimate System Duration Multiplier (1.0-3.0x)
+
+#### **Pulse Hack** → EMP Blast
+- **Effect**: Massive radius with full enemy stun instead of slow
+- **Editable Properties**:
+  - Ultimate Radius Multiplier (1.0-5.0x)
+  - Ultimate Stun Duration (0.5-10.0 seconds)
+  - Ultimate WP Cleanse (0.0-100.0)
+
+#### **Data Spike** → System Corruption
+- **Effect**: Pierces all enemies with enhanced data corruption
+- **Editable Properties**:
+  - Ultimate WP Cleanse (0.0-100.0)
+  - Ultimate Projectile Damage Multiplier (1.0-5.0x)
+  - Ultimate DOT Multiplier (1.0-10.0x)
+  - Ultimate Pierce Count (0-20 enemies)
+
+#### **Gravity Pull** → Singularity
+- **Effect**: Creates black hole that pulls ALL enemies to central point
+- **Editable Properties**:
+  - Ultimate Singularity Distance (500.0-3000.0 units)
+  - Ultimate Radius Multiplier (1.0-10.0x)
+  - Ultimate Pull Force Multiplier (1.0-10.0x)
+
+### Base Ultimate Properties
+All abilities inherit these customizable properties:
+- **Ultimate Range Multiplier** (1.0-10.0x)
+- **Ultimate Damage Multiplier** (1.0-10.0x)  
+- **Ultimate Duration Multiplier** (0.1-10.0x)
 
 ---
 
@@ -215,11 +272,11 @@ UActorComponent
 ```
 
 ### Key Systems
-- **Resource Manager**: Handles Stamina and WP
+- **Resource Manager**: Handles WP (Stamina removed)
 - **Combo Component**: Tracks input sequences
 - **Combo System**: Executes combo patterns
 - **Hit Stop Manager**: Provides combat impact feedback
-- **Threshold Manager**: Handles WP thresholds and death
+- **Threshold Manager**: Handles WP thresholds, ultimate mode, and death
 
 ---
 
@@ -233,13 +290,45 @@ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
 float Damage = 20.0f;
 
 UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resources")
-float StaminaCost = 10.0f;
-
-UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resources")
 float WPCost = 5.0f;
 
 UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Timing")
 float Cooldown = 2.0f;
+```
+
+### Ultimate System Properties
+All abilities inherit base ultimate properties:
+
+```cpp
+UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate Base")
+float UltimateRangeMultiplier = 2.0f;
+
+UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate Base")
+float UltimateDamageMultiplier = 2.0f;
+
+UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate Base")
+float UltimateDurationMultiplier = 1.5f;
+```
+
+### Ability-Specific Ultimate Properties
+Each ability has its own ultimate category for customization:
+
+**Firewall Breach**:
+```cpp
+UPROPERTY(EditAnywhere, Category = "Ultimate Firewall Breach")
+float UltimateRadiusMultiplier = 2.0f;
+
+UPROPERTY(EditAnywhere, Category = "Ultimate Firewall Breach")
+float UltimateArmorReduction = 1.0f;
+```
+
+**System Override**:
+```cpp
+UPROPERTY(EditAnywhere, Category = "Ultimate System Override")
+float UltimateWPCleanseMultiplier = 1.5f;
+
+UPROPERTY(EditAnywhere, Category = "Ultimate System Override")
+float UltimateSystemDamageMultiplier = 1.5f;
 ```
 
 ### Combo-Specific Parameters
@@ -252,15 +341,17 @@ float ComboWindowTime = 0.5f;
 UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combo|Effects")
 float TimeSlowScale = 0.3f;
 
-UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combo|Damage")
-float DamageMultiplier = 1.5f;
+UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combo|Targeting")
+float AimForgivenessRadius = 180.0f;
 ```
 
 ### Workflow
 1. Open player character Blueprint
 2. Select ability components in Details panel
-3. Adjust parameters without recompiling
-4. Test changes immediately in PIE
+3. Find "Ultimate [AbilityName]" categories for ultimate customization
+4. Adjust parameters without recompiling
+5. Test changes immediately in PIE
+6. Ultimate properties only take effect when used at 100% WP
 
 ---
 
@@ -272,3 +363,38 @@ float DamageMultiplier = 1.5f;
 - Focus is on Hacker path only (Forge path removed)
 - UI systems have been removed for cleaner implementation
 - Death system integrates with WP threshold mechanics
+
+## 🔧 Recent Improvements (2025-07-11)
+
+### Resource System Changes
+- **Stamina Removed**: Entire stamina system removed from project
+- **WP-Only System**: All abilities now use only WP or are free (basic abilities)
+- **Interface Compatibility**: IResourceConsumer interface maintained for backward compatibility
+
+### Dash Ability Fixes
+- **Movement-Based Direction**: Dash now uses movement input direction instead of crosshair
+- **W+Dash Special Case**: Forward dash follows camera angle for vertical movement
+- **Fixed Input Mapping**: Corrected input axis interpretation
+
+### Ultimate System Fixes
+- **Fixed WP Instant Reset**: WP no longer resets immediately at 100%
+- **Proper Ultimate Execution**: All abilities correctly execute ultimate versions at 100% WP
+- **Ability Disabling**: Ultimate abilities properly disable after use and cannot be reused
+- **Grace Period Removed**: No artificial delay - ultimates available immediately at 100% WP
+
+### Targeting System Enhancements
+- **Ground vs Air Targeting**: Combos now behave differently based on player state
+- **Improved Aim Forgiveness**: Larger radius spheres for easier TPS targeting
+- **Closest Enemy Priority**: When on ground, prioritizes closest enemy to prevent targeting past intended targets
+- **Sophisticated Air Combat**: Multi-factor scoring system for fluid aerial combat
+
+### Engine Editor Customization
+- **Full Ultimate Customization**: All ultimate abilities now have editable properties in engine
+- **Base Ultimate Properties**: Range, damage, and duration multipliers for all abilities
+- **Ability-Specific Properties**: Each ability has unique ultimate parameters
+- **Clear Organization**: Ultimate properties organized in dedicated categories
+
+### Quality of Life
+- **Debug Visualization**: Color-coded targeting visualization for combo development
+- **Proper Inheritance**: Fixed property naming conflicts between base and derived classes
+- **Documentation Updated**: Complete documentation of all new features and fixes

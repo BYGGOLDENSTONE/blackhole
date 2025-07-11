@@ -8,7 +8,6 @@
 
 class ABlackholePlayerCharacter;
 class UIntegrityComponent;
-class UStaminaComponent;
 class UWillPowerComponent;
 class UResourceManager;
 class USlashAbilityComponent;
@@ -135,9 +134,6 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "HUD")
 	FColor IntegrityColor;
-
-	UPROPERTY(EditDefaultsOnly, Category = "HUD")
-	FColor StaminaColor;
 
 	UPROPERTY(EditDefaultsOnly, Category = "HUD")
 	FColor WillPowerColor;

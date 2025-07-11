@@ -29,6 +29,10 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phantom Strike", meta = (ClampMin = "0.0", ClampMax = "1.0"))
     float PhantomAfterImageDuration = 0.5f;
 
+    // Aim forgiveness for easier combo execution
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phantom Strike", meta = (ClampMin = "10.0", ClampMax = "300.0"))
+    float AimForgivenessRadius = 180.0f;
+
     // Visual effects
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phantom Strike|Visual")
     UParticleSystem* TeleportParticle = nullptr;
@@ -41,4 +45,5 @@ public:
 private:
     bool TeleportBehindTarget(AActor* Target);
     void CreatePhantomAfterImage();
+    AActor* FindBestTarget(const FVector& Start, const FVector& Forward, float SearchRange);
 };

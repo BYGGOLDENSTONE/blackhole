@@ -5,6 +5,9 @@
 #include "GameplayTagContainer.h"
 #include "ComboSystem.generated.h"
 
+// DEPRECATED: This system is replaced by ComboDetectionSubsystem
+// Kept for backward compatibility only
+
 UENUM(BlueprintType)
 enum class EComboInputType : uint8
 {
@@ -93,7 +96,7 @@ struct FActiveCombo
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnComboExecuted, const FComboPattern&, Combo, bool, bPerfectTiming);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnComboWindowOpen, float, WindowDuration);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnComboWindowClosed);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnComboProgress, int32, CurrentHits, int32, TotalHits);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnComboProgress_Legacy, int32, CurrentHits, int32, TotalHits);
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class BLACKHOLE_API UComboSystem : public UActorComponent
@@ -150,7 +153,7 @@ public:
     FOnComboWindowClosed OnComboWindowClosed;
 
     UPROPERTY(BlueprintAssignable, Category = "Combo")
-    FOnComboProgress OnComboProgress;
+    FOnComboProgress_Legacy OnComboProgress;
 
 protected:
     // Registered combo patterns

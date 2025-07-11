@@ -11,11 +11,11 @@
 #include "Engine/GameInstance.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/Attributes/IntegrityComponent.h"
-#include "Components/Attributes/StaminaComponent.h"
 #include "Components/Attributes/WillPowerComponent.h"
 #include "Systems/ResourceManager.h"
 #include "Systems/ThresholdManager.h"
 #include "Systems/GameStateManager.h"
+#include "Systems/ComboDetectionSubsystem.h"
 #include "UI/BlackholeHUD.h"
 #include "Components/Abilities/Player/Basic/SlashAbilityComponent.h"
 // #include "Components/Abilities/Player/SystemFreezeAbilityComponent.h" // Removed
@@ -50,15 +50,27 @@ ABlackholePlayerCharacter::ABlackholePlayerCharacter()
 
 	SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArmComponent->SetupAttachment(RootComponent);
-	SpringArmComponent->TargetArmLength = GameplayConfig::Movement::CAMERA_ARM_LENGTH;
+	SpringArmComponent->TargetArmLength = CameraArmLength; // Use editable property
 	SpringArmComponent->bUsePawnControlRotation = true;
+	
+	// Offset camera to the left and up for over-the-shoulder view
+	SpringArmComponent->SocketOffset = FVector(0.0f, CameraOffsetY, CameraOffsetZ); // Use editable properties
+	SpringArmComponent->TargetOffset = FVector(0.0f, 0.0f, CameraTargetOffsetZ); // Use editable property
+	
+	// Enable camera lag for smoother movement
+	SpringArmComponent->bEnableCameraLag = bEnableCameraLag;
+	SpringArmComponent->CameraLagSpeed = CameraLagSpeed;
+	SpringArmComponent->bEnableCameraRotationLag = bEnableCameraLag;
+	SpringArmComponent->CameraRotationLagSpeed = CameraRotationLagSpeed;
 
 	CameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	CameraComponent->SetupAttachment(SpringArmComponent, USpringArmComponent::SocketName);
 	CameraComponent->bUsePawnControlRotation = false;
+	
+	// Set FOV from editable property
+	CameraComponent->SetFieldOfView(CameraFOV);
 
 	IntegrityComponent = CreateDefaultSubobject<UIntegrityComponent>(TEXT("Integrity"));
-	StaminaComponent = CreateDefaultSubobject<UStaminaComponent>(TEXT("Stamina"));
 	WillPowerComponent = CreateDefaultSubobject<UWillPowerComponent>(TEXT("WillPower"));
 
 	SlashAbility = CreateDefaultSubobject<USlashAbilityComponent>(TEXT("SlashAbility"));
@@ -194,6 +206,65 @@ void ABlackholePlayerCharacter::Tick(float DeltaTime)
 	
 }
 
+bool ABlackholePlayerCharacter::HasResources_Implementation(float StaminaCost, float WPCost) const
+{
+	// StaminaCost parameter kept for interface compatibility but ignored
+	
+	// Check WP (remember: positive WP cost means we're adding corruption)
+	if (WPCost > 0.0f)
+	{
+		if (UResourceManager* ResourceManager = GetGameInstance()->GetSubsystem<UResourceManager>())
+		{
+			float CurrentWP = ResourceManager->GetCurrentWillPower();
+			float MaxWP = ResourceManager->GetMaxWillPower();
+			
+			// At 100% WP, abilities are allowed (they become ultimates)
+			// Don't block at max WP - let the ability system handle ultimate mode
+			if (CurrentWP >= MaxWP)
+			{
+				UE_LOG(LogTemp, VeryVerbose, TEXT("HasResources: At 100%% WP, allowing ability for ultimate mode"));
+				return true;
+			}
+		}
+	}
+	
+	return true;
+}
+
+bool ABlackholePlayerCharacter::ConsumeResources_Implementation(float StaminaCost, float WPCost)
+{
+	bool bSuccess = true;
+	
+	// StaminaCost parameter kept for interface compatibility but ignored
+	
+	// Add WP (corruption)
+	if (WPCost != 0.0f)
+	{
+		if (UResourceManager* ResourceManager = GetGameInstance()->GetSubsystem<UResourceManager>())
+		{
+			ResourceManager->AddWillPower(WPCost);
+		}
+	}
+	
+	return bSuccess;
+}
+
+void ABlackholePlayerCharacter::GetResourcePercentages_Implementation(float& OutStaminaPercent, float& OutWPPercent) const
+{
+	// Stamina no longer exists - always return 0
+	OutStaminaPercent = 0.0f;
+	
+	// Get WP percentage
+	if (UResourceManager* ResourceManager = GetGameInstance()->GetSubsystem<UResourceManager>())
+	{
+		OutWPPercent = ResourceManager->GetWillPowerPercent();
+	}
+	else
+	{
+		OutWPPercent = 0.0f;
+	}
+}
+
 void ABlackholePlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
@@ -286,7 +357,7 @@ void ABlackholePlayerCharacter::Look(const FInputActionValue& Value)
 
 void ABlackholePlayerCharacter::UseKill()
 {
-	if (KillAbility)
+	if (KillAbility && KillAbility->CanExecute())
 	{
 		KillAbility->Execute();
 	}
@@ -399,17 +470,27 @@ void ABlackholePlayerCharacter::ToggleCamera()
 			CameraComponent->SetRelativeLocation(FVector::ZeroVector);
 			CameraComponent->SetRelativeRotation(FRotator::ZeroRotator);
 			CameraComponent->bUsePawnControlRotation = false;
+			
+			// Restore FOV from editable property
+			CameraComponent->SetFieldOfView(CameraFOV);
 		}
 		
-		// Re-enable spring arm
+		// Re-enable spring arm with editable settings
 		if (IsValid(SpringArmComponent))
 		{
 			SpringArmComponent->bUsePawnControlRotation = true;
 			SpringArmComponent->bInheritPitch = true;
 			SpringArmComponent->bInheritYaw = true;
 			SpringArmComponent->bInheritRoll = true;
-			SpringArmComponent->TargetArmLength = GameplayConfig::Movement::CAMERA_ARM_LENGTH;
-			SpringArmComponent->SocketOffset = FVector::ZeroVector;
+			SpringArmComponent->TargetArmLength = CameraArmLength; // Use editable property
+			SpringArmComponent->SocketOffset = FVector(0.0f, CameraOffsetY, CameraOffsetZ); // Use editable properties
+			SpringArmComponent->TargetOffset = FVector(0.0f, 0.0f, CameraTargetOffsetZ); // Use editable property
+			
+			// Re-enable camera lag with editable settings
+			SpringArmComponent->bEnableCameraLag = bEnableCameraLag;
+			SpringArmComponent->CameraLagSpeed = CameraLagSpeed;
+			SpringArmComponent->bEnableCameraRotationLag = bEnableCameraLag;
+			SpringArmComponent->CameraRotationLagSpeed = CameraRotationLagSpeed;
 		}
 		
 		// Ensure character mesh is visible in third person
@@ -473,9 +554,15 @@ void ABlackholePlayerCharacter::UseDash()
 		// Execute the dash ability
 		HackerDashAbility->Execute();
 		
-		// Record dash was used for combo detection
+		// Legacy combo tracking
 		LastAbilityUsed = ELastAbilityUsed::Dash;
 		LastAbilityTime = GetWorld()->GetTimeSeconds();
+		
+		// New combo system
+		if (UComboDetectionSubsystem* ComboSystem = GetWorld()->GetSubsystem<UComboDetectionSubsystem>())
+		{
+			ComboSystem->RegisterInput(this, EComboInput::Dash, GetActorLocation());
+		}
 	}
 }
 
@@ -493,9 +580,15 @@ void ABlackholePlayerCharacter::UseUtilityJump()
 		// Execute the jump ability
 		HackerJumpAbility->Execute();
 		
-		// Record jump was used for combo detection
+		// Legacy combo tracking
 		LastAbilityUsed = ELastAbilityUsed::Jump;
 		LastAbilityTime = GetWorld()->GetTimeSeconds();
+		
+		// New combo system
+		if (UComboDetectionSubsystem* ComboSystem = GetWorld()->GetSubsystem<UComboDetectionSubsystem>())
+		{
+			ComboSystem->RegisterInput(this, EComboInput::Jump, GetActorLocation());
+		}
 	}
 }
 
@@ -543,7 +636,13 @@ void ABlackholePlayerCharacter::UseAbilitySlot1()
 	// Only register input if ability can execute and we're in a valid state
 	if (bCanSlash && IsValid(SlashAbility) && SlashAbility->CanExecute())
 	{
-		// Check for combo execution
+		// Register slash input for new combo system
+		if (UComboDetectionSubsystem* ComboSystem = GetWorld()->GetSubsystem<UComboDetectionSubsystem>())
+		{
+			ComboSystem->RegisterInput(this, EComboInput::Slash, GetActorLocation());
+		}
+		
+		// Legacy combo check (will be removed once new system is fully integrated)
 		float CurrentTime = GetWorld()->GetTimeSeconds();
 		float TimeSinceLastAbility = CurrentTime - LastAbilityTime;
 		
@@ -587,7 +686,7 @@ void ABlackholePlayerCharacter::UseAbilitySlot1()
 void ABlackholePlayerCharacter::UseAbilitySlot2()
 {
 	// Right Mouse Button - Firewall Breach
-	if (IsValid(FirewallBreachAbility))
+	if (IsValid(FirewallBreachAbility) && FirewallBreachAbility->CanExecute())
 	{
 		FirewallBreachAbility->Execute();
 	}
@@ -596,7 +695,7 @@ void ABlackholePlayerCharacter::UseAbilitySlot2()
 void ABlackholePlayerCharacter::UseAbilitySlot3()
 {
 	// Q key - Pulse Hack
-	if (IsValid(PulseHackAbility))
+	if (IsValid(PulseHackAbility) && PulseHackAbility->CanExecute())
 	{
 		PulseHackAbility->Execute();
 	}
@@ -605,7 +704,7 @@ void ABlackholePlayerCharacter::UseAbilitySlot3()
 void ABlackholePlayerCharacter::UseAbilitySlot4()
 {
 	// E key - Gravity Pull
-	if (IsValid(GravityPullAbility))
+	if (IsValid(GravityPullAbility) && GravityPullAbility->CanExecute())
 	{
 		GravityPullAbility->Execute();
 	}
@@ -614,7 +713,7 @@ void ABlackholePlayerCharacter::UseAbilitySlot4()
 void ABlackholePlayerCharacter::UseAbilitySlot5()
 {
 	// R key - Data Spike
-	if (IsValid(DataSpikeAbility))
+	if (IsValid(DataSpikeAbility) && DataSpikeAbility->CanExecute())
 	{
 		DataSpikeAbility->Execute();
 	}
@@ -623,12 +722,71 @@ void ABlackholePlayerCharacter::UseAbilitySlot5()
 void ABlackholePlayerCharacter::UseAbilitySlot6()
 {
 	// F key - System Override
-	if (IsValid(SystemOverrideAbility))
+	if (IsValid(SystemOverrideAbility) && SystemOverrideAbility->CanExecute())
 	{
 		SystemOverrideAbility->Execute();
 	}
 }
 
+
+void ABlackholePlayerCharacter::UpdateCameraSettings()
+{
+	if (IsValid(SpringArmComponent))
+	{
+		SpringArmComponent->TargetArmLength = CameraArmLength;
+		SpringArmComponent->SocketOffset = FVector(0.0f, CameraOffsetY, CameraOffsetZ);
+		SpringArmComponent->TargetOffset = FVector(0.0f, 0.0f, CameraTargetOffsetZ);
+		SpringArmComponent->bEnableCameraLag = bEnableCameraLag;
+		SpringArmComponent->CameraLagSpeed = CameraLagSpeed;
+		SpringArmComponent->bEnableCameraRotationLag = bEnableCameraLag;
+		SpringArmComponent->CameraRotationLagSpeed = CameraRotationLagSpeed;
+	}
+	
+	if (IsValid(CameraComponent))
+	{
+		CameraComponent->SetFieldOfView(CameraFOV);
+	}
+}
+
+bool ABlackholePlayerCharacter::GetCrosshairTarget(FHitResult& OutHit, float MaxRange) const
+{
+	if (!IsValid(CameraComponent))
+	{
+		return false;
+	}
+	
+	FVector CameraLocation = CameraComponent->GetComponentLocation();
+	FVector CameraForward = CameraComponent->GetForwardVector();
+	FVector TraceEnd = CameraLocation + (CameraForward * MaxRange);
+	
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+	QueryParams.bTraceComplex = false;
+	
+	// Trace from camera through crosshair
+	return GetWorld()->LineTraceSingleByChannel(
+		OutHit,
+		CameraLocation,
+		TraceEnd,
+		ECC_Visibility,
+		QueryParams
+	);
+}
+
+void ABlackholePlayerCharacter::GetAimLocationAndDirection(FVector& OutLocation, FVector& OutDirection) const
+{
+	if (IsValid(CameraComponent))
+	{
+		OutLocation = CameraComponent->GetComponentLocation();
+		OutDirection = CameraComponent->GetForwardVector();
+	}
+	else
+	{
+		// Fallback to character location
+		OutLocation = GetActorLocation();
+		OutDirection = GetActorForwardVector();
+	}
+}
 
 void ABlackholePlayerCharacter::Die()
 {

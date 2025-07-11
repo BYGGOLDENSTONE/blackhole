@@ -2,10 +2,20 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Interfaces/ResourceConsumer.h"
 #include "AbilityComponent.generated.h"
 
 class UResourceManager;
 class UThresholdManager;
+
+UENUM(BlueprintType)
+enum class EAbilityState : uint8
+{
+	Ready,
+	Executing,
+	Cooldown,
+	Disabled
+};
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class BLACKHOLE_API UAbilityComponent : public UActorComponent
@@ -26,10 +36,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
 	float Cost;
 
-	// Dual resource consumption
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
-	float StaminaCost;
-
+	// Resource consumption - WP only
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
 	float WPCost;
 
@@ -42,6 +49,14 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Ability")
 	bool bIsOnCooldown;
 	
+	// Improved state tracking
+	UPROPERTY(BlueprintReadOnly, Category = "Ability")
+	EAbilityState CurrentState = EAbilityState::Ready;
+	
+	// Tick optimization
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Optimization")
+	bool bTickOnlyWhenActive = true;
+	
 	// Track if ability is in ultimate mode
 	UPROPERTY(BlueprintReadOnly, Category = "Ability")
 	bool bIsInUltimateMode;
@@ -49,6 +64,20 @@ protected:
 	// Track if this is a basic ability (not affected by ultimate system)
 	UPROPERTY(EditDefaultsOnly, Category = "Ability")
 	bool bIsBasicAbility;
+	
+	// Track if ability has been permanently disabled (used in ultimate mode)
+	UPROPERTY(BlueprintReadOnly, Category = "Ability")
+	bool bIsDisabled;
+
+	// Common ultimate properties (can be overridden by specific abilities)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate Base", meta = (ClampMin = "1.0", ClampMax = "10.0"))
+	float UltimateRangeMultiplier = 2.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate Base", meta = (ClampMin = "1.0", ClampMax = "10.0"))
+	float UltimateDamageMultiplier = 2.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate Base", meta = (ClampMin = "0.1", ClampMax = "10.0"))
+	float UltimateDurationMultiplier = 1.5f;
 
 public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
@@ -78,9 +107,6 @@ public:
 	float GetCost() const { return Cost; }
 
 	UFUNCTION(BlueprintCallable, Category = "Ability")
-	float GetStaminaCost() const { return StaminaCost; }
-
-	UFUNCTION(BlueprintCallable, Category = "Ability")
 	float GetWPCost() const { return WPCost; }
 
 	
@@ -93,6 +119,22 @@ public:
 	
 	UFUNCTION(BlueprintPure, Category = "Ability")
 	bool IsBasicAbility() const { return bIsBasicAbility; }
+	
+	// Disable/Enable ability permanently
+	UFUNCTION(BlueprintCallable, Category = "Ability")
+	void SetDisabled(bool bNewDisabled) 
+	{ 
+		bIsDisabled = bNewDisabled; 
+		UE_LOG(LogTemp, Error, TEXT("Ability %s: SetDisabled called with %s"), 
+			*GetName(), bNewDisabled ? TEXT("TRUE") : TEXT("FALSE"));
+	}
+	
+	UFUNCTION(BlueprintPure, Category = "Ability")
+	bool IsDisabled() const { return bIsDisabled; }
+	
+	// State management (made public for ThresholdManager)
+	UFUNCTION(BlueprintCallable, Category = "Ability")
+	void SetAbilityState(EAbilityState NewState);
 
 protected:
 	void StartCooldown();
@@ -105,7 +147,6 @@ protected:
 	// Helper to get resource manager
 	UResourceManager* GetResourceManager() const;
 	
-	
 	// Apply survivor buff modifiers
 	virtual float GetDamageMultiplier() const;
 	virtual float GetCooldownWithReduction() const;
@@ -113,4 +154,14 @@ protected:
 	// Cached threshold manager
 	UPROPERTY()
 	UThresholdManager* ThresholdManager;
+	
+	// Optimized tick management
+	void SetTickEnabled(bool bEnabled);
+	
+	// Resource validation helpers
+	bool ValidateResources() const;
+	bool ConsumeAbilityResources();
+	
+	// Get resource consumer interface from owner
+	IResourceConsumer* GetOwnerResourceInterface() const;
 };

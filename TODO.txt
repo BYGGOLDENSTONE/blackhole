@@ -8,7 +8,7 @@ task 1 combo system, [COMPLETE]
 task 2 gravity pull ability revisit,
 
 
-task 3 remaining abilities for hacker path,
+task 3 wall walking
 
 
 task 4 new enemies,
@@ -21,7 +21,26 @@ task 6 interactable environment creation,
 
 
 [COMPLETED]
-- Combo system with simple input detection
-- All crash issues resolved
-- Forge path completely removed
-- All systems stable and working
+- Combo system with simple input detection [COMPLETE]
+- All crash issues resolved [COMPLETE]
+- Forge path completely removed [COMPLETE]
+- All systems stable and working [COMPLETE]
+
+[RECENTLY COMPLETED - 2025-07-11]
+- Fixed dash ability to use movement input direction [COMPLETE]
+- Fixed input axis swapping (W/A/S/D were mixed) [COMPLETE]
+- Added W+Dash special case for camera-based vertical movement [COMPLETE]
+- Fixed WP auto-resetting at 100% without ultimate use [COMPLETE]
+- Fixed ultimate abilities not executing properly [COMPLETE]
+- Fixed disabled abilities still being usable [COMPLETE]
+- Added CanExecute() checks to all input handlers [COMPLETE]
+- Removed entire stamina system from project [COMPLETE]
+- Fixed WP instantly resetting to 0 at 100% [COMPLETE]
+- Ultimate system fixes - WP instant reset prevention [COMPLETE]
+- Grace period for ultimate mode activation [COMPLETE]
+- All hacker abilities now properly use ultimate forms [COMPLETE]
+- Editable ultimate ability stats in engine editor [COMPLETE]
+- Enhanced combo targeting system (ground vs air) [COMPLETE]
+- Improved aim forgiveness for TPS gameplay [COMPLETE]
+- Fixed property naming conflicts in derived classes [COMPLETE]
+- Updated comprehensive abilities documentation [COMPLETE]

@@ -54,6 +54,7 @@ void UThresholdManager::StartCombat()
 {
 	if (bIsInCombat)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: StartCombat called but already in combat"));
 		return;
 	}
 	
@@ -61,7 +62,8 @@ void UThresholdManager::StartCombat()
 	
 	// Reset threshold state for new combat
 	ThresholdState.Reset();
-	DisabledAbilities.Empty();
+	// DO NOT clear DisabledAbilities here - they should persist through combat
+	// DisabledAbilities.Empty(); // REMOVED - disabled abilities should stay disabled
 	CurrentBuff = FSurvivorBuff();
 	
 	// Try to get player character if we don't have it yet
@@ -89,6 +91,7 @@ void UThresholdManager::EndCombat()
 	
 	bIsInCombat = false;
 	bUltimateModeActive = false;
+	bIsDeactivatingUltimate = false;
 	
 	// Clean up invalid abilities before processing
 	CleanupInvalidAbilities();
@@ -99,19 +102,10 @@ void UThresholdManager::EndCombat()
 		World->GetTimerManager().ClearAllTimersForObject(this);
 	}
 	
-	// Re-enable all abilities
-	for (int32 i = DisabledAbilities.Num() - 1; i >= 0; i--)
-	{
-		UAbilityComponent* Ability = DisabledAbilities[i];
-		if (IsValid(Ability))
-		{
-			Ability->SetComponentTickEnabled(true);
-		}
-		else
-		{
-			DisabledAbilities.RemoveAt(i);
-		}
-	}
+	// DO NOT re-enable abilities that were disabled by ultimate sacrifice
+	// Those should remain permanently disabled
+	// Just clear the tracking arrays
+	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Combat ended, keeping %d abilities disabled from ultimate sacrifice"), DisabledAbilities.Num());
 	
 	// Reset ultimate mode for all abilities
 	for (int32 i = AllPlayerAbilities.Num() - 1; i >= 0; i--)
@@ -127,7 +121,8 @@ void UThresholdManager::EndCombat()
 		}
 	}
 	
-	DisabledAbilities.Empty();
+	// DO NOT clear DisabledAbilities - we need to track which abilities were sacrificed
+	// DisabledAbilities.Empty(); // REMOVED - keep tracking sacrificed abilities
 	AllPlayerAbilities.Empty(); // Clear the array to prevent stale references
 	CurrentBuff = FSurvivorBuff();
 	
@@ -185,9 +180,13 @@ void UThresholdManager::OnWPThresholdChanged(EResourceThreshold NewThreshold)
 
 void UThresholdManager::OnWPMaxReachedHandler(int32 TimesReached)
 {
+	UE_LOG(LogTemp, Error, TEXT("=== ThresholdManager::OnWPMaxReachedHandler START ==="));
+	UE_LOG(LogTemp, Error, TEXT("WP reached 100%% - Count: %d, InCombat: %s"), TimesReached, bIsInCombat ? TEXT("YES") : TEXT("NO"));
+	
 	if (!bIsInCombat)
 	{
-		return;
+		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Not in combat, starting combat now"));
+		StartCombat();
 	}
 	
 	// Clean up invalid abilities before processing
@@ -200,6 +199,11 @@ void UThresholdManager::OnWPMaxReachedHandler(int32 TimesReached)
 		return;
 	}
 	
+	// Double-check current WP
+	float CurrentWP = ResourceManager->GetCurrentWillPower();
+	float MaxWP = ResourceManager->GetMaxWillPower();
+	UE_LOG(LogTemp, Error, TEXT("ThresholdManager: Current WP = %.1f/%.1f"), CurrentWP, MaxWP);
+	
 	// Only apply ultimate mode for Hacker path
 	if (ResourceManager->GetCurrentPath() != ECharacterPath::Hacker)
 	{
@@ -207,9 +211,13 @@ void UThresholdManager::OnWPMaxReachedHandler(int32 TimesReached)
 		return;
 	}
 	
-	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: WP reached 100%% (Count: %d) - ULTIMATE MODE ACTIVATED!"), TimesReached);
+	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: WP reached 100%% (Count: %d) - PREPARING TO ACTIVATE ULTIMATE MODE!"), TimesReached);
 	
 	// Check if player has already lost 3 abilities - trigger death
+	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Checking death conditions - DisabledAbilities: %d/%d, TimesReached: %d/%d"), 
+		DisabledAbilities.Num(), GameplayConfig::Thresholds::MAX_DISABLED_ABILITIES,
+		TimesReached, GameplayConfig::Thresholds::MAX_WP_REACHES);
+		
 	if (DisabledAbilities.Num() >= GameplayConfig::Thresholds::MAX_DISABLED_ABILITIES)
 	{
 		// End combat first to clean up properly
@@ -225,12 +233,16 @@ void UThresholdManager::OnWPMaxReachedHandler(int32 TimesReached)
 		// End combat first to clean up properly
 		EndCombat();
 		OnPlayerDeath.Broadcast();
-		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: Player death triggered - WP reached 100%% for the 4th time!"));
+		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: Player death triggered - WP reached 100%% for the %d time!"), TimesReached);
 		return;
 	}
 	
 	// Activate ultimate mode for all abilities
 	ActivateUltimateMode();
+	
+	// Double-check WP after activation
+	CurrentWP = ResourceManager->GetCurrentWillPower();
+	UE_LOG(LogTemp, Error, TEXT("=== ThresholdManager::OnWPMaxReachedHandler END - WP = %.1f/%.1f ==="), CurrentWP, MaxWP);
 }
 
 void UThresholdManager::ActivateUltimateMode()
@@ -241,7 +253,16 @@ void UThresholdManager::ActivateUltimateMode()
 		return;
 	}
 	
+	// Check current WP before activation
+	if (IsValid(ResourceManager))
+	{
+		float CurrentWP = ResourceManager->GetCurrentWillPower();
+		float MaxWP = ResourceManager->GetMaxWillPower();
+		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Activating ultimate mode with WP=%.1f/%.1f"), CurrentWP, MaxWP);
+	}
+	
 	bUltimateModeActive = true;
+	UltimateModeActivationTime = GetWorld()->GetTimeSeconds();
 	
 	// Clean up invalid abilities before processing
 	CleanupInvalidAbilities();
@@ -266,7 +287,13 @@ void UThresholdManager::ActivateUltimateMode()
 			{
 				Ability->SetUltimateMode(true);
 				UltimateCount++;
-				UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Set %s to ultimate mode"), *Ability->GetName());
+				UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Set %s to ultimate mode (IsBasic=%s)"), 
+					*Ability->GetName(), Ability->IsBasicAbility() ? TEXT("YES") : TEXT("NO"));
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Skipped %s - marked as basic ability"), 
+					*Ability->GetName());
 			}
 		}
 	}
@@ -303,6 +330,14 @@ void UThresholdManager::DeactivateUltimateMode(UAbilityComponent* UsedAbility)
 {
 	if (!bUltimateModeActive)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: DeactivateUltimateMode called but ultimate mode is not active"));
+		return;
+	}
+	
+	// Prevent recursive calls
+	if (bIsDeactivatingUltimate)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Already deactivating ultimate mode, preventing recursion"));
 		return;
 	}
 	
@@ -313,6 +348,10 @@ void UThresholdManager::DeactivateUltimateMode(UAbilityComponent* UsedAbility)
 		return;
 	}
 	
+	UE_LOG(LogTemp, Error, TEXT("ThresholdManager: DEACTIVATING ULTIMATE MODE - Used ability: %s"), 
+		UsedAbility ? *UsedAbility->GetName() : TEXT("NULL"));
+	
+	bIsDeactivatingUltimate = true;
 	bUltimateModeActive = false;
 	
 	// Clean up invalid abilities before processing
@@ -335,8 +374,16 @@ void UThresholdManager::DeactivateUltimateMode(UAbilityComponent* UsedAbility)
 	// Disable the ability that was used (if it's not basic)
 	if (IsValid(UsedAbility) && !DisabledAbilities.Contains(UsedAbility) && !UsedAbility->IsBasicAbility())
 	{
+		// Properly disable the ability
+		UsedAbility->SetDisabled(true);
 		UsedAbility->SetComponentTickEnabled(false);
+		UsedAbility->SetAbilityState(EAbilityState::Disabled);
 		DisabledAbilities.Add(UsedAbility);
+		
+		// Verify the ability is actually disabled
+		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: Disabling %s - IsDisabled=%s"), 
+			*UsedAbility->GetName(), 
+			UsedAbility->IsDisabled() ? TEXT("TRUE") : TEXT("FALSE"));
 		
 		// Update buffs for lost abilities
 		UpdateSurvivorBuffs();
@@ -344,7 +391,7 @@ void UThresholdManager::DeactivateUltimateMode(UAbilityComponent* UsedAbility)
 		// Broadcast event
 		OnAbilityDisabled.Broadcast(UsedAbility, DisabledAbilities.Num());
 		
-		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Disabled ability %s after ultimate use (Total disabled: %d)"), 
+		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: PERMANENTLY DISABLED ability %s after ultimate use (Total disabled: %d)"), 
 			*UsedAbility->GetName(), DisabledAbilities.Num());
 	}
 	
@@ -361,20 +408,53 @@ void UThresholdManager::DeactivateUltimateMode(UAbilityComponent* UsedAbility)
 	OnUltimateModeActivated.Broadcast(false);
 	
 	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Ultimate mode deactivated"));
+	
+	// Clear the deactivation flag
+	bIsDeactivatingUltimate = false;
 }
 
 void UThresholdManager::OnAbilityExecuted(UAbilityComponent* Ability)
 {
-	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: OnAbilityExecuted called for %s (UltimateMode: %s, IsBasic: %s)"), 
-		Ability ? *Ability->GetName() : TEXT("NULL"),
-		bUltimateModeActive ? TEXT("YES") : TEXT("NO"),
-		Ability && Ability->IsBasicAbility() ? TEXT("YES") : TEXT("NO"));
-	
-	// If in ultimate mode and a non-basic ability was used, deactivate and disable it
-	if (bUltimateModeActive && Ability && !Ability->IsBasicAbility())
+	// Safety check
+	if (!Ability)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Deactivating ultimate mode after using %s"), *Ability->GetName());
+		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: OnAbilityExecuted called with NULL ability!"));
+		return;
+	}
+	
+	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: OnAbilityExecuted called for %s (UltimateMode: %s, IsBasic: %s, TimeSince: %.2f)"), 
+		*Ability->GetName(),
+		bUltimateModeActive ? TEXT("YES") : TEXT("NO"),
+		Ability->IsBasicAbility() ? TEXT("YES") : TEXT("NO"),
+		GetWorld() ? GetWorld()->GetTimeSeconds() - UltimateModeActivationTime : 0.0f);
+	
+	// Only process if we're actually in ultimate mode
+	if (!bUltimateModeActive)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Not in ultimate mode, ignoring ability execution"));
+		return;
+	}
+	
+	// Basic abilities don't trigger deactivation
+	if (Ability->IsBasicAbility())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Basic ability used during ultimate mode - no deactivation"));
+		return;
+	}
+	
+	// We should ONLY deactivate ultimate mode if an ultimate ability was actually used
+	if (Ability->IsInUltimateMode())
+	{
+		// This is an ultimate ability - deactivate ultimate mode after it's used
+		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Ultimate ability %s executed - deactivating ultimate mode"), *Ability->GetName());
 		DeactivateUltimateMode(Ability);
+	}
+	else
+	{
+		// Non-ultimate ability during ultimate mode - should NOT deactivate
+		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Non-ultimate ability %s used during ultimate mode - IGNORING (not deactivating)"), *Ability->GetName());
+		// Do NOT deactivate ultimate mode for non-ultimate abilities
+		// Players should be able to use basic abilities without losing ultimate mode
 	}
 }
 

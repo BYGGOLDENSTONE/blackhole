@@ -15,7 +15,6 @@ UKillAbilityComponent::UKillAbilityComponent()
 {
 	// Debug ability - no resource costs
 	Cost = 0.0f;
-	StaminaCost = 0.0f;
 	WPCost = 0.0f;
 	Cooldown = 5.0f;
 	Range = 3000.0f;
@@ -47,31 +46,31 @@ void UKillAbilityComponent::Execute()
 	if (AActor* Owner = GetOwner())
 	{
 		FVector Start;
-		FVector Forward;
+		FVector End;
 		
-		// Use camera for aiming if this is the player
+		// Use camera for aiming - trace directly from camera through crosshair
 		if (ABlackholePlayerCharacter* PlayerOwner = Cast<ABlackholePlayerCharacter>(Owner))
 		{
 			if (UCameraComponent* Camera = PlayerOwner->GetCameraComponent())
 			{
+				// IMPORTANT: Trace directly from camera for consistent aiming
 				Start = Camera->GetComponentLocation();
-				Forward = Camera->GetForwardVector();
+				FVector CameraForward = Camera->GetForwardVector();
+				End = Start + (CameraForward * Range);
 			}
 			else
 			{
-				// Fallback to character location
+				// Fallback - use character position
 				Start = Owner->GetActorLocation();
-				Forward = Owner->GetActorForwardVector();
+				End = Start + (Owner->GetActorForwardVector() * Range);
 			}
 		}
 		else
 		{
 			// Non-player owners use their actor location
 			Start = Owner->GetActorLocation();
-			Forward = Owner->GetActorForwardVector();
+			End = Start + (Owner->GetActorForwardVector() * Range);
 		}
-		
-		FVector End = Start + (Forward * Range);
 		
 		FHitResult HitResult;
 		FCollisionQueryParams QueryParams;

@@ -1,7 +1,6 @@
 #include "UI/BlackholeHUD.h"
 #include "Player/BlackholePlayerCharacter.h"
 #include "Components/Attributes/IntegrityComponent.h"
-#include "Components/Attributes/StaminaComponent.h"
 #include "Components/Attributes/WillPowerComponent.h"
 #include "Systems/ResourceManager.h"
 #include "UI/MainMenuWidget.h"
@@ -34,7 +33,6 @@ ABlackholeHUD::ABlackholeHUD()
 	CooldownIconSize = 50.0f;
 
 	IntegrityColor = FColor::Red;
-	StaminaColor = FColor::Green;
 	WillPowerColor = FColor::Blue;
 	
 	// Initialize cached values
@@ -201,14 +199,8 @@ void ABlackholeHUD::DrawHUD()
 					  StartX, StartY, IntegrityColor);
 	}
 
-	if (UStaminaComponent* Stamina = PlayerCharacter->FindComponentByClass<UStaminaComponent>())
-	{
-		DrawAttribute("Stamina", Stamina->GetCurrentValue(), Stamina->GetMaxValue(), 
-					  StartX, StartY + VerticalSpacing, StaminaColor);
-	}
-
 	// Draw WP only in Hacker path
-	int resourceBarIndex = 2;
+	int resourceBarIndex = 1;
 	// Always draw Will Power for Hacker path
 	DrawAttribute("Will Power", CachedWP, CachedMaxWP, 
 				  StartX, StartY + VerticalSpacing * resourceBarIndex, WillPowerColor);

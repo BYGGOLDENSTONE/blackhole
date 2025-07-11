@@ -35,6 +35,16 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
 	float MaxWPRefund = GameplayConfig::Abilities::PulseHack::MAX_WP_REFUND;
 
+	// Ultimate version parameters
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate Pulse Hack", meta = (ClampMin = "1.0", ClampMax = "5.0"))
+	float UltimateRadiusMultiplier = GameplayConfig::Abilities::PulseHack::ULTIMATE_RADIUS_MULT;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate Pulse Hack", meta = (ClampMin = "0.5", ClampMax = "10.0"))
+	float UltimateStunDuration = GameplayConfig::Abilities::PulseHack::ULTIMATE_STUN_DURATION;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate Pulse Hack", meta = (ClampMin = "0.0", ClampMax = "100.0"))
+	float UltimateWPCleanse = GameplayConfig::Abilities::PulseHack::ULTIMATE_WP_CLEANSE;
+
 	// Visual effect
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effects")
 	UParticleSystem* PulseEffect;

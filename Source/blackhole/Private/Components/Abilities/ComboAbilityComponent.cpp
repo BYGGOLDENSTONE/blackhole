@@ -15,7 +15,6 @@ UComboAbilityComponent::UComboAbilityComponent()
     PrimaryComponentTick.bCanEverTick = true;
     
     // Combos are special abilities with specific resource costs
-    StaminaCost = 20.0f;
     WPCost = 25.0f;
     Cooldown = 0.5f; // Shorter cooldown for combos
     

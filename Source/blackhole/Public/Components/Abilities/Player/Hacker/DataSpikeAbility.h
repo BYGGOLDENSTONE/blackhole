@@ -80,6 +80,19 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
 	float DOTTickRate = GameplayConfig::Abilities::DataSpike::DOT_TICK_RATE;
 
+	// Ultimate version parameters
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate Data Spike", meta = (ClampMin = "0.0", ClampMax = "100.0"))
+	float UltimateWPCleanse = GameplayConfig::Abilities::DataSpike::ULTIMATE_WP_CLEANSE;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate Data Spike", meta = (ClampMin = "1.0", ClampMax = "5.0"))
+	float UltimateProjectileDamageMultiplier = 2.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate Data Spike", meta = (ClampMin = "1.0", ClampMax = "10.0"))
+	float UltimateDOTMultiplier = 1.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate Data Spike", meta = (ClampMin = "0", ClampMax = "20"))
+	int32 UltimatePierceCount = 10; // Pierces through all enemies
+
 	// Visual and audio effects
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effects")
 	UParticleSystem* ProjectileEffect;

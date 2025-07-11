@@ -32,6 +32,16 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
     float MaxTargetingAngle = 45.0f;
 
+    // Ultimate version parameters
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate Gravity Pull", meta = (ClampMin = "500.0", ClampMax = "3000.0"))
+    float UltimateSingularityDistance = 1000.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate Gravity Pull", meta = (ClampMin = "1.0", ClampMax = "10.0"))
+    float UltimateRadiusMultiplier = 3.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate Gravity Pull", meta = (ClampMin = "1.0", ClampMax = "10.0"))
+    float UltimatePullForceMultiplier = 5.0f;
+
 private:
     // Find the best hackable target
     class AActor* FindBestHackableTarget() const;

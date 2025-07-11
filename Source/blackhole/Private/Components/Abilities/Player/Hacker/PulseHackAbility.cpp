@@ -13,11 +13,13 @@ UPulseHackAbility::UPulseHackAbility()
 {
 	// Ability costs and cooldown (per GDD)
 	Cost = 10.0f; // Legacy field
-	StaminaCost = 5.0f; // New dual resource system
 	WPCost = 10.0f; // New dual resource system
 	// HeatCost removed - heat system no longer exists
 	Cooldown = 8.0f;
 	// HeatGenerationMultiplier removed - heat system no longer exists
+	
+	// Ensure this is NOT a basic ability
+	bIsBasicAbility = false;
 }
 
 bool UPulseHackAbility::CanExecute() const
@@ -38,6 +40,13 @@ void UPulseHackAbility::Execute()
 	}
 
 	Super::Execute();
+
+	// IMPORTANT: If we're in ultimate mode, the base class already called ExecuteUltimate()
+	// We should not continue with normal execution
+	if (IsInUltimateMode())
+	{
+		return;
+	}
 
 	AActor* Owner = GetOwner();
 	if (!Owner)
@@ -227,9 +236,9 @@ void UPulseHackAbility::ExecuteUltimate()
 	}
 	
 	// Ultimate version: Massive radius and full stun
-	float UltimateRadius = HackRadius * GameplayConfig::Abilities::PulseHack::ULTIMATE_RADIUS_MULT; // Multiplied radius
-	float StunDuration = GameplayConfig::Abilities::PulseHack::ULTIMATE_STUN_DURATION; // Full stun instead of slow
-	float UltimateWPCleanse = GameplayConfig::Abilities::PulseHack::ULTIMATE_WP_CLEANSE; // Massive WP cleanse
+	float UltimateRadius = HackRadius * UltimateRadiusMultiplier; // Use editable multiplier
+	float StunDuration = UltimateStunDuration; // Use editable stun duration
+	// UltimateWPCleanse is already a member variable and editable
 	
 	// Get all actors in massive radius
 	TArray<FHitResult> HitResults;

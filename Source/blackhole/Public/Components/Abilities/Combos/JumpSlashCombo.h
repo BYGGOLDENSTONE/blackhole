@@ -32,6 +32,10 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Aerial Rave", meta = (ClampMin = "0.0", ClampMax = "2000.0"))
     float DownwardForce = 1000.0f;
 
+    // Aim forgiveness for easier combo execution
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Aerial Rave", meta = (ClampMin = "10.0", ClampMax = "300.0"))
+    float AimForgivenessRadius = 200.0f;
+
     // Visual effects
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Aerial Rave|Visual")
     UParticleSystem* ShockwaveParticle = nullptr;
@@ -48,6 +52,7 @@ private:
     void CreateShockwave();
     void ApplyDownwardSlash();
     bool IsCharacterAirborne() const;
+    AActor* FindBestTarget(const FVector& Start, const FVector& Forward, float SearchRange);
 
     FTimerHandle ShockwaveTimerHandle;
 };
