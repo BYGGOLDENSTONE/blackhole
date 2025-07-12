@@ -28,6 +28,7 @@ All critical issues have been fixed! Project improved from 7.5/10 to **9.5/10**.
 15. ✅ **Cost Field Cleanup** - Removed redundant legacy Cost field from all abilities, unified to WPCost only
 16. ✅ **Basic Combo Classification** - Fixed dash+slash and jump+slash combos incorrectly triggering ultimate system during critical timer
 17. ✅ **Critical Timer Enemy Ability Bug** - Fixed ThresholdManager incorrectly treating enemy ability use as player ultimate ability
+18. ✅ **Wall Run System** - Implemented comprehensive wall running with air requirement, momentum preservation, diagonal wall jumps, and verification system
 
 See `IMPROVEMENT_REPORT.md` and `COMPILATION_FIXES.md` for full details.
 
@@ -143,6 +144,50 @@ if (!PlayerCharacter || Ability->GetOwner() != PlayerCharacter)
 ```
 
 **Result**: ThresholdManager now only responds to actual player ability use, ignoring all enemy abilities
+
+#### Wall Run System Implementation (2025-07-12)
+**Feature**: Complete wall running system for enhanced cyberpunk movement
+**Requirements**: Player must be airborne to start, press W to continue, SPACE for diagonal wall jump
+**Integration**: Full integration with existing ability system
+
+**Key Features**:
+- **Air Requirement**: Wall run only starts when player is jumping/falling, not from ground
+- **Momentum Preservation**: Dash speed (3000) is preserved during wall run, gradual slowdown after
+- **Height Maintenance**: Player runs at consistent height along walls
+- **Tight Wall Detection**: Reduced detection distance (45 units) for close wall running
+- **Diagonal Wall Jumps**: SPACE key launches diagonally based on wall side (using Launch() method)
+- **Cooldown System**: 1.5s cooldown after wall run ends to prevent immediate re-attachment
+- **Wall Verification**: Timer checks every second to prevent "wall running in air" when walls end
+- **Ability Restrictions**: Blocks dash and regular jump during wall run, allows advanced abilities
+
+**Technical Implementation**:
+```cpp
+// State machine with enum
+enum class EWallRunState : uint8 {
+    None, Detecting, WallRunning, Falling, CoyoteTime
+};
+
+// Wall verification every second
+FTimerHandle WallVerificationTimer;
+void VerifyWallPresence(); // Ends wall run if no wall detected
+
+// Momentum preservation
+if (CurrentSpeed > Settings.WallRunSpeed) {
+    CurrentWallRunSpeed = CurrentSpeed; // Keep dash speed
+}
+
+// Diagonal wall jump
+FVector WallJumpVelocity = CalculateWallJumpVelocity();
+MovementComponent->Launch(WallJumpVelocity); // Reliable launch
+```
+
+**Files Modified**:
+- `Components/Movement/WallRunComponent.h/cpp` - Core wall run implementation
+- `BlackholePlayerCharacter.cpp` - Jump input handling for wall jump
+- `BlackholeHUD.cpp` - UI display for wall run status
+- `AbilityComponent.cpp` - Ability restriction checks during wall run
+
+**Result**: Fluid cyberpunk movement system with proper physics, safety checks, and UI integration
 
 ## 🛡️ Bug Prevention Guide (CRITICAL - READ BEFORE CODING)
 
@@ -506,6 +551,7 @@ DeathManager (World) → Death condition tracking
 ComboDetectionSubsystem (World) → Input-based combos
 ObjectPoolSubsystem (World) → Performance optimization
 GameStateManager (GameInstance) → Menu/pause/play states
+WallRunComponent (ActorComponent) → Wall running mechanics with verification system
 ```
 
 ### Critical Timer Mechanic
@@ -521,6 +567,7 @@ WP reaches 100% → Critical State (5-second timer)
 - **Player**: `BlackholePlayerCharacter.h/cpp`
 - **Abilities**: `Components/Abilities/Player/Hacker/*`
 - **Resources**: `Systems/ResourceManager.h/cpp`
+- **Wall Run**: `Components/Movement/WallRunComponent.h/cpp`
 - **Config**: `Config/GameplayConfig.h` (all constants)
 - **GameMode**: `Core/BlackholeGameMode.h/cpp`
 
@@ -576,6 +623,7 @@ git push origin main
 - WP corruption system
 - Death conditions
 - 2 combos (Phantom Strike, Aerial Rave)
+- Wall run system with diagonal jumps and verification
 - Basic enemy AI (4 types)
 - Menu system (once input binding fixed)
 - Full Blueprint integration

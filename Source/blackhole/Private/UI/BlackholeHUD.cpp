@@ -20,11 +20,12 @@
 #include "Components/Abilities/Player/Hacker/DataSpikeAbility.h"
 #include "Components/Abilities/Player/Hacker/SystemOverrideAbility.h"
 #include "Components/Abilities/AbilityComponent.h"
-#include "Components/Movement/WallRunComponent.h"
 #include "Systems/ThresholdManager.h"
+#include "Components/Movement/WallRunComponent.h"
 #include "Engine/Canvas.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Components/InputComponent.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -1090,72 +1091,82 @@ void ABlackholeHUD::DrawWallRunTimer()
 	
 	// Get wall run component
 	UWallRunComponent* WallRunComp = PlayerCharacter->GetWallRunComponent();
-	if (!WallRunComp || !WallRunComp->IsWallRunning())
+	if (!WallRunComp)
+	{
+		// No wall run component found
+		return;
+	}
+	
+	if (!WallRunComp->IsWallRunning())
 	{
 		return;
 	}
 	
-	float TimeRemaining = WallRunComp->GetWallRunTimeRemaining();
-	if (TimeRemaining <= 0.0f)
-	{
-		return;
-	}
+	// Drawing wall run UI
 	
-	// Draw wall run status in the upper right corner
-	float ScreenRightX = Canvas->SizeX - 300.0f;
-	float ScreenTopY = 100.0f;
+	// Draw wall run status in a more visible position
+	float ScreenRightX = FMath::Max(Canvas->SizeX - 350.0f, Canvas->SizeX * 0.65f); // Ensure it's not too far right
+	float ScreenTopY = 200.0f; // Lower position to avoid overlap with other UI
+	
+	// Draw background box for better visibility
+	float BoxWidth = 250.0f;
+	float BoxHeight = 80.0f;
+	DrawRect(FColor(0, 0, 0, 150), ScreenRightX - 10.0f, ScreenTopY - 10.0f, BoxWidth, BoxHeight);
 	
 	// Draw wall run indicator
 	FString WallRunText = TEXT("WALL RUNNING");
 	FColor WallRunColor = FColor::Cyan;
-	DrawText(WallRunText, WallRunColor, ScreenRightX, ScreenTopY, nullptr, 1.2f, false);
+	DrawText(WallRunText, WallRunColor, ScreenRightX, ScreenTopY, nullptr, 1.5f, false);
 	
-	// Draw timer bar background
-	float BarWidth = 200.0f;
-	float BarHeight = 20.0f;
-	float BarX = ScreenRightX;
-	float BarY = ScreenTopY + 25.0f;
-	
-	// Background
-	DrawRect(FColor(50, 50, 50, 180), BarX, BarY, BarWidth, BarHeight);
-	
-	// Get wall side for color coding
+	// Get wall side for display
 	FString SideText = "";
-	FColor BarColor = FColor::Blue;
+	FColor SideColor = FColor::Blue;
 	
 	if (WallRunComp->GetCurrentWallSide() == EWallSide::Right)
 	{
-		SideText = " (RIGHT)";
-		BarColor = FColor::Green;
+		SideText = " (RIGHT WALL)";
+		SideColor = FColor::Green;
 	}
 	else if (WallRunComp->GetCurrentWallSide() == EWallSide::Left)
 	{
-		SideText = " (LEFT)";
-		BarColor = FColor::Orange;
+		SideText = " (LEFT WALL)";
+		SideColor = FColor::Orange;
 	}
 	
-	// Draw timer progress bar
-	float MaxDuration = WallRunComp->Settings.MaxWallRunDuration;
-	float Progress = FMath::Clamp(TimeRemaining / MaxDuration, 0.0f, 1.0f);
-	float ProgressWidth = BarWidth * Progress;
+	// Draw wall side text
+	FString WallSideText = FString::Printf(TEXT("Running on%s"), *SideText);
+	DrawText(WallSideText, SideColor, ScreenRightX, ScreenTopY + 25.0f, nullptr, 1.2f, false);
 	
-	// Color based on time remaining
-	if (Progress < 0.3f)
+	// Draw control hints
+	FString HintText = TEXT("Hold W: Continue | SPACE: Wall Jump (diagonal)");
+	DrawText(HintText, FColor::Yellow, ScreenRightX, ScreenTopY + 50.0f, nullptr, 1.0f, false);
+	
+	// Draw screen edge effects for better visibility
+	float EdgeThickness = 15.0f;
+	FColor EdgeColor = FColor(0, 255, 255, 100); // Cyan with transparency
+	
+	// Top edge
+	DrawRect(EdgeColor, 0, 0, Canvas->SizeX, EdgeThickness);
+	// Bottom edge
+	DrawRect(EdgeColor, 0, Canvas->SizeY - EdgeThickness, Canvas->SizeX, EdgeThickness);
+	
+	// Side edges based on wall side
+	if (WallRunComp->GetCurrentWallSide() == EWallSide::Right)
 	{
-		BarColor = FColor::Red; // Warning - low time
+		// Right edge highlight
+		DrawRect(FColor(0, 255, 0, 150), Canvas->SizeX - EdgeThickness, 0, EdgeThickness, Canvas->SizeY);
 	}
-	else if (Progress < 0.6f)
+	else if (WallRunComp->GetCurrentWallSide() == EWallSide::Left)
 	{
-		BarColor = FColor::Yellow; // Caution
+		// Left edge highlight
+		DrawRect(FColor(255, 128, 0, 150), 0, 0, EdgeThickness, Canvas->SizeY);
 	}
 	
-	DrawRect(BarColor, BarX, BarY, ProgressWidth, BarHeight);
-	
-	// Draw timer text
-	FString TimerText = FString::Printf(TEXT("%.1fs%s"), TimeRemaining, *SideText);
-	DrawText(TimerText, FColor::White, BarX, BarY + BarHeight + 5.0f, nullptr, 1.0f, false);
-	
-	// Draw jump hint
-	FString HintText = TEXT("SPACE to cancel");
-	DrawText(HintText, FColor(200, 200, 200), BarX, BarY + BarHeight + 25.0f, nullptr, 0.8f, false);
+	// Show current speed for feedback
+	if (PlayerCharacter && PlayerCharacter->GetCharacterMovement())
+	{
+		float CurrentSpeed = PlayerCharacter->GetCharacterMovement()->Velocity.Size2D();
+		FString SpeedText = FString::Printf(TEXT("Speed: %.0f"), CurrentSpeed);
+		DrawText(SpeedText, FColor::White, ScreenRightX, ScreenTopY + 75.0f, nullptr, 1.0f, false);
+	}
 }

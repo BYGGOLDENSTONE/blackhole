@@ -584,12 +584,32 @@ void ABlackholePlayerCharacter::UseUtilityJump()
 		return;
 	}
 	
-	// Check wall running first - wall run takes priority for jump input
-	if (IsValid(WallRunComponent) && WallRunComponent->IsWallRunning())
+	// Debug: Show that jump input was received
+	UE_LOG(LogTemp, Warning, TEXT("UseUtilityJump() called!"));
+	if (GEngine)
 	{
-		// Jump during wall run cancels the wall run
-		WallRunComponent->OnJumpPressed();
-		return;
+		GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::White, 
+			TEXT("SPACE pressed!"), true, FVector2D(1.5f, 1.5f));
+	}
+	
+	// Check wall running first - wall run takes priority for jump input
+	if (IsValid(WallRunComponent))
+	{
+		bool bIsWallRunning = WallRunComponent->IsWallRunning();
+		UE_LOG(LogTemp, Warning, TEXT("UseUtilityJump: WallRunComponent valid, IsWallRunning = %s"), 
+			bIsWallRunning ? TEXT("TRUE") : TEXT("FALSE"));
+		
+		if (bIsWallRunning)
+		{
+			// Jump during wall run - call wall jump
+			UE_LOG(LogTemp, Warning, TEXT("UseUtilityJump: Calling WallRunComponent->OnJumpPressed()"));
+			WallRunComponent->OnJumpPressed();
+			return;
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("UseUtilityJump: WallRunComponent is NULL or invalid!"));
 	}
 	
 	// Check if wall run can be started
@@ -603,6 +623,7 @@ void ABlackholePlayerCharacter::UseUtilityJump()
 	}
 	
 	// Normal jump logic - only execute if ability can execute
+	// Note: HackerJumpAbility is allowed during wall run, so this will work
 	if (IsValid(HackerJumpAbility) && HackerJumpAbility->CanExecute())
 	{
 		// Execute the jump ability

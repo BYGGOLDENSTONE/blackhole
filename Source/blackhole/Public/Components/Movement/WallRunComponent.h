@@ -34,32 +34,35 @@ struct FWallRunSettings
 
     // Detection settings
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Detection", meta = (ClampMin = "50", ClampMax = "300"))
-    float WallDetectionDistance = 120.0f;
+    float WallDetectionDistance = 45.0f;  // Further reduced - player runs very close to walls
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Detection", meta = (ClampMin = "20", ClampMax = "60"))
-    float WallDetectionRadius = 35.0f;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Detection", meta = (ClampMin = "15", ClampMax = "45"))
-    float MinWallAngle = 30.0f;
+    float WallDetectionRadius = 20.0f;  // Further reduced - more precise detection
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Detection", meta = (ClampMin = "60", ClampMax = "85"))
-    float MaxWallAngle = 75.0f;
+    float MinWallAngle = 70.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Detection", meta = (ClampMin = "85", ClampMax = "120"))
+    float MaxWallAngle = 110.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Detection", meta = (ClampMin = "100", ClampMax = "500"))
     float MinWallHeight = 200.0f;
 
     // Movement settings
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "1.0", ClampMax = "10.0"))
-    float MaxWallRunDuration = 3.0f;
+    // Timer removed - wall run continues as long as speed is maintained
+    // UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "1.0", ClampMax = "10.0"))
+    // float MaxWallRunDuration = 3.0f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "1.0", ClampMax = "1.5"))
-    float SpeedBoostMultiplier = 1.1f;
+    // Speed boost multiplier removed - now preserves full dash speed
+    // UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "1.0", ClampMax = "1.5"))
+    // float SpeedBoostMultiplier = 1.1f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "200", ClampMax = "800"))
     float WallRunSpeed = 600.0f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "0.5", ClampMax = "3.0"))
-    float SpeedDecayRate = 1.2f;
+    // Speed decay removed - player maintains max speed always
+    // UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "0.5", ClampMax = "3.0"))
+    // float SpeedDecayRate = 1.2f;
 
     // Grace periods
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grace Periods", meta = (ClampMin = "0.05", ClampMax = "0.5"))
@@ -70,14 +73,17 @@ struct FWallRunSettings
 
     // Exit settings
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Exit", meta = (ClampMin = "100", ClampMax = "1000"))
-    float LaunchImpulseStrength = 400.0f;
+    float LaunchImpulseStrength = 550.0f;  // Increased from 400 for better wall clearance
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Exit", meta = (ClampMin = "0.2", ClampMax = "2.0"))
     float WallJumpCooldown = 0.5f;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Exit", meta = (ClampMin = "0.5", ClampMax = "3.0"))
+    float WallRunRestartCooldown = 1.5f;  // Prevent immediate wall run restart after ending
+
     // Visual settings
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual", meta = (ClampMin = "0", ClampMax = "45"))
-    float CameraTiltAngle = 15.0f;
+    float CameraTiltAngle = 20.0f;  // Increased from 15 for more dramatic effect
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual", meta = (ClampMin = "0.1", ClampMax = "2.0"))
     float CameraTiltSpeed = 1.0f;
@@ -89,7 +95,8 @@ struct FWallRunSettings
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnWallRunStateChanged, EWallRunState, NewState);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnWallRunTimerUpdate, float, TimeRemaining);
+// Timer removed - wall run is unlimited based on speed
+// DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnWallRunTimerUpdate, float, TimeRemaining);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnWallDetected, EWallSide, Side, FVector, WallNormal);
 
 /**
@@ -165,8 +172,9 @@ public:
     UPROPERTY(BlueprintAssignable, Category = "Wall Run Events")
     FOnWallRunStateChanged OnWallRunStateChanged;
 
-    UPROPERTY(BlueprintAssignable, Category = "Wall Run Events")
-    FOnWallRunTimerUpdate OnWallRunTimerUpdate;
+    // Timer removed - wall run is unlimited based on speed
+    // UPROPERTY(BlueprintAssignable, Category = "Wall Run Events")
+    // FOnWallRunTimerUpdate OnWallRunTimerUpdate;
 
     UPROPERTY(BlueprintAssignable, Category = "Wall Run Events")
     FOnWallDetected OnWallDetected;
@@ -180,16 +188,21 @@ protected:
     EWallSide CurrentWallSide = EWallSide::None;
 
     // Timers
-    float WallRunTimer = 0.0f;
+    // float WallRunTimer = 0.0f; // Removed - wall run is unlimited
     float CoyoteTimer = 0.0f;
     float CornerToleranceTimer = 0.0f;
     float LastWallJumpTime = 0.0f;
+    float LastWallRunEndTime = 0.0f; // Prevent immediate re-attachment to walls
+    
+    // Wall verification timer
+    FTimerHandle WallVerificationTimer;
 
     // Wall data
     FVector CurrentWallNormal = FVector::ZeroVector;
     FVector LastValidWallNormal = FVector::ZeroVector;
     FVector WallRunDirection = FVector::ZeroVector;
     float CurrentWallRunSpeed = 0.0f;
+    float WallRunStartHeight = 0.0f; // Store starting height to maintain consistent level
 
     // Cached components
     UPROPERTY()
@@ -234,6 +247,15 @@ protected:
     void ApplyWallRunPhysics();
     void RestoreNormalMovement();
     FVector CalculateLaunchVelocity(bool bJumpCancel) const;
+    
+    // Wall jump functions
+    void ExecuteWallJump();
+    FVector CalculateWallJumpVelocity() const;
+    
+    // Wall verification
+    void VerifyWallPresence();
+    void StartWallVerificationTimer();
+    void StopWallVerificationTimer();
 
     // State transitions
     void ChangeState(EWallRunState NewState);
