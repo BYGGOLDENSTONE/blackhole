@@ -2,6 +2,9 @@
 #include "Engine/World.h"
 #include "TimerManager.h"
 #include "Config/GameplayConfig.h"
+#include "Player/BlackholePlayerCharacter.h"
+#include "Components/Attributes/WillPowerComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 void UResourceManager::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -75,6 +78,7 @@ void UResourceManager::AddWillPower(float Amount)
 	if (CurrentWP != OldWP)
 	{
 		OnWillPowerChanged.Broadcast(CurrentWP, MaxWP);
+		SyncWillPowerComponent(); // Keep player's WillPowerComponent in sync
 		CheckWPThreshold();
 		
 		// Check if WP reached 100%
@@ -117,10 +121,26 @@ void UResourceManager::ResetResources()
 {
 	UE_LOG(LogTemp, Error, TEXT("ResourceManager::ResetResources called! WP was %.1f, resetting to 0"), CurrentWP);
 	
+	// CRITICAL: Block resets during critical timer state
+	if (bInCriticalState)
+	{
+		UE_LOG(LogTemp, Error, TEXT("ResourceManager::ResetResources BLOCKED - Player is in critical timer state!"));
+		const FString CallStack = FFrame::GetScriptCallstack();
+		UE_LOG(LogTemp, Error, TEXT("Blocked reset call stack:\n%s"), *CallStack);
+		return;
+	}
+	
+	// Print call stack for debugging
+	const FString CallStack = FFrame::GetScriptCallstack();
+	UE_LOG(LogTemp, Error, TEXT("ResetResources call stack:\n%s"), *CallStack);
+	
 	CurrentWP = 0.0f; // Reset to 0 (good state)
 	WPMaxReachedCount = 0; // Reset the counter
 	
 	// Clear overheat timer if active
+	
+	// Sync player's WillPowerComponent
+	SyncWillPowerComponent();
 	
 	// Broadcast updates
 	OnWillPowerChanged.Broadcast(CurrentWP, MaxWP);
@@ -133,10 +153,20 @@ void UResourceManager::ResetWPAfterMax()
 {
 	UE_LOG(LogTemp, Error, TEXT("!!! ResourceManager::ResetWPAfterMax CALLED !!!"));
 	
+	// Authorization check - prevent unwanted resets
+	if (!bWPResetAuthorized)
+	{
+		UE_LOG(LogTemp, Error, TEXT("ResourceManager::ResetWPAfterMax called WITHOUT AUTHORIZATION - BLOCKING RESET!"));
+		const FString CallStack = FFrame::GetScriptCallstack();
+		UE_LOG(LogTemp, Error, TEXT("Unauthorized reset call stack:\n%s"), *CallStack);
+		return;
+	}
+	
 	// Safety check - only reset if we're actually at max
 	if (CurrentWP < MaxWP * 0.95f)
 	{
 		UE_LOG(LogTemp, Error, TEXT("ResourceManager::ResetWPAfterMax called but WP is only %.1f/%.1f - IGNORING!"), CurrentWP, MaxWP);
+		bWPResetAuthorized = false; // Clear authorization
 		return;
 	}
 	
@@ -147,11 +177,15 @@ void UResourceManager::ResetWPAfterMax()
 	UE_LOG(LogTemp, Error, TEXT("Call stack:\n%s"), *CallStack);
 	
 	CurrentWP = 0.0f;
+	SyncWillPowerComponent(); // Keep player's WillPowerComponent in sync
 	OnWillPowerChanged.Broadcast(CurrentWP, MaxWP);
 	
 	// Reset threshold to normal
 	PreviousWPThreshold = EResourceThreshold::Normal;
 	CheckWPThreshold();
+	
+	// Clear authorization flag
+	bWPResetAuthorized = false;
 	
 	UE_LOG(LogTemp, Error, TEXT("!!! ResourceManager: WP RESET TO 0 - This should only happen after ultimate ability use !!!"));
 }
@@ -175,4 +209,26 @@ bool UResourceManager::WouldAddingWPCauseOverflow(float Amount) const
 	
 	// Allow abilities that would bring us exactly to 100% or less
 	return ResultingWP > MaxWP;
+}
+
+void UResourceManager::SyncWillPowerComponent()
+{
+	// Keep player's WillPowerComponent synchronized with ResourceManager's CurrentWP
+	if (UWorld* World = GetWorld())
+	{
+		if (ABlackholePlayerCharacter* Player = Cast<ABlackholePlayerCharacter>(UGameplayStatics::GetPlayerCharacter(World, 0)))
+		{
+			if (UWillPowerComponent* WPComponent = Player->FindComponentByClass<UWillPowerComponent>())
+			{
+				// Update the component's value to match ResourceManager
+				WPComponent->SetCurrentValue(CurrentWP);
+				
+				UE_LOG(LogTemp, VeryVerbose, TEXT("ResourceManager: Synced WillPowerComponent to %.1f"), CurrentWP);
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("ResourceManager: Player has no WillPowerComponent to sync!"));
+			}
+		}
+	}
 }

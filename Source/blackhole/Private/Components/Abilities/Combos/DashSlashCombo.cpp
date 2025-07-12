@@ -30,6 +30,10 @@ UDashSlashCombo::UDashSlashCombo()
     
     // Default visual
     ComboTrailColor = FLinearColor(0.0f, 0.8f, 1.0f, 1.0f); // Cyan
+    
+    // Override parent: Dash + Slash are both basic abilities, so combo should be basic too
+    bIsBasicAbility = true;
+    WPCost = 0.0f; // Basic abilities don't add WP corruption
 }
 
 void UDashSlashCombo::ExecuteCombo()

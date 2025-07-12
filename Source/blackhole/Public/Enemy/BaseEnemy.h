@@ -6,6 +6,7 @@
 
 class UIntegrityComponent;
 class UStaticMeshComponent;
+class ABlackholePlayerCharacter;
 
 UCLASS()
 class BLACKHOLE_API ABaseEnemy : public ACharacter
@@ -59,4 +60,24 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	
+	// Utility accessors for EnemyUtility
+	UFUNCTION(BlueprintPure, Category = "Enemy")
+	bool IsDead() const { return bIsDead; }
+	
+	UFUNCTION(BlueprintPure, Category = "Enemy")
+	ABlackholePlayerCharacter* GetTargetPlayer() const;
+	
+	UFUNCTION(BlueprintPure, Category = "Enemy")
+	bool HasStartedCombat() const { return bHasStartedCombat; }
+	
+	UFUNCTION(BlueprintCallable, Category = "Enemy")
+	void SetCombatStarted(bool bStarted) { bHasStartedCombat = bStarted; }
+	
+	// Combat events
+	UFUNCTION(BlueprintImplementableEvent, Category = "Enemy")
+	void OnCombatStart();
+	
+	UFUNCTION(BlueprintImplementableEvent, Category = "Enemy")
+	void OnCombatEnd();
 };

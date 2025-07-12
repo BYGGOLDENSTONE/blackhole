@@ -12,7 +12,6 @@ UAbilityComponent::UAbilityComponent()
 	PrimaryComponentTick.bStartWithTickEnabled = false; // Optimize: only tick when needed
 	
 	Cooldown = GameplayConfig::Abilities::Defaults::COOLDOWN;
-	Cost = 0.0f; // Legacy field
 	WPCost = 0.0f;
 	Range = GameplayConfig::Abilities::Defaults::RANGE;
 	CurrentCooldown = 0.0f;
@@ -364,22 +363,33 @@ IResourceConsumer* UAbilityComponent::GetOwnerResourceInterface() const
 
 bool UAbilityComponent::ConsumeAbilityResources()
 {
+	// BLACKHOLE CORRUPTION SYSTEM:
+	// Unlike traditional resource systems, abilities in Blackhole ADD corruption (WP)
+	// rather than consuming it. This creates a risk/reward dynamic where:
+	// - Using abilities corrupts the player (increases WP)
+	// - At 50% WP: Player gets combat buffs
+	// - At 100% WP: Abilities transform into ultimates
+	// - Using an ultimate permanently disables that ability
+	// - Death occurs after losing 3 abilities or reaching 100% WP for the 4th time
+	
 	// Try interface first
 	if (IResourceConsumer* ResourceInterface = GetOwnerResourceInterface())
 	{
+		// Note: Despite the function name, this ADDS corruption
 		return ResourceInterface->Execute_ConsumeResources(GetOwner(), 0.0f, WPCost);
 	}
 	
 	// Fallback to old system
 	if (UResourceManager* ResMgr = GetResourceManager())
 	{
-		// ADD WP for Hacker abilities (corruption system)
+		// ADD WP corruption (NOT consume) - this is intentional!
 		if (WPCost > 0.0f)
 		{
 			ResMgr->AddWillPower(WPCost);
+			UE_LOG(LogTemp, VeryVerbose, TEXT("%s corrupted player with +%.1f WP"), *GetName(), WPCost);
 		}
 
-		// No additional consumption needed
+		// Always return true - corruption cannot fail
 		return true;
 	}
 	return false;

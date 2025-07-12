@@ -11,7 +11,6 @@ UMindmeldComponent::UMindmeldComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	
-	Cost = 0.0f;
 	Cooldown = 0.0f;
 	Range = 5000.0f;
 	DrainRate = 1.0f;

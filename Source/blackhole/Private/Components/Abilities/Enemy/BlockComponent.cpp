@@ -6,7 +6,6 @@
 
 UBlockComponent::UBlockComponent()
 {
-	Cost = 0.0f;
 	Cooldown = 2.0f;
 	BlockDuration = 1.0f;
 	bIsBlocking = false;

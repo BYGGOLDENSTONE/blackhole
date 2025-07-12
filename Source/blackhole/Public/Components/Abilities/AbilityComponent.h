@@ -32,12 +32,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
 	float Cooldown;
 
-	// Legacy cost field - kept for backward compatibility
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
-	float Cost;
 
-	// Resource consumption - WP only
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
+	// WP Corruption System - IMPORTANT: This ADDS corruption, not consumes WP
+	// Higher WPCost = More corruption added when using ability
+	// At 100% WP, abilities transform into ultimates
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability", meta = (DisplayName = "WP Corruption Added"))
 	float WPCost;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
@@ -103,8 +102,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Ability")
 	float GetRange() const { return Range; }
 
-	UFUNCTION(BlueprintCallable, Category = "Ability")
-	float GetCost() const { return Cost; }
 
 	UFUNCTION(BlueprintCallable, Category = "Ability")
 	float GetWPCost() const { return WPCost; }

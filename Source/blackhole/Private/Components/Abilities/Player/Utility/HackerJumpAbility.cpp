@@ -22,7 +22,6 @@ UHackerJumpAbility::UHackerJumpAbility()
 	bTickOnlyWhenActive = false;
 	
 	// Jump costs stamina but no cooldown for the ability itself
-	Cost = 10.0f; // Legacy field
 	WPCost = 0.0f; // Utility abilities don't add WP corruption
 	Cooldown = 0.0f; // No cooldown for jumps
 	

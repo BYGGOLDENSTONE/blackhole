@@ -5,6 +5,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
+#include "Enemy/EnemyUtility.h"
 
 AAgileEnemy::AAgileEnemy()
 {
@@ -38,10 +39,11 @@ void AAgileEnemy::UpdateAIBehavior(float DeltaTime)
 		return;
 	}
 
-	float Distance = GetDistanceToTarget();
+	float Distance = UEnemyUtility::GetDistanceToTarget(this, TargetActor);
 
 	// When player is close, randomly decide to dodge
-	if (Distance <= 300.0f && FMath::FRand() < DodgeChance * DeltaTime)
+	// Note: DodgeChance should be evaluated per decision, not frame-dependent
+	if (Distance <= 300.0f && FMath::FRand() < DodgeChance)
 	{
 		TryDodge();
 	}
@@ -58,18 +60,8 @@ void AAgileEnemy::UpdateAIBehavior(float DeltaTime)
 
 void AAgileEnemy::MoveTowardsTarget(float DeltaTime)
 {
-	if (!TargetActor)
-	{
-		return;
-	}
-
-	FVector Direction = (TargetActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
-	AddMovementInput(Direction, 1.0f);
-
-	FRotator NewRotation = Direction.Rotation();
-	NewRotation.Pitch = 0.0f;
-	NewRotation.Roll = 0.0f;
-	SetActorRotation(NewRotation);
+	// Now handled by UEnemyUtility::MoveTowardsTarget
+	UEnemyUtility::MoveTowardsTarget(this, TargetActor, DeltaTime, 450.0f);
 }
 
 void AAgileEnemy::TryAttack()
@@ -90,10 +82,5 @@ void AAgileEnemy::TryDodge()
 
 float AAgileEnemy::GetDistanceToTarget() const
 {
-	if (!TargetActor)
-	{
-		return FLT_MAX;
-	}
-
-	return FVector::Dist(GetActorLocation(), TargetActor->GetActorLocation());
+	return UEnemyUtility::GetDistanceToTarget(this, TargetActor);
 }

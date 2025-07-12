@@ -3,6 +3,7 @@
 #include "Components/Attributes/IntegrityComponent.h"
 #include "Components/Attributes/WillPowerComponent.h"
 #include "Systems/ResourceManager.h"
+#include "Systems/ThresholdManager.h"
 #include "UI/MainMenuWidget.h"
 #include "UI/PauseMenuWidget.h"
 #include "UI/GameOverWidget.h"
@@ -128,6 +129,8 @@ void ABlackholeHUD::BeginPlay()
 			if (ThresholdManager)
 			{
 				ThresholdManager->OnUltimateModeActivated.AddDynamic(this, &ABlackholeHUD::OnUltimateModeChanged);
+				ThresholdManager->OnCriticalTimer.AddDynamic(this, &ABlackholeHUD::OnCriticalTimerUpdate);
+				ThresholdManager->OnCriticalTimerExpired.AddDynamic(this, &ABlackholeHUD::OnCriticalTimerExpired);
 			}
 		}
 	}
@@ -186,6 +189,14 @@ void ABlackholeHUD::DrawHUD()
 	{
 		return;
 	}
+	
+	// Update cached values if needed
+	float CurrentTime = GetWorld()->GetTimeSeconds();
+	if (CurrentTime - LastCacheUpdateTime >= CacheUpdateInterval)
+	{
+		UpdateCachedValues();
+		LastCacheUpdateTime = CurrentTime;
+	}
 
 	DrawCrosshair();
 
@@ -215,6 +226,9 @@ void ABlackholeHUD::DrawHUD()
 	
 	// Draw debug status on the right
 	DrawDebugStatus();
+	
+	// Draw critical timer if active
+	DrawCriticalTimer();
 
 	DrawTargetInfo();
 }
@@ -368,6 +382,43 @@ void ABlackholeHUD::UpdateWPBar(float NewValue, float MaxValue)
 	CachedMaxWP = MaxValue;
 }
 
+void ABlackholeHUD::UpdateCachedValues()
+{
+	if (!PlayerCharacter)
+	{
+		return;
+	}
+	
+	// Update WP values
+	if (ResourceManager)
+	{
+		CachedCurrentWP = ResourceManager->GetCurrentWillPower();
+		CachedMaxWP = ResourceManager->GetMaxWillPower();
+		CachedWPPercent = ResourceManager->GetWillPowerPercent();
+	}
+	
+	// Update ultimate mode status
+	if (ThresholdManager)
+	{
+		bIsUltimateMode = ThresholdManager->IsUltimateModeActive();
+	}
+	
+	// Update ability cooldowns
+	CachedCooldownPercents.Empty();
+	TArray<FAbilityDisplayInfo> Abilities = GetCurrentAbilities();
+	for (const FAbilityDisplayInfo& AbilityInfo : Abilities)
+	{
+		if (AbilityInfo.Ability)
+		{
+			CachedCooldownPercents.Add(AbilityInfo.Ability->GetCooldownPercentage());
+		}
+		else
+		{
+			CachedCooldownPercents.Add(0.0f);
+		}
+	}
+}
+
 
 TArray<ABlackholeHUD::FAbilityDisplayInfo> ABlackholeHUD::GetCurrentAbilities() const
 {
@@ -475,7 +526,18 @@ void ABlackholeHUD::DrawAbilityInfo()
 		return;
 	}
 	
-	TArray<FAbilityDisplayInfo> Abilities = GetCurrentAbilities();
+	// Use cached abilities if cache is fresh
+	TArray<FAbilityDisplayInfo> Abilities;
+	if (GetWorld()->GetTimeSeconds() - LastCacheUpdateTime < CacheUpdateInterval)
+	{
+		// Cache is fresh, reuse the abilities from cache
+		Abilities = GetCurrentAbilities();
+	}
+	else
+	{
+		// Cache is stale, get fresh data
+		Abilities = GetCurrentAbilities();
+	}
 	
 	// Draw abilities in a grid at the bottom of the screen
 	float StartX = 50.0f;
@@ -944,5 +1006,73 @@ void ABlackholeHUD::OnGameStateChanged(EGameState NewState)
 	default:
 		HideAllMenus();
 		break;
+	}
+}
+
+// Critical Timer Functions
+void ABlackholeHUD::OnCriticalTimerUpdate(float TimeRemaining)
+{
+	if (TimeRemaining <= 0.0f)
+	{
+		// Timer stopped or expired
+		bCriticalTimerActive = false;
+		CriticalTimeRemaining = 0.0f;
+	}
+	else
+	{
+		// Timer active and counting down
+		bCriticalTimerActive = true;
+		CriticalTimeRemaining = TimeRemaining;
+	}
+}
+
+void ABlackholeHUD::OnCriticalTimerExpired()
+{
+	bCriticalTimerActive = false;
+	CriticalTimeRemaining = 0.0f;
+	UE_LOG(LogTemp, Warning, TEXT("BlackholeHUD: Critical timer expired - hiding UI"));
+}
+
+void ABlackholeHUD::DrawCriticalTimer()
+{
+	if (!bCriticalTimerActive || !Canvas)
+	{
+		return;
+	}
+	
+	// Get screen center
+	float ScreenCenterX = Canvas->SizeX * 0.5f;
+	float ScreenCenterY = Canvas->SizeY * 0.3f; // Upper center of screen
+	
+	// Draw flashing "CRITICAL ERROR" text
+	float FlashIntensity = FMath::Sin(GetWorld()->GetTimeSeconds() * 8.0f) * 0.5f + 0.5f; // Flash between 0.5 and 1.0
+	FColor CriticalColor = FColor(255, (uint8)(100 * FlashIntensity), 0, 255); // Orange to red flash
+	
+	FString CriticalText = TEXT("CRITICAL ERROR");
+	DrawText(CriticalText, CriticalColor, ScreenCenterX - 150.0f, ScreenCenterY - 40.0f, nullptr, 2.0f, false);
+	
+	// Draw countdown timer
+	FString TimerText = FString::Printf(TEXT("USE ULTIMATE IN: %.1f"), CriticalTimeRemaining);
+	FColor TimerColor = CriticalTimeRemaining <= 2.0f ? FColor::Red : FColor::Yellow;
+	DrawText(TimerText, TimerColor, ScreenCenterX - 120.0f, ScreenCenterY, nullptr, 1.5f, false);
+	
+	// Draw warning message
+	FString WarningText = TEXT("USE ANY ULTIMATE ABILITY OR DIE!");
+	DrawText(WarningText, FColor::White, ScreenCenterX - 140.0f, ScreenCenterY + 30.0f, nullptr, 1.0f, false);
+	
+	// Draw flashing border effect
+	if (FlashIntensity > 0.7f)
+	{
+		// Draw red border around screen
+		FColor BorderColor = FColor(255, 0, 0, (uint8)(FlashIntensity * 100));
+		
+		// Top border
+		DrawRect(BorderColor, 0, 0, Canvas->SizeX, 10);
+		// Bottom border
+		DrawRect(BorderColor, 0, Canvas->SizeY - 10, Canvas->SizeX, 10);
+		// Left border
+		DrawRect(BorderColor, 0, 0, 10, Canvas->SizeY);
+		// Right border
+		DrawRect(BorderColor, Canvas->SizeX - 10, 0, 10, Canvas->SizeY);
 	}
 }

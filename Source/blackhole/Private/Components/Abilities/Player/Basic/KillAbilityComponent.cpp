@@ -14,7 +14,6 @@
 UKillAbilityComponent::UKillAbilityComponent()
 {
 	// Debug ability - no resource costs
-	Cost = 0.0f;
 	WPCost = 0.0f;
 	Cooldown = 5.0f;
 	Range = 3000.0f;

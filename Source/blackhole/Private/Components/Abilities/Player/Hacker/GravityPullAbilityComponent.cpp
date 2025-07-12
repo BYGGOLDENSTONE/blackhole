@@ -13,7 +13,6 @@
 UGravityPullAbilityComponent::UGravityPullAbilityComponent()
 {
     // Set default values
-    Cost = 15.0f; // Legacy field
     WPCost = 15.0f; // New dual resource system
     // HeatCost removed - heat system no longer exists
     Cooldown = 3.0f;       // 3 second cooldown

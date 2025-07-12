@@ -8,6 +8,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
 #include "Config/GameplayConfig.h"
+#include "Player/BlackholePlayerCharacter.h"
 
 ABaseEnemy::ABaseEnemy()
 {
@@ -168,6 +169,11 @@ void ABaseEnemy::TimerUpdateAI()
 		// Call the existing UpdateAIBehavior with a fixed delta time
 		UpdateAIBehavior(AIUpdateRate);
 	}
+}
+
+ABlackholePlayerCharacter* ABaseEnemy::GetTargetPlayer() const
+{
+	return Cast<ABlackholePlayerCharacter>(TargetActor);
 }
 
 void ABaseEnemy::EndPlay(const EEndPlayReason::Type EndPlayReason)

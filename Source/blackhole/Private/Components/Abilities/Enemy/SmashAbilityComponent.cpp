@@ -7,7 +7,6 @@
 USmashAbilityComponent::USmashAbilityComponent()
 {
 	Damage = 10.0f;
-	Cost = 0.0f;
 	Cooldown = 1.5f;
 	Range = 200.0f;
 }

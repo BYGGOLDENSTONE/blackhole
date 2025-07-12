@@ -16,7 +16,6 @@
 USystemOverrideAbility::USystemOverrideAbility()
 {
 	// Ability costs and cooldown (per GDD)
-	Cost = 30.0f; // Legacy field
 	WPCost = GameplayConfig::Abilities::SystemOverride::WP_COST;
 	// HeatCost removed - heat system no longer exists
 	Cooldown = GameplayConfig::Abilities::SystemOverride::COOLDOWN;

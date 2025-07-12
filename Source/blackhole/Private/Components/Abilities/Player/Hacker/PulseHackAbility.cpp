@@ -12,7 +12,6 @@
 UPulseHackAbility::UPulseHackAbility()
 {
 	// Ability costs and cooldown (per GDD)
-	Cost = 10.0f; // Legacy field
 	WPCost = 10.0f; // New dual resource system
 	// HeatCost removed - heat system no longer exists
 	Cooldown = 8.0f;

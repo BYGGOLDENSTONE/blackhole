@@ -14,4 +14,11 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	
+	// Default classes for spawning
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Game Mode")
+	TSubclassOf<class ABlackholePlayerCharacter> DefaultPlayerClass;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Game Mode")
+	TSubclassOf<class ABlackholeHUD> DefaultHUDClass;
 };

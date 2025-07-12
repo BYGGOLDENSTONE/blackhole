@@ -52,6 +52,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCombatStarted);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCombatEnded);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPlayerDeath);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUltimateModeActivated, bool, bIsActive);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCriticalTimer, float, TimeRemaining);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCriticalTimerExpired);
 
 UCLASS()
 class BLACKHOLE_API UThresholdManager : public UWorldSubsystem
@@ -82,6 +84,12 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Threshold Events")
 	FOnUltimateModeActivated OnUltimateModeActivated;
 	
+	UPROPERTY(BlueprintAssignable, Category = "Threshold Events")
+	FOnCriticalTimer OnCriticalTimer;
+	
+	UPROPERTY(BlueprintAssignable, Category = "Threshold Events")
+	FOnCriticalTimerExpired OnCriticalTimerExpired;
+	
 	// Start/End combat tracking
 	UFUNCTION(BlueprintCallable, Category = "Threshold")
 	void StartCombat();
@@ -108,6 +116,14 @@ public:
 	// Check if in combat
 	UFUNCTION(BlueprintPure, Category = "Threshold")
 	bool IsInCombat() const { return bIsInCombat; }
+	
+	// Check if critical timer is active
+	UFUNCTION(BlueprintPure, Category = "Threshold")
+	bool IsCriticalTimerActive() const;
+	
+	// Get critical timer remaining time
+	UFUNCTION(BlueprintPure, Category = "Threshold")
+	float GetCriticalTimeRemaining() const;
 	
 	// Called when any ability is executed
 	void OnAbilityExecuted(UAbilityComponent* Ability);
@@ -143,6 +159,13 @@ private:
 	// Time when ultimate mode was activated
 	float UltimateModeActivationTime = 0.0f;
 	
+	// Critical timer variables
+	FTimerHandle CriticalTimerHandle;
+	FTimerHandle CriticalUpdateTimerHandle;
+	float CriticalTimerDuration = 5.0f; // 5 seconds
+	float CriticalTimerStartTime = 0.0f;
+	bool bCriticalTimerActive = false;
+	
 	// Disabled abilities
 	UPROPERTY()
 	TArray<UAbilityComponent*> DisabledAbilities;
@@ -171,4 +194,10 @@ private:
 	
 	// Update survivor buffs
 	void UpdateSurvivorBuffs();
+	
+	// Critical timer functions
+	void StartCriticalTimer();
+	void StopCriticalTimer();
+	void OnCriticalTimerExpiredInternal(); // Internal function for timer callback
+	void UpdateCriticalTimer();
 };

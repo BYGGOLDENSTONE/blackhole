@@ -6,6 +6,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
+#include "Enemy/EnemyUtility.h"
 
 ATankEnemy::ATankEnemy()
 {
@@ -56,7 +57,7 @@ void ATankEnemy::UpdateAIBehavior(float DeltaTime)
 		return;
 	}
 
-	float Distance = GetDistanceToTarget();
+	float Distance = UEnemyUtility::GetDistanceToTarget(this, TargetActor);
 
 	// When player is attacking and close, try to block
 	if (Distance <= 300.0f && IsPlayerAttacking() && FMath::FRand() < BlockChance)
@@ -70,24 +71,18 @@ void ATankEnemy::UpdateAIBehavior(float DeltaTime)
 	}
 	else if (Distance <= ChaseRange)
 	{
-		MoveTowardsTarget(DeltaTime);
+		// Use utility function for movement
+		UEnemyUtility::MoveTowardsTarget(this, TargetActor, DeltaTime, 240.0f); // Tank moves slower
 	}
 }
 
 void ATankEnemy::MoveTowardsTarget(float DeltaTime)
 {
-	if (!TargetActor || BlockAbility->IsBlocking())
+	// Now handled by UEnemyUtility::MoveTowardsTarget
+	if (!BlockAbility->IsBlocking())
 	{
-		return; // Don't move while blocking
+		UEnemyUtility::MoveTowardsTarget(this, TargetActor, DeltaTime, 240.0f);
 	}
-
-	FVector Direction = (TargetActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
-	AddMovementInput(Direction, 0.8f); // Move slower than other enemies
-
-	FRotator NewRotation = Direction.Rotation();
-	NewRotation.Pitch = 0.0f;
-	NewRotation.Roll = 0.0f;
-	SetActorRotation(NewRotation);
 }
 
 void ATankEnemy::TryAttack()
@@ -108,17 +103,11 @@ void ATankEnemy::TryBlock()
 
 float ATankEnemy::GetDistanceToTarget() const
 {
-	if (!TargetActor)
-	{
-		return FLT_MAX;
-	}
-
-	return FVector::Dist(GetActorLocation(), TargetActor->GetActorLocation());
+	return UEnemyUtility::GetDistanceToTarget(this, TargetActor);
 }
 
 bool ATankEnemy::IsPlayerAttacking() const
 {
-	// Simple check - in a real game you'd check if player's attack animation is playing
-	// or if an attack ability was recently used
-	return GetDistanceToTarget() < 250.0f;
+	// Simple proximity check - in a real game you'd check if player's attack animation is playing
+	return UEnemyUtility::GetDistanceToTarget(this, TargetActor) < 250.0f;
 }

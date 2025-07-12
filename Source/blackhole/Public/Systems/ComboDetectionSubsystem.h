@@ -77,6 +77,10 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Combo")
     void SetComboDataAsset(UComboDataAsset* DataAsset);
 
+    // Cleanup
+    UFUNCTION(BlueprintCallable, Category = "Combo")
+    void CleanupActor(AActor* Actor);
+
     // Events
     UPROPERTY(BlueprintAssignable, Category = "Combo")
     FOnComboStarted OnComboStarted;
@@ -103,7 +107,10 @@ protected:
 
 private:
     // Per-player combo state
+    UPROPERTY()
     TMap<AActor*, FActiveComboState> ActiveCombos;
+    
+    // Input histories - Cannot use UPROPERTY with nested containers (TMap with TArray values)
     TMap<AActor*, TArray<FComboInputRecord>> InputHistories;
 
     // Update combo states

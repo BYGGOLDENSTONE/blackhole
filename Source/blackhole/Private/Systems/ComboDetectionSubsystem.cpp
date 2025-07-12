@@ -268,6 +268,22 @@ void UComboDetectionSubsystem::SetComboDataAsset(UComboDataAsset* DataAsset)
     ComboData = DataAsset;
 }
 
+void UComboDetectionSubsystem::CleanupActor(AActor* Actor)
+{
+    if (!Actor)
+    {
+        return;
+    }
+    
+    // Remove from active combos
+    ActiveCombos.Remove(Actor);
+    
+    // Remove from input histories
+    InputHistories.Remove(Actor);
+    
+    UE_LOG(LogTemp, VeryVerbose, TEXT("ComboDetectionSubsystem: Cleaned up actor %s"), *Actor->GetName());
+}
+
 bool UComboDetectionSubsystem::IsInputWithinWindow(float InputTime, float WindowStart, float WindowEnd) const
 {
     return InputTime >= WindowStart && InputTime <= WindowEnd;

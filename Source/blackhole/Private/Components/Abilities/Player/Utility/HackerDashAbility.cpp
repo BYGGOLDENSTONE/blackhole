@@ -17,7 +17,6 @@ UHackerDashAbility::UHackerDashAbility()
 	bIsBasicAbility = true;
 	
 	// Override base parameters
-	Cost = 5.0f; // Legacy field
 	WPCost = 0.0f; // Utility abilities don't add WP corruption
 	Cooldown = 1.0f; // Per GDD: 1s cooldown
 	MovementDuration = DashDuration;

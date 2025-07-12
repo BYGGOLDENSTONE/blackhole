@@ -97,6 +97,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Resources")
 	void ResetWPAfterMax();
 	
+	// Set flag to allow WP reset (must be called before ResetWPAfterMax)
+	void AuthorizeWPReset() { bWPResetAuthorized = true; }
+	
+	// Critical state management (prevents resets during critical timer)
+	void SetCriticalState(bool bCritical) { bInCriticalState = bCritical; }
+	bool IsInCriticalState() const { return bInCriticalState; }
+	
 private:
 	// Resource values
 	UPROPERTY()
@@ -116,8 +123,15 @@ private:
 	UPROPERTY()
 	int32 WPMaxReachedCount;
 	
+	// Authorization flag for WP reset (prevents unwanted resets)
+	bool bWPResetAuthorized = false;
+	
+	// Flag to prevent resets during critical gameplay moments
+	bool bInCriticalState = false;
+	
 	// Helper functions
 	void CheckWPThreshold();
+	void SyncWillPowerComponent(); // Keep player's WillPowerComponent in sync with ResourceManager
 	
 	// Default values now in GameplayConfig.h
 };

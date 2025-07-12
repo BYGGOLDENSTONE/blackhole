@@ -7,6 +7,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
+#include "Enemy/EnemyUtility.h"
 
 ACombatEnemy::ACombatEnemy()
 {
@@ -45,7 +46,7 @@ void ACombatEnemy::UpdateAIBehavior(float DeltaTime)
 		return;
 	}
 
-	float Distance = GetDistanceToTarget();
+	float Distance = UEnemyUtility::GetDistanceToTarget(this, TargetActor);
 
 	if (Distance <= AttackRange)
 	{
@@ -53,24 +54,14 @@ void ACombatEnemy::UpdateAIBehavior(float DeltaTime)
 	}
 	else if (Distance <= ChaseRange)
 	{
-		MoveTowardsTarget(DeltaTime);
+		UEnemyUtility::MoveTowardsTarget(this, TargetActor, DeltaTime, 300.0f);
 	}
 }
 
 void ACombatEnemy::MoveTowardsTarget(float DeltaTime)
 {
-	if (!TargetActor)
-	{
-		return;
-	}
-
-	FVector Direction = (TargetActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
-	AddMovementInput(Direction, 1.0f);
-
-	FRotator NewRotation = Direction.Rotation();
-	NewRotation.Pitch = 0.0f;
-	NewRotation.Roll = 0.0f;
-	SetActorRotation(NewRotation);
+	// Now handled by UEnemyUtility::MoveTowardsTarget
+	UEnemyUtility::MoveTowardsTarget(this, TargetActor, DeltaTime, 300.0f);
 }
 
 void ACombatEnemy::TryAttack()
@@ -83,10 +74,5 @@ void ACombatEnemy::TryAttack()
 
 float ACombatEnemy::GetDistanceToTarget() const
 {
-	if (!TargetActor)
-	{
-		return FLT_MAX;
-	}
-
-	return FVector::Dist(GetActorLocation(), TargetActor->GetActorLocation());
+	return UEnemyUtility::GetDistanceToTarget(this, TargetActor);
 }

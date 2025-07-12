@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "../Components/Interaction/HackableComponent.h"
+#include "Components/Interaction/HackableComponent.h"
 #include "HackableObject.generated.h"
 
 UCLASS()

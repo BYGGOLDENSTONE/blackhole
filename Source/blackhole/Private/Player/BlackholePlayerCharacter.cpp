@@ -288,6 +288,12 @@ void ABlackholePlayerCharacter::SetupPlayerInputComponent(UInputComponent* Playe
 		// Camera toggle
 		EnhancedInputComponent->BindAction(ToggleCameraAction, ETriggerEvent::Triggered, this, &ABlackholePlayerCharacter::ToggleCamera);
 		
+		// Menu toggle
+		if (MenuToggleAction)
+		{
+			EnhancedInputComponent->BindAction(MenuToggleAction, ETriggerEvent::Triggered, this, &ABlackholePlayerCharacter::ToggleMenu);
+		}
+		
 		// Utility abilities
 		EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Triggered, this, &ABlackholePlayerCharacter::UseDash);
 		EnhancedInputComponent->BindAction(UtilityJumpAction, ETriggerEvent::Triggered, this, &ABlackholePlayerCharacter::UseUtilityJump);
@@ -797,13 +803,24 @@ void ABlackholePlayerCharacter::Die()
 	
 	bIsDead = true;
 	
-	UE_LOG(LogTemp, Error, TEXT("PLAYER DEATH!"));
+	UE_LOG(LogTemp, Error, TEXT("=== PLAYER DEATH TRIGGERED ==="));
 	
-	// First, clear all timers for this actor to prevent crashes
+	// Check if critical timer is active - we should NOT interfere with it
 	if (UWorld* World = GetWorld())
 	{
-		World->GetTimerManager().ClearAllTimersForObject(this);
+		if (UThresholdManager* ThresholdMgr = World->GetSubsystem<UThresholdManager>())
+		{
+			if (ThresholdMgr->IsCriticalTimerActive())
+			{
+				UE_LOG(LogTemp, Error, TEXT("WARNING: Player died while critical timer active! Timer should continue running."));
+			}
+		}
 	}
+	
+	// IMPORTANT: Don't clear critical timer - let ThresholdManager handle it
+	// We need to be more selective about which timers to clear to avoid interfering
+	// with critical game systems like the critical timer
+	// Clear only player-specific timers, not system timers
 	
 	// Unbind from all delegates BEFORE disabling components
 	
@@ -850,11 +867,8 @@ void ABlackholePlayerCharacter::Die()
 		{
 			if (UAbilityComponent* Ability = Cast<UAbilityComponent>(Component))
 			{
-				// Clear any timers in the ability
-				if (UWorld* World = GetWorld())
-				{
-					World->GetTimerManager().ClearAllTimersForObject(Ability);
-				}
+				// Don't clear ability timers - might interfere with critical timer system
+				// Just disable component ticking
 				Ability->SetComponentTickEnabled(false);
 			}
 		}

@@ -17,7 +17,6 @@
 UDataSpikeAbility::UDataSpikeAbility()
 {
 	// Ability costs and cooldown (per GDD)
-	Cost = 12.0f; // Legacy field
 	WPCost = GameplayConfig::Abilities::DataSpike::WP_COST;
 	// HeatCost removed - heat system no longer exists
 	Cooldown = GameplayConfig::Abilities::DataSpike::COOLDOWN;

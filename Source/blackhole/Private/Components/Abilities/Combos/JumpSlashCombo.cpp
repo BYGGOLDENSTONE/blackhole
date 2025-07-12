@@ -34,6 +34,10 @@ UJumpSlashCombo::UJumpSlashCombo()
     // Default visual
     ComboTrailColor = FLinearColor(0.2f, 0.5f, 1.0f, 1.0f); // Blue
     ShockwaveColor = FLinearColor(0.2f, 0.5f, 1.0f, 1.0f);
+    
+    // Override parent: Jump + Slash are both basic abilities, so combo should be basic too
+    bIsBasicAbility = true;
+    WPCost = 0.0f; // Basic abilities don't add WP corruption
 }
 
 void UJumpSlashCombo::ExecuteCombo()

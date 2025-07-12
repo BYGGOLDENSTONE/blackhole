@@ -5,7 +5,6 @@
 
 UDodgeComponent::UDodgeComponent()
 {
-	Cost = 0.0f;
 	Cooldown = 2.0f;
 	DodgeDistance = 300.0f;
 	DodgeDuration = 0.3f;

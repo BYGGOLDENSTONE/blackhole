@@ -6,6 +6,7 @@
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "Config/GameplayConfig.h"
+#include "TimerManager.h"
 
 void UThresholdManager::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -35,6 +36,9 @@ void UThresholdManager::Deinitialize()
 		ResourceManager->OnWPMaxReached.RemoveDynamic(this, &UThresholdManager::OnWPMaxReachedHandler);
 	}
 	
+	// Clear critical timer
+	StopCriticalTimer();
+	
 	// Clear all delegate bindings to prevent crashes
 	OnCombatStarted.Clear();
 	OnCombatEnded.Clear();
@@ -42,6 +46,8 @@ void UThresholdManager::Deinitialize()
 	OnSurvivorBuff.Clear();
 	OnUltimateModeActivated.Clear();
 	OnPlayerDeath.Clear();
+	OnCriticalTimer.Clear();
+	OnCriticalTimerExpired.Clear();
 	
 	// Clear ability arrays
 	AllPlayerAbilities.Empty();
@@ -88,6 +94,10 @@ void UThresholdManager::EndCombat()
 	{
 		return;
 	}
+	
+	// DEBUG: Log call stack to find what's ending combat (which clears critical timer)
+	const FString CallStack = FFrame::GetScriptCallstack();
+	UE_LOG(LogTemp, Error, TEXT("!!! ENDCOMBAT CALLED (WILL CLEAR CRITICAL TIMER) !!! Call stack:\n%s"), *CallStack);
 	
 	bIsInCombat = false;
 	bUltimateModeActive = false;
@@ -213,36 +223,36 @@ void UThresholdManager::OnWPMaxReachedHandler(int32 TimesReached)
 	
 	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: WP reached 100%% (Count: %d) - PREPARING TO ACTIVATE ULTIMATE MODE!"), TimesReached);
 	
-	// Check if player has already lost 3 abilities - trigger death
+	// Check death conditions - but NOT for immediate death, only for critical timer behavior
 	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Checking death conditions - DisabledAbilities: %d/%d, TimesReached: %d/%d"), 
 		DisabledAbilities.Num(), GameplayConfig::Thresholds::MAX_DISABLED_ABILITIES,
 		TimesReached, GameplayConfig::Thresholds::MAX_WP_REACHES);
 		
+	// ONLY trigger immediate death if player has lost 3 abilities AND this is another 100% reach
+	// The 4th time reaching 100% should give player a chance via critical timer, not instant death
 	if (DisabledAbilities.Num() >= GameplayConfig::Thresholds::MAX_DISABLED_ABILITIES)
 	{
-		// End combat first to clean up properly
+		// Player has lost 3 abilities - any additional 100% WP reach is death
 		EndCombat();
 		OnPlayerDeath.Broadcast();
 		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: Player death triggered - WP reached 100%% after losing %d abilities!"), DisabledAbilities.Num());
 		return;
 	}
 	
-	// Also check if this is the max times overall - trigger death
+	// DO NOT trigger immediate death for TimesReached >= 4
+	// Instead, let critical timer handle it - player gets 5 seconds to use ultimate
 	if (TimesReached >= GameplayConfig::Thresholds::MAX_WP_REACHES)
 	{
-		// End combat first to clean up properly
-		EndCombat();
-		OnPlayerDeath.Broadcast();
-		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: Player death triggered - WP reached 100%% for the %d time!"), TimesReached);
-		return;
+		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: This is the %d time reaching 100%% WP - FINAL CHANCE via critical timer!"), TimesReached);
+		// Don't return - continue to critical timer
 	}
 	
-	// Activate ultimate mode for all abilities
-	ActivateUltimateMode();
+	// Start critical timer - player has 5 seconds to use ultimate or die
+	StartCriticalTimer();
 	
-	// Double-check WP after activation
+	// Double-check WP after starting timer
 	CurrentWP = ResourceManager->GetCurrentWillPower();
-	UE_LOG(LogTemp, Error, TEXT("=== ThresholdManager::OnWPMaxReachedHandler END - WP = %.1f/%.1f ==="), CurrentWP, MaxWP);
+	UE_LOG(LogTemp, Error, TEXT("=== ThresholdManager::OnWPMaxReachedHandler END - Critical Timer Started - WP = %.1f/%.1f ==="), CurrentWP, MaxWP);
 }
 
 void UThresholdManager::ActivateUltimateMode()
@@ -334,6 +344,11 @@ void UThresholdManager::DeactivateUltimateMode(UAbilityComponent* UsedAbility)
 		return;
 	}
 	
+	// DEBUG: Log call stack to find what's deactivating ultimate mode (which resets WP)
+	const FString CallStack = FFrame::GetScriptCallstack();
+	UE_LOG(LogTemp, Error, TEXT("!!! DEACTIVATE ULTIMATE MODE CALLED (WILL RESET WP) !!! Ability: %s\nCall stack:\n%s"), 
+		UsedAbility ? *UsedAbility->GetName() : TEXT("NULL"), *CallStack);
+	
 	// Prevent recursive calls
 	if (bIsDeactivatingUltimate)
 	{
@@ -395,10 +410,16 @@ void UThresholdManager::DeactivateUltimateMode(UAbilityComponent* UsedAbility)
 			*UsedAbility->GetName(), DisabledAbilities.Num());
 	}
 	
-	// Reset WP to 0
+	// Reset WP to 0 - ONLY when ultimate ability is actually used
 	if (IsValid(ResourceManager))
 	{
+		// Clear critical state first
+		ResourceManager->SetCriticalState(false);
+		
+		// Authorize the reset - this is the ONLY legitimate place to reset WP
+		ResourceManager->AuthorizeWPReset();
 		ResourceManager->ResetWPAfterMax();
+		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: Authorized WP reset after ultimate ability use"));
 	}
 	else
 	{
@@ -422,11 +443,36 @@ void UThresholdManager::OnAbilityExecuted(UAbilityComponent* Ability)
 		return;
 	}
 	
+	// CRITICAL FIX: Only process PLAYER abilities, ignore enemy abilities
+	if (!PlayerCharacter || Ability->GetOwner() != PlayerCharacter)
+	{
+		UE_LOG(LogTemp, VeryVerbose, TEXT("ThresholdManager: Ignoring enemy ability %s"), *Ability->GetName());
+		return;
+	}
+	
 	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: OnAbilityExecuted called for %s (UltimateMode: %s, IsBasic: %s, TimeSince: %.2f)"), 
 		*Ability->GetName(),
 		bUltimateModeActive ? TEXT("YES") : TEXT("NO"),
 		Ability->IsBasicAbility() ? TEXT("YES") : TEXT("NO"),
 		GetWorld() ? GetWorld()->GetTimeSeconds() - UltimateModeActivationTime : 0.0f);
+	
+	// Check if critical timer is active - any non-basic ability use should be treated as ultimate
+	if (bCriticalTimerActive && !Ability->IsBasicAbility())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Critical timer active, non-basic ability used - treating as ultimate ability"));
+		StopCriticalTimer();
+		
+		// If ultimate mode wasn't active yet, activate it first
+		if (!bUltimateModeActive)
+		{
+			ActivateUltimateMode();
+		}
+		
+		// Treat this ability use as an ultimate and deactivate
+		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Ultimate ability %s executed during critical timer - deactivating ultimate mode"), *Ability->GetName());
+		DeactivateUltimateMode(Ability);
+		return; // Don't continue with normal processing
+	}
 	
 	// Only process if we're actually in ultimate mode
 	if (!bUltimateModeActive)
@@ -575,4 +621,146 @@ UAbilityComponent* UThresholdManager::GetRandomEnabledAbilityExcludingSlash() co
 	// Return random enabled ability (excluding basic abilities)
 	int32 RandomIndex = FMath::RandRange(0, EnabledAbilities.Num() - 1);
 	return EnabledAbilities[RandomIndex];
+}
+
+// Critical Timer Functions
+bool UThresholdManager::IsCriticalTimerActive() const
+{
+	return bCriticalTimerActive;
+}
+
+float UThresholdManager::GetCriticalTimeRemaining() const
+{
+	if (!bCriticalTimerActive)
+	{
+		return 0.0f;
+	}
+	
+	float ElapsedTime = GetWorld()->GetTimeSeconds() - CriticalTimerStartTime;
+	return FMath::Max(0.0f, CriticalTimerDuration - ElapsedTime);
+}
+
+void UThresholdManager::StartCriticalTimer()
+{
+	if (bCriticalTimerActive)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Critical timer already active"));
+		return;
+	}
+	
+	bCriticalTimerActive = true;
+	CriticalTimerStartTime = GetWorld()->GetTimeSeconds();
+	
+	// Set critical state in ResourceManager to prevent unwanted resets
+	if (IsValid(ResourceManager))
+	{
+		ResourceManager->SetCriticalState(true);
+	}
+	
+	// Activate ultimate mode immediately so abilities are ready
+	ActivateUltimateMode();
+	
+	// Start the death timer
+	GetWorld()->GetTimerManager().SetTimer(
+		CriticalTimerHandle,
+		this,
+		&UThresholdManager::OnCriticalTimerExpiredInternal,
+		CriticalTimerDuration,
+		false
+	);
+	
+	// Start UI update timer (updates every 0.1 seconds)
+	GetWorld()->GetTimerManager().SetTimer(
+		CriticalUpdateTimerHandle,
+		this,
+		&UThresholdManager::UpdateCriticalTimer,
+		0.1f,
+		true
+	);
+	
+	UE_LOG(LogTemp, Error, TEXT("ThresholdManager: CRITICAL ERROR - Player has %.1f seconds to use ultimate ability or DIE!"), CriticalTimerDuration);
+	OnCriticalTimer.Broadcast(CriticalTimerDuration);
+}
+
+void UThresholdManager::StopCriticalTimer()
+{
+	if (!bCriticalTimerActive)
+	{
+		return;
+	}
+	
+	// DEBUG: Log call stack to find what's stopping the critical timer
+	const FString CallStack = FFrame::GetScriptCallstack();
+	UE_LOG(LogTemp, Error, TEXT("!!! CRITICAL TIMER STOPPED !!! Call stack:\n%s"), *CallStack);
+	
+	bCriticalTimerActive = false;
+	
+	// Clear critical state in ResourceManager
+	if (IsValid(ResourceManager))
+	{
+		ResourceManager->SetCriticalState(false);
+	}
+	
+	// Clear both timers
+	if (GetWorld())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(CriticalTimerHandle);
+		GetWorld()->GetTimerManager().ClearTimer(CriticalUpdateTimerHandle);
+	}
+	
+	// Notify UI that timer was stopped
+	OnCriticalTimer.Broadcast(0.0f); // Send 0 time remaining
+	
+	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Critical timer stopped - ultimate ability used in time!"));
+}
+
+void UThresholdManager::OnCriticalTimerExpiredInternal()
+{
+	bCriticalTimerActive = false;
+	
+	// Clear critical state in ResourceManager
+	if (IsValid(ResourceManager))
+	{
+		ResourceManager->SetCriticalState(false);
+	}
+	
+	// Check if this is the final chance (4th time reaching 100%)
+	int32 TimesReached = IsValid(ResourceManager) ? ResourceManager->GetWPMaxReachedCount() : 0;
+	if (TimesReached >= GameplayConfig::Thresholds::MAX_WP_REACHES)
+	{
+		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: CRITICAL TIMER EXPIRED ON FINAL CHANCE (%d) - PERMANENT DEATH!"), TimesReached);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: CRITICAL TIMER EXPIRED (%d/%d) - PLAYER DEATH!"), TimesReached, GameplayConfig::Thresholds::MAX_WP_REACHES);
+	}
+	
+	// Broadcast timer expired event
+	OnCriticalTimerExpired.Broadcast();
+	
+	// End combat first to clean up properly
+	EndCombat();
+	
+	// Trigger player death
+	OnPlayerDeath.Broadcast();
+}
+
+void UThresholdManager::UpdateCriticalTimer()
+{
+	if (!bCriticalTimerActive)
+	{
+		return;
+	}
+	
+	float TimeRemaining = GetCriticalTimeRemaining();
+	OnCriticalTimer.Broadcast(TimeRemaining);
+	
+	if (TimeRemaining <= 0.0f)
+	{
+		// Stop the update timer
+		if (GetWorld())
+		{
+			GetWorld()->GetTimerManager().ClearTimer(CriticalUpdateTimerHandle);
+		}
+	}
 }

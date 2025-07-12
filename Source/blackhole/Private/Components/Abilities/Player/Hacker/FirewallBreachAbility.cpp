@@ -9,7 +9,6 @@
 
 UFirewallBreachAbility::UFirewallBreachAbility()
 {
-	Cost = 20.0f; // Legacy field
 	WPCost = 20.0f; // New dual resource system
 	// HeatCost removed - heat system no longer exists
 	Cooldown = 4.0f;

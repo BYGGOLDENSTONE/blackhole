@@ -4,8 +4,13 @@
 
 ABlackholeGameMode::ABlackholeGameMode()
 {
-	DefaultPawnClass = ABlackholePlayerCharacter::StaticClass();
-	HUDClass = ABlackholeHUD::StaticClass();
+	// Set default classes - these can be overridden in Blueprint
+	DefaultPlayerClass = ABlackholePlayerCharacter::StaticClass();
+	DefaultHUDClass = ABlackholeHUD::StaticClass();
+	
+	// Assign to base class properties
+	DefaultPawnClass = DefaultPlayerClass;
+	HUDClass = DefaultHUDClass;
 }
 
 void ABlackholeGameMode::BeginPlay()

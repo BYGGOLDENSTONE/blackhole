@@ -21,6 +21,7 @@ class USystemOverrideAbility;
 class UHackerDashAbility;
 class UHackerJumpAbility;
 class USimplePauseMenu;
+class UThresholdManager;
 
 UCLASS()
 class BLACKHOLE_API ABlackholeHUD : public AHUD
@@ -131,6 +132,25 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "HUD")
 	float CooldownIconSize;
+	
+	// Performance optimization
+	UPROPERTY(EditDefaultsOnly, Category = "Performance")
+	float CacheUpdateInterval = 0.1f; // Update cache every 0.1 seconds
+	
+	// Cached values for performance
+	float LastCacheUpdateTime = 0.0f;
+	float CachedWPPercent = 0.0f;
+	float CachedCurrentWP = 0.0f;
+	float CachedMaxWP = 0.0f;
+	bool bIsUltimateMode = false;
+	TArray<float> CachedCooldownPercents;
+	FString CachedDebugInfo;
+	
+	// Update cached values
+	void UpdateCachedValues();
+	
+	// Draw critical timer display
+	void DrawCriticalTimer();
 
 	UPROPERTY(EditDefaultsOnly, Category = "HUD")
 	FColor IntegrityColor;
@@ -140,7 +160,6 @@ protected:
 	
 	// Resource values cached from delegates
 	float CachedWP;
-	float CachedMaxWP;
 	
 	// Ultimate mode state
 	bool bUltimateModeActive;
@@ -152,6 +171,17 @@ protected:
 	// Ultimate mode delegate
 	UFUNCTION()
 	void OnUltimateModeChanged(bool bActive);
+	
+	// Critical timer variables
+	bool bCriticalTimerActive = false;
+	float CriticalTimeRemaining = 0.0f;
+	
+	// Critical timer delegates
+	UFUNCTION()
+	void OnCriticalTimerUpdate(float TimeRemaining);
+	
+	UFUNCTION()
+	void OnCriticalTimerExpired();
 
 private:
 	AActor* GetTargetedActor() const;

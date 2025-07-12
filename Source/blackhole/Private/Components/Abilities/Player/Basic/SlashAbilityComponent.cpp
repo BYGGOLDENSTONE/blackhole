@@ -16,8 +16,7 @@
 USlashAbilityComponent::USlashAbilityComponent()
 {
 	Damage = 20.0f;
-	Cost = 10.0f; // Legacy compatibility
-	WPCost = 15.0f; // For Hacker path slash
+	WPCost = 0.0f; // Slash is free - no WP cost
 	Cooldown = 2.0f;
 	Range = 200.0f;
 	
