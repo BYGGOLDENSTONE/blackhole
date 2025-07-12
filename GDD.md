@@ -1,8 +1,8 @@
 # Blackhole - Game Design Document
-**Version**: 4.0  
+**Version**: 4.1  
 **Engine**: Unreal Engine 5.5  
 **Language**: C++ with Blueprint integration  
-**Date**: 2025-07-11
+**Date**: 2025-07-12
 
 > **📚 Note**: For detailed ability information, see [ABILITIES_DOCUMENTATION.md](ABILITIES_DOCUMENTATION.md)
 > 
@@ -20,6 +20,7 @@ A high-intensity action game where players embody a digital warrior navigating c
 2. **Dynamic Difficulty**: Ability loss creates escalating challenge with compensatory buffs
 3. **Precision Gameplay**: Combo system rewards timing and skill
 4. **Strategic Sacrifice**: Choose which abilities to lose when pushed to the limit
+5. **Fluid Movement**: Wall running and momentum preservation enable cyberpunk traversal
 
 ## ⚡ Resource System
 
@@ -59,6 +60,41 @@ A high-intensity action game where players embody a digital warrior navigating c
 | **Katana Slash** | LMB | - | +2 | Quick 3-hit combo, 20 base damage |
 | **Hacker Dash** | Shift | - | 0 | Movement input directional dash with i-frames |
 | **Hacker Jump** | Space | - | 0 | Double jump with 0.5s cooldown |
+
+### Advanced Movement System
+
+#### Wall Running
+The wall run system enables fluid cyberpunk traversal through vertical environments:
+
+**Activation Requirements:**
+- Player must be **airborne** (jumping, falling, or dashing)
+- Wall must be within 45 units and roughly vertical (70-110° angle)
+- Minimum wall height of 200 units
+
+**Mechanics:**
+- **Speed Preservation**: Dash momentum (3000 units) is fully preserved during wall run
+- **Height Maintenance**: Player runs at consistent height along wall surface  
+- **Input Control**: W key required to continue wall running
+- **Duration**: Unlimited as long as W is held and wall exists
+- **Camera Effects**: Dynamic camera tilt based on wall side (±20°)
+
+**Wall Jump System:**
+- **Activation**: SPACE key during wall run triggers diagonal wall jump
+- **Direction**: Launches diagonally away from wall (up + left/right)
+- **Launch Force**: 550 units with reliable physics using Launch() method
+- **Cooldown**: 1.5s cooldown prevents immediate wall re-attachment
+
+**Safety Systems:**
+- **Wall Verification**: Automatic detection every second prevents "air running"
+- **Ability Restrictions**: Blocks dash and regular jump during wall run
+- **Advanced Abilities**: Combat abilities remain available during wall run
+- **Auto-End**: Wall run ends automatically when wall geometry ends
+
+**Integration:**
+- Works seamlessly with existing dash and jump abilities
+- Preserves momentum for chaining movement techniques
+- Visual feedback through UI messages and particle effects
+- Debug visualization available for level designers
 
 ### Combat Abilities
 | Ability | Key | Stamina | WP | Cooldown | Effect |
@@ -116,6 +152,7 @@ When WP reaches 100%, the player enters Ultimate Mode:
 | **ComboDetectionSubsystem** | Input-based combos | 8.8/10 |
 | **ObjectPoolSubsystem** | Performance optimization | 9/10 |
 | **AbilityComponent** | Base ability framework | 8/10 |
+| **WallRunComponent** | Wall running and traversal | 9/10 |
 
 #### Data-Driven Design
 - **ComboDataAsset**: Designer-friendly combo creation
