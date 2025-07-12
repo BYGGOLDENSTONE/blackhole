@@ -22,7 +22,7 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combo|Timing", meta = (ClampMin = "0.0", ClampMax = "5.0"))
     float TimeSlowScale = 0.3f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combo|Timing", meta = (ClampMin = "0.0", ClampMax = "2.0"))
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combo|Timing", meta = (ClampMin = "0.0", ClampMax = "5.0"))
     float TimeSlowDuration = 0.15f;
 
     // Combat parameters

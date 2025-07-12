@@ -26,6 +26,7 @@ class UJumpSlashCombo;
 class UInputMappingContext;
 class UInputAction;
 class UStaticMeshComponent;
+class UWallRunComponent;
 
 UCLASS()
 class BLACKHOLE_API ABlackholePlayerCharacter : public ACharacter, public IResourceConsumer
@@ -98,6 +99,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
 	UWillPowerComponent* WillPowerComponent;
 
+	// Movement Components
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
+	UWallRunComponent* WallRunComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	USlashAbilityComponent* SlashAbility;
@@ -277,6 +281,10 @@ public:
 	// Getter for camera component - used by abilities for camera-based aiming
 	UFUNCTION(BlueprintCallable, Category = "Camera")
 	UCameraComponent* GetCameraComponent() const { return CameraComponent; }
+	
+	// Getter for wall run component - used by abilities and movement systems
+	UFUNCTION(BlueprintCallable, Category = "Movement")
+	UWallRunComponent* GetWallRunComponent() const { return WallRunComponent; }
 	
 	// IResourceConsumer interface implementation
 	virtual bool HasResources_Implementation(float StaminaCost, float WPCost) const override;

@@ -20,6 +20,7 @@
 #include "Components/Abilities/Player/Hacker/DataSpikeAbility.h"
 #include "Components/Abilities/Player/Hacker/SystemOverrideAbility.h"
 #include "Components/Abilities/AbilityComponent.h"
+#include "Components/Movement/WallRunComponent.h"
 #include "Systems/ThresholdManager.h"
 #include "Engine/Canvas.h"
 #include "Engine/World.h"
@@ -229,6 +230,9 @@ void ABlackholeHUD::DrawHUD()
 	
 	// Draw critical timer if active
 	DrawCriticalTimer();
+	
+	// Draw wall run timer if active
+	DrawWallRunTimer();
 
 	DrawTargetInfo();
 }
@@ -1075,4 +1079,83 @@ void ABlackholeHUD::DrawCriticalTimer()
 		// Right border
 		DrawRect(BorderColor, Canvas->SizeX - 10, 0, 10, Canvas->SizeY);
 	}
+}
+
+void ABlackholeHUD::DrawWallRunTimer()
+{
+	if (!PlayerCharacter || !Canvas)
+	{
+		return;
+	}
+	
+	// Get wall run component
+	UWallRunComponent* WallRunComp = PlayerCharacter->GetWallRunComponent();
+	if (!WallRunComp || !WallRunComp->IsWallRunning())
+	{
+		return;
+	}
+	
+	float TimeRemaining = WallRunComp->GetWallRunTimeRemaining();
+	if (TimeRemaining <= 0.0f)
+	{
+		return;
+	}
+	
+	// Draw wall run status in the upper right corner
+	float ScreenRightX = Canvas->SizeX - 300.0f;
+	float ScreenTopY = 100.0f;
+	
+	// Draw wall run indicator
+	FString WallRunText = TEXT("WALL RUNNING");
+	FColor WallRunColor = FColor::Cyan;
+	DrawText(WallRunText, WallRunColor, ScreenRightX, ScreenTopY, nullptr, 1.2f, false);
+	
+	// Draw timer bar background
+	float BarWidth = 200.0f;
+	float BarHeight = 20.0f;
+	float BarX = ScreenRightX;
+	float BarY = ScreenTopY + 25.0f;
+	
+	// Background
+	DrawRect(FColor(50, 50, 50, 180), BarX, BarY, BarWidth, BarHeight);
+	
+	// Get wall side for color coding
+	FString SideText = "";
+	FColor BarColor = FColor::Blue;
+	
+	if (WallRunComp->GetCurrentWallSide() == EWallSide::Right)
+	{
+		SideText = " (RIGHT)";
+		BarColor = FColor::Green;
+	}
+	else if (WallRunComp->GetCurrentWallSide() == EWallSide::Left)
+	{
+		SideText = " (LEFT)";
+		BarColor = FColor::Orange;
+	}
+	
+	// Draw timer progress bar
+	float MaxDuration = WallRunComp->Settings.MaxWallRunDuration;
+	float Progress = FMath::Clamp(TimeRemaining / MaxDuration, 0.0f, 1.0f);
+	float ProgressWidth = BarWidth * Progress;
+	
+	// Color based on time remaining
+	if (Progress < 0.3f)
+	{
+		BarColor = FColor::Red; // Warning - low time
+	}
+	else if (Progress < 0.6f)
+	{
+		BarColor = FColor::Yellow; // Caution
+	}
+	
+	DrawRect(BarColor, BarX, BarY, ProgressWidth, BarHeight);
+	
+	// Draw timer text
+	FString TimerText = FString::Printf(TEXT("%.1fs%s"), TimeRemaining, *SideText);
+	DrawText(TimerText, FColor::White, BarX, BarY + BarHeight + 5.0f, nullptr, 1.0f, false);
+	
+	// Draw jump hint
+	FString HintText = TEXT("SPACE to cancel");
+	DrawText(HintText, FColor(200, 200, 200), BarX, BarY + BarHeight + 25.0f, nullptr, 0.8f, false);
 }

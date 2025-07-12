@@ -22,6 +22,7 @@ class UHackerDashAbility;
 class UHackerJumpAbility;
 class USimplePauseMenu;
 class UThresholdManager;
+class UWallRunComponent;
 
 UCLASS()
 class BLACKHOLE_API ABlackholeHUD : public AHUD
@@ -151,6 +152,9 @@ protected:
 	
 	// Draw critical timer display
 	void DrawCriticalTimer();
+	
+	// Draw wall run timer display
+	void DrawWallRunTimer();
 
 	UPROPERTY(EditDefaultsOnly, Category = "HUD")
 	FColor IntegrityColor;

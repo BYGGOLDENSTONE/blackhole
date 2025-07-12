@@ -30,6 +30,7 @@
 #include "Components/Abilities/Combos/DashSlashCombo.h"
 #include "Components/Abilities/Combos/JumpSlashCombo.h"
 #include "Components/Abilities/AbilityComponent.h"
+#include "Components/Movement/WallRunComponent.h"
 #include "Config/GameplayConfig.h"
 #include "Engine/World.h"
 
@@ -72,6 +73,9 @@ ABlackholePlayerCharacter::ABlackholePlayerCharacter()
 
 	IntegrityComponent = CreateDefaultSubobject<UIntegrityComponent>(TEXT("Integrity"));
 	WillPowerComponent = CreateDefaultSubobject<UWillPowerComponent>(TEXT("WillPower"));
+
+	// Create movement components
+	WallRunComponent = CreateDefaultSubobject<UWallRunComponent>(TEXT("WallRunComponent"));
 
 	SlashAbility = CreateDefaultSubobject<USlashAbilityComponent>(TEXT("SlashAbility"));
 	// SystemFreezeAbility removed
@@ -580,7 +584,25 @@ void ABlackholePlayerCharacter::UseUtilityJump()
 		return;
 	}
 	
-	// Only register input if ability can execute
+	// Check wall running first - wall run takes priority for jump input
+	if (IsValid(WallRunComponent) && WallRunComponent->IsWallRunning())
+	{
+		// Jump during wall run cancels the wall run
+		WallRunComponent->OnJumpPressed();
+		return;
+	}
+	
+	// Check if wall run can be started
+	if (IsValid(WallRunComponent) && WallRunComponent->CanStartWallRun())
+	{
+		// Try to start wall run
+		if (WallRunComponent->TryStartWallRun())
+		{
+			return; // Wall run started successfully
+		}
+	}
+	
+	// Normal jump logic - only execute if ability can execute
 	if (IsValid(HackerJumpAbility) && HackerJumpAbility->CanExecute())
 	{
 		// Execute the jump ability

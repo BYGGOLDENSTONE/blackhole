@@ -5,6 +5,7 @@
 #include "Engine/GameInstance.h"
 #include "Config/GameplayConfig.h"
 #include "Player/BlackholePlayerCharacter.h"
+#include "Components/Movement/WallRunComponent.h"
 
 UAbilityComponent::UAbilityComponent()
 {
@@ -100,6 +101,16 @@ bool UAbilityComponent::CanExecute() const
 			if (PlayerOwner->IsDead())
 			{
 				return false;
+			}
+			
+			// Check wall run restrictions - only allow certain abilities during wall running
+			if (UWallRunComponent* WallRunComp = PlayerOwner->GetWallRunComponent())
+			{
+				if (!WallRunComp->CanUseAbilityDuringWallRun(this))
+				{
+					UE_LOG(LogTemp, Verbose, TEXT("Ability %s: CanExecute() = FALSE - Blocked during wall run"), *GetName());
+					return false;
+				}
 			}
 		}
 	}
