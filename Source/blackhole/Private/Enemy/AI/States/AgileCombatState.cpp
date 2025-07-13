@@ -72,10 +72,16 @@ void UAgileCombatState::Update(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachi
 
 void UAgileCombatState::InitializeCombatActions(ABaseEnemy* Enemy)
 {
+    // Get agile enemy specific values
+    AAgileEnemy* Agile = Cast<AAgileEnemy>(Enemy);
+    float DashCooldown = Agile ? Agile->DashCooldown : 3.0f;
+    float AttackRange = Agile ? Agile->AttackRange : 200.0f;
+    float AttackCooldown = Agile ? (1.5f / Agile->AttackSpeedMultiplier) : 1.5f; // Faster attack speed = lower cooldown
+    
     // Agile actions: Quick attacks, dodges, and dash attacks
-    AddCombatAction(TEXT("QuickStrike"), 3.0f, 1.5f, 0.0f, 200.0f);    // Fast melee - slightly shorter range
-    AddCombatAction(TEXT("Dodge"), 2.5f, 1.0f, 0.0f, 400.0f);          // Evasive maneuver
-    AddCombatAction(TEXT("DashAttack"), 2.0f, 3.0f, 150.0f, 800.0f);  // Gap closer - increased range and weight
+    AddCombatAction(TEXT("QuickStrike"), 3.0f, AttackCooldown, 0.0f, AttackRange);      // Fast melee with configurable range and speed
+    AddCombatAction(TEXT("Dodge"), 2.5f, 1.0f, 0.0f, 400.0f);                 // Evasive maneuver
+    AddCombatAction(TEXT("DashAttack"), 3.0f, DashCooldown, 150.0f, 800.0f);  // Gap closer with configurable cooldown
 }
 
 void UAgileCombatState::ExecuteCombatAction(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine, const FString& ActionName)
@@ -88,7 +94,8 @@ void UAgileCombatState::ExecuteCombatAction(ABaseEnemy* Enemy, UEnemyStateMachin
     if (ActionName == TEXT("QuickStrike"))
     {
         ExecuteQuickStrike(Agile);
-        StartAbilityCooldown(Enemy, TEXT("QuickStrike"), 1.5f);
+        float AttackCooldown = Agile ? (1.5f / Agile->AttackSpeedMultiplier) : 1.5f;
+        StartAbilityCooldown(Enemy, TEXT("QuickStrike"), AttackCooldown);
         bLastActionWasDodge = false;
     }
     else if (ActionName == TEXT("Dodge"))
@@ -100,7 +107,8 @@ void UAgileCombatState::ExecuteCombatAction(ABaseEnemy* Enemy, UEnemyStateMachin
     else if (ActionName == TEXT("DashAttack"))
     {
         ExecuteDashAttack(Agile, StateMachine);
-        StartAbilityCooldown(Enemy, TEXT("DashAttack"), 3.0f);
+        // Use agile enemy's configurable dash cooldown
+        StartAbilityCooldown(Enemy, TEXT("DashAttack"), Agile->DashCooldown);
         bLastActionWasDodge = false;
     }
 }
@@ -170,7 +178,11 @@ void UAgileCombatState::ExecuteDashAttack(ABaseEnemy* Enemy, UEnemyStateMachine*
     
     // Calculate position behind predicted target location
     FVector TargetForward = Target->GetActorForwardVector();
-    FVector DashTarget = PredictedTargetLocation - (TargetForward * 200.0f); // 200 units behind (increased from 150)
+    
+    // Use configurable dash behind distance from agile enemy
+    AAgileEnemy* Agile = Cast<AAgileEnemy>(Enemy);
+    float BehindDistance = Agile ? Agile->DashBehindDistance : 200.0f;
+    FVector DashTarget = PredictedTargetLocation - (TargetForward * BehindDistance);
     
     // Ensure dash target is at same height as enemy (no vertical dash)
     DashTarget.Z = EnemyLocation.Z;

@@ -18,21 +18,18 @@ AAgileEnemy::AAgileEnemy()
 	DodgeAbility = CreateDefaultSubobject<UDodgeComponent>(TEXT("DodgeAbility"));
 	// NO BlockAbility - this enemy cannot block!
 
-	AttackRange = 150.0f;
-	ChaseRange = 1000.0f;
-	DodgeChance = 0.3f; // 30% chance to dodge when attacked
+	// Agile enemy stats - like a rogue with daggers
+	AttackRange = 100.0f; // Very short range - dagger-like
+	ChaseRange = 1200.0f; // Longer chase range
+	DodgeChance = 0.4f; // 40% chance to dodge
 	
-	// Configure agile movement settings
-	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
-	{
-		// Agile enemies are faster and more responsive
-		Movement->MaxWalkSpeed = 500.0f; // Faster than base enemies
-		Movement->MaxAcceleration = 1200.0f; // Quick acceleration
-		Movement->BrakingDecelerationWalking = 1200.0f; // Quick stops
-		Movement->RotationRate = FRotator(0.0f, 540.0f, 0.0f); // Very fast turning
-		Movement->bUseControllerDesiredRotation = false;
-		Movement->bOrientRotationToMovement = true;
-	}
+	// Combat stats
+	MovementSpeed = 600.0f; // Very fast
+	AttackSpeedMultiplier = 1.5f; // 50% faster attacks
+	DashCooldown = 2.0f; // More frequent dashes (was 3.0)
+	DashBehindDistance = 250.0f; // Distance behind player after dash
+	
+	// Configure agile movement settings - will be set in BeginPlay with MovementSpeed
 }
 
 void AAgileEnemy::BeginPlay()
@@ -42,6 +39,25 @@ void AAgileEnemy::BeginPlay()
 	if (!TargetActor)
 	{
 		TargetActor = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+	}
+	
+	// Apply movement speed from editor
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->MaxWalkSpeed = MovementSpeed;
+		Movement->MaxAcceleration = 1200.0f; // Quick acceleration
+		Movement->BrakingDecelerationWalking = 1200.0f; // Quick stops
+		Movement->RotationRate = FRotator(0.0f, 720.0f, 0.0f); // Very fast turning for agility
+		Movement->bUseControllerDesiredRotation = false;
+		Movement->bOrientRotationToMovement = true;
+	}
+	
+	// Apply attack speed multiplier to smash ability
+	if (SmashAbility)
+	{
+		// Reduce animation time for faster attacks
+		float BaseAnimTime = SmashAbility->GetAnimationTime();
+		SmashAbility->SetAnimationTime(BaseAnimTime / AttackSpeedMultiplier);
 	}
 }
 

@@ -61,19 +61,29 @@ void UTankCombatState::ExecuteBlockStance(ABaseEnemy* Enemy)
 void UTankCombatState::ExecuteGroundSlam(ABaseEnemy* Enemy)
 {
     // Tank special ability - AoE ground slam
+    ATankEnemy* Tank = Cast<ATankEnemy>(Enemy);
+    if (!Tank) return;
+    
     if (USmashAbilityComponent* SmashAbility = Enemy->FindComponentByClass<USmashAbilityComponent>())
     {
-        // Execute with increased damage and radius
+        // Store original values
         float OriginalDamage = SmashAbility->GetDamage();
         bool OriginalAreaDamage = SmashAbility->bIsAreaDamage;
+        float OriginalRadius = SmashAbility->GetAreaRadius();
+        float OriginalKnockback = SmashAbility->GetKnockbackForce();
         
-        SmashAbility->SetDamage(OriginalDamage * 1.5f);
+        // Apply tank's ground slam configuration
+        SmashAbility->SetDamage(OriginalDamage * Tank->GroundSlamDamageMultiplier);
         SmashAbility->SetAreaDamage(true);  // Enable area damage for ground slam
+        SmashAbility->SetAreaRadius(Tank->GroundSlamRadius);
+        SmashAbility->SetKnockbackForce(Tank->GroundSlamKnockbackForce);
         SmashAbility->Execute();
         
         // Reset to original values
         SmashAbility->SetDamage(OriginalDamage);
         SmashAbility->SetAreaDamage(OriginalAreaDamage);
+        SmashAbility->SetAreaRadius(OriginalRadius);
+        SmashAbility->SetKnockbackForce(OriginalKnockback);
         
         // Longer recovery for powerful attack - tank staggers after ground slam
         Enemy->ApplyMovementSpeedModifier(0.0f, 1.5f);  // Complete stop for 1.5 seconds

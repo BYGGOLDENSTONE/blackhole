@@ -38,6 +38,19 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
 	float DodgeChance;
+	
+	// Movement and combat stats
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Movement Speed"))
+	float MovementSpeed;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Attack Speed Multiplier", ClampMin = "0.1", ClampMax = "3.0"))
+	float AttackSpeedMultiplier;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Dash Cooldown", ClampMin = "0.5"))
+	float DashCooldown;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Dash Behind Distance"))
+	float DashBehindDistance;
 
 private:
 	void MoveTowardsTarget(float DeltaTime);

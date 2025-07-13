@@ -18,6 +18,7 @@ USmashAbilityComponent::USmashAbilityComponent()
 	Range = 250.0f;  // Increased range
 	bIsAreaDamage = false;  // Default to single target
 	AreaRadius = 300.0f;    // Area damage radius
+	KnockbackForce = 750.0f; // Default knockback force
 }
 
 void USmashAbilityComponent::BeginPlay()
@@ -111,13 +112,13 @@ void USmashAbilityComponent::PerformAreaDamage(AActor* Owner)
 						KnockbackDirection.Normalize();
 						
 						// Calculate knockback force based on distance (closer = stronger)
-						float KnockbackForce = 1500.0f * DamageFalloff;
+						float ActualKnockbackForce = KnockbackForce * DamageFalloff;
 						
 						if (UCharacterMovementComponent* CharMovement = TargetCharacter->GetCharacterMovement())
 						{
 							// Launch the character
-							CharMovement->Launch(KnockbackDirection * KnockbackForce);
-							UE_LOG(LogTemp, Warning, TEXT("SmashAbility Area: Applied knockback force %f to %s"), KnockbackForce, *HitActor->GetName());
+							CharMovement->Launch(KnockbackDirection * ActualKnockbackForce);
+							UE_LOG(LogTemp, Warning, TEXT("SmashAbility Area: Applied knockback force %f to %s"), ActualKnockbackForce, *HitActor->GetName());
 						}
 					}
 					

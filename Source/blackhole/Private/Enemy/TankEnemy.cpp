@@ -22,6 +22,11 @@ ATankEnemy::ATankEnemy()
 	AttackRange = 150.0f;
 	ChaseRange = 800.0f; // Shorter chase range - tank is slower
 	BlockChance = 0.5f; // 50% chance to block when player is attacking
+	
+	// Ground slam configuration
+	GroundSlamRadius = 1000.0f; // Large area effect
+	GroundSlamDamageMultiplier = 2.0f; // Double damage for ground slam
+	GroundSlamKnockbackForce = 1000.0f; // Strong knockback
 
 	// Configure tank movement settings - heavy and slow
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())

@@ -43,6 +43,16 @@ protected:
 	// Shield mesh component - visible when blocking
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	UStaticMeshComponent* ShieldMesh;
+	
+	// Area damage configuration
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Ground Slam Radius"))
+	float GroundSlamRadius;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Ground Slam Damage Multiplier", ClampMin = "1.0", ClampMax = "5.0"))
+	float GroundSlamDamageMultiplier;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Ground Slam Knockback Force"))
+	float GroundSlamKnockbackForce;
 
 public:
 	// Public methods for state machine access
