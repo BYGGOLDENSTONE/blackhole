@@ -42,8 +42,7 @@ void UIdleState::Update(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine, flo
     AActor* Target = StateMachine->GetTarget();
     if (!Target && GEngine)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Red, 
-            FString::Printf(TEXT("%s: No target set in StateMachine!"), *Enemy->GetName()));
+        // Debug message removed - no target
     }
     
     // Check for player in sight range
@@ -62,11 +61,7 @@ void UIdleState::Update(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine, flo
         else
         {
             UE_LOG(LogTemp, Warning, TEXT("%s IdleState: Player in range but NO line of sight"), *Enemy->GetName());
-            if (GEngine)
-            {
-                GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Orange, 
-                    FString::Printf(TEXT("%s: Player in range but no line of sight"), *Enemy->GetName()));
-            }
+            // Debug message removed - no line of sight
         }
     }
     else

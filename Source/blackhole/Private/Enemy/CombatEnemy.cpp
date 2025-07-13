@@ -8,9 +8,13 @@
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 #include "Enemy/EnemyUtility.h"
+#include "Enemy/AI/CombatEnemyStateMachine.h"
 
 ACombatEnemy::ACombatEnemy()
 {
+	// Replace base state machine with combat-specific one
+	StateMachine = CreateDefaultSubobject<UCombatEnemyStateMachine>(TEXT("CombatStateMachine"));
+	
 	SmashAbility = CreateDefaultSubobject<USmashAbilityComponent>(TEXT("SmashAbility"));
 	BlockAbility = CreateDefaultSubobject<UBlockComponent>(TEXT("BlockAbility"));
 	DodgeAbility = CreateDefaultSubobject<UDodgeComponent>(TEXT("DodgeAbility"));

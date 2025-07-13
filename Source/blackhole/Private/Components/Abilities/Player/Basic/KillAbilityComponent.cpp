@@ -89,14 +89,7 @@ void UKillAbilityComponent::Execute()
 						float FinalDamage = BaseDamage * GetDamageMultiplier();
 						
 						// Show damage value on screen
-						if (GEngine)
-						{
-							FString DamageText = FString::Printf(TEXT("Kill Damage: %.0f (Base: %.0f, Multiplier: %.1fx)"), 
-								FinalDamage, BaseDamage, GetDamageMultiplier());
-							GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Yellow, DamageText);
-							
-							UE_LOG(LogTemp, Warning, TEXT("Kill Ability: %s"), *DamageText);
-						}
+						// Debug message removed - damage text
 						
 						// Instant kill for now
 						TargetIntegrity->SetCurrentValue(0.0f);
@@ -122,10 +115,7 @@ void UKillAbilityComponent::ExecuteUltimate()
 	
 	Super::ExecuteUltimate();
 	
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Red, TEXT("ULTIMATE KILL: DEATH WAVE!"));
-	}
+	// Debug message removed - ultimate kill
 	
 	// Find all enemies in a large radius
 	if (AActor* Owner = GetOwner())
@@ -163,12 +153,7 @@ void UKillAbilityComponent::ExecuteUltimate()
 			}
 		}
 		
-		if (GEngine)
-		{
-			FString KillText = FString::Printf(TEXT("Ultimate Kill: Eliminated %d enemies!"), KillCount);
-			GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, KillText);
-			UE_LOG(LogTemp, Warning, TEXT("%s"), *KillText);
-		}
+		// Debug message removed - kill count
 		
 		#if WITH_EDITOR
 		// Visual effect - expanding death ring

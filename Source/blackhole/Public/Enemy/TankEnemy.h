@@ -19,6 +19,10 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void UpdateAIBehavior(float DeltaTime) override;
+	
+	// Override base enemy capabilities
+	virtual bool CanBlock() const override { return true; }
+	virtual bool CanDodge() const override { return false; }
 
 	// This enemy can attack and block, but CANNOT dodge
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
@@ -39,6 +43,17 @@ protected:
 	// Shield mesh component - visible when blocking
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	UStaticMeshComponent* ShieldMesh;
+
+public:
+	// Public methods for state machine access
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void SetShieldVisible(bool bVisible);
+	
+	UFUNCTION(BlueprintPure, Category = "Combat")
+	float GetDamage() const;
+	
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void SetDamage(float NewDamage);
 
 private:
 	void MoveTowardsTarget(float DeltaTime);

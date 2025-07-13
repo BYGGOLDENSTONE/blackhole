@@ -6,9 +6,13 @@
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 #include "Enemy/EnemyUtility.h"
+#include "Enemy/AI/AgileEnemyStateMachine.h"
 
 AAgileEnemy::AAgileEnemy()
 {
+	// Replace base state machine with agile-specific one
+	StateMachine = CreateDefaultSubobject<UAgileEnemyStateMachine>(TEXT("AgileStateMachine"));
+	
 	// Only create the abilities this enemy type should have
 	SmashAbility = CreateDefaultSubobject<USmashAbilityComponent>(TEXT("SmashAbility"));
 	DodgeAbility = CreateDefaultSubobject<UDodgeComponent>(TEXT("DodgeAbility"));

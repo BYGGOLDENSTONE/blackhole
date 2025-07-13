@@ -142,11 +142,7 @@ void UWallRunComponent::UpdateStateMachine(float DeltaTime)
             if (CurrentSpeed < MinimumSpeed)
             {
                 UE_LOG(LogTemp, Warning, TEXT("WallRun: Speed too low (%.1f < %.1f), ending wall run"), CurrentSpeed, MinimumSpeed);
-                if (GEngine)
-                {
-                    GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Orange, 
-                        TEXT("Speed lost - wall run ending!"), true, FVector2D(1.2f, 1.2f));
-                }
+                // Debug message removed
                 EndWallRun(false);
             }
             break;
@@ -182,8 +178,7 @@ void UWallRunComponent::UpdateCoyoteTime(float DeltaTime)
             
             if (RestartCooldownRemaining <= 0.0f)
             {
-                GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Green, 
-                    TEXT("Wall Run Ready! Keep holding W!"), true, FVector2D(1.5f, 1.5f));
+                // Debug message removed - wall run ready
             }
         }
     }
@@ -417,8 +412,7 @@ bool UWallRunComponent::CanStartWallRun() const
             EWallSide WallSide;
             if (DetectWall(WallNormal, WallSide))
             {
-                GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Yellow, 
-                    TEXT("Jump first to wall run!"), true, FVector2D(1.2f, 1.2f));
+                // Debug message removed - jump first to wall run
             }
         }
         return false; // Can't start wall run while on ground
@@ -436,9 +430,7 @@ bool UWallRunComponent::CanStartWallRun() const
             static float LastCooldownMessageTime = 0.0f;
             if (CurrentTime - LastCooldownMessageTime > 0.5f)
             {
-                GEngine->AddOnScreenDebugMessage(-1, 0.5f, FColor::Orange, 
-                    FString::Printf(TEXT("Wall run cooldown: %.1fs"), RestartCooldownRemaining), 
-                    true, FVector2D(1.2f, 1.2f));
+                // Debug message removed - wall run cooldown
                 LastCooldownMessageTime = CurrentTime;
             }
         }
@@ -511,12 +503,7 @@ void UWallRunComponent::StartWallRunInternal(const FVector& WallNormal, EWallSid
         // Player is dashing or moving fast - preserve full speed
         CurrentWallRunSpeed = CurrentSpeed;
         
-        if (GEngine)
-        {
-            float SpeedBoost = CurrentSpeed - Settings.WallRunSpeed;
-            GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::Green, 
-                FString::Printf(TEXT("DASH WALL RUN! +%.0f Speed Bonus!"), SpeedBoost), true, FVector2D(1.8f, 1.8f));
-        }
+        // Debug message removed - dash wall run speed bonus
     }
     else
     {
@@ -536,13 +523,7 @@ void UWallRunComponent::StartWallRunInternal(const FVector& WallNormal, EWallSid
     // Start wall verification timer to check wall presence every second
     StartWallVerificationTimer();
     
-    // Display on-screen message with instructions
-    if (GEngine)
-    {
-        FString SideText = WallSide == EWallSide::Right ? TEXT("RIGHT") : TEXT("LEFT");
-        FString Message = FString::Printf(TEXT("WALL RUNNING - %s SIDE! W=Continue, SPACE=Wall Jump"), *SideText);
-        GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, Message, true, FVector2D(1.4f, 1.4f));
-    }
+    // Debug message removed - wall running instructions
 
 }
 
@@ -629,13 +610,7 @@ void UWallRunComponent::EndWallRunInternal(bool bJumpCancel)
     // Stop wall verification timer
     StopWallVerificationTimer();
     
-    // Display end message
-    if (GEngine)
-    {
-        FString EndMessage = bJumpCancel ? TEXT("WALL JUMP!") : TEXT("WALL RUN ENDED");
-        FColor MessageColor = bJumpCancel ? FColor::Green : FColor::Orange;
-        GEngine->AddOnScreenDebugMessage(-1, 2.0f, MessageColor, EndMessage, true, FVector2D(1.5f, 1.5f));
-    }
+    // Debug message removed - wall run end message
     
     // Set wall run end time for cooldown
     LastWallRunEndTime = GetWorld()->GetTimeSeconds();
@@ -647,15 +622,7 @@ void UWallRunComponent::EndWallRunInternal(bool bJumpCancel)
     WallRunDirection = FVector::ZeroVector;
     WallRunStartHeight = 0.0f;
     
-    if (GEngine)
-    {
-        if (bJumpCancel)
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, 
-                FString::Printf(TEXT("Wall jump! Cooldown: %.1fs"), Settings.WallRunRestartCooldown), 
-                true, FVector2D(1.3f, 1.3f));
-        }
-    }
+    // Debug message removed - wall jump cooldown
     
     OnWallRunStateChanged.Broadcast(EWallRunState::None);
 }
@@ -696,11 +663,7 @@ void UWallRunComponent::RestoreNormalMovement()
             
             MovementComponent->Velocity = NewVelocity;
             
-            if (GEngine)
-            {
-                GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Yellow, 
-                    FString::Printf(TEXT("Speed preserved: %.0f"), TargetSpeed), true, FVector2D(1.3f, 1.3f));
-            }
+            // Debug message removed - speed preserved
         }
     }
 }
@@ -771,15 +734,7 @@ void UWallRunComponent::OnJumpPressed()
 {
     UE_LOG(LogTemp, Error, TEXT("WallRun: OnJumpPressed() called! CurrentState = %d"), (int32)CurrentState);
     
-    // Also show on screen for easier debugging
-    if (GEngine)
-    {
-        FString StateNames[] = {TEXT("None"), TEXT("Detecting"), TEXT("WallRunning"), TEXT("Falling"), TEXT("CoyoteTime")};
-        FString StateName = (int32)CurrentState < 5 ? StateNames[(int32)CurrentState] : TEXT("Unknown");
-        GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Red, 
-            FString::Printf(TEXT("OnJumpPressed! State: %s (%d)"), *StateName, (int32)CurrentState), 
-            true, FVector2D(2.0f, 2.0f));
-    }
+    // Debug message removed - jump pressed state
     
     if (CurrentState == EWallRunState::WallRunning)
     {
@@ -828,17 +783,7 @@ void UWallRunComponent::ExecuteWallJump()
     LastWallRunEndTime = GetWorld()->GetTimeSeconds();
     LastWallJumpTime = GetWorld()->GetTimeSeconds();
     
-    // Show feedback first (while we still have wall side info)
-    if (GEngine)
-    {
-        FString SideText = JumpWallSide == EWallSide::Right ? TEXT("RIGHT") : TEXT("LEFT");
-        GEngine->AddOnScreenDebugMessage(-1, 2.5f, FColor::Green, 
-            FString::Printf(TEXT("WALL JUMP! Diagonal from %s wall!"), *SideText), true, FVector2D(1.8f, 1.8f));
-        
-        GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Yellow, 
-            FString::Printf(TEXT("Cooldown: %.1fs"), Settings.WallRunRestartCooldown), 
-            true, FVector2D(1.3f, 1.3f));
-    }
+    // Debug message removed - wall jump feedback
     
     // Apply wall jump velocity FIRST before any state changes
     FVector VelocityBefore = MovementComponent->Velocity;
@@ -904,22 +849,14 @@ bool UWallRunComponent::CanUseAbilityDuringWallRun(const UAbilityComponent* Abil
     // SPECIAL CASE: Block HackerJumpAbility during wall run - use dedicated wall jump instead
     if (AbilityClassName.Contains(TEXT("HackerJumpAbility")))
     {
-        if (GEngine)
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Cyan, 
-                TEXT("Wall Jump active - use SPACE for diagonal jump!"), true, FVector2D(1.3f, 1.3f));
-        }
+        // Debug message removed - wall jump active
         return false; // Block regular jump, use wall jump instead
     }
     
     // SPECIAL CASE: Always block HackerDashAbility during wall run
     if (AbilityClassName.Contains(TEXT("HackerDashAbility")))
     {
-        // Show on-screen message when dash is blocked
-        if (GEngine)
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, TEXT("Can't dash while wall running!"), true, FVector2D(1.2f, 1.2f));
-        }
+        // Debug message removed - dash blocked during wall run
         return false;
     }
     
@@ -1189,11 +1126,7 @@ void UWallRunComponent::VerifyWallPresence()
             LogWallRunInfo("Wall verification failed - no wall detected, ending wall run");
         }
         
-        if (GEngine)
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Orange, 
-                TEXT("Wall ended - stopping wall run!"), true, FVector2D(1.4f, 1.4f));
-        }
+        // Debug message removed - wall ended
         
         EndWallRun(false); // End without jump
     }

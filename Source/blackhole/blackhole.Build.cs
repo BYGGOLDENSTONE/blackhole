@@ -17,7 +17,9 @@ public class blackhole : ModuleRules
 			"UMG",
 			"Slate",
 			"SlateCore",
-			"GameplayTags"
+			"GameplayTags",
+			"AIModule",
+			"NavigationSystem"
 		});
 
 		// Specify the new directory structure

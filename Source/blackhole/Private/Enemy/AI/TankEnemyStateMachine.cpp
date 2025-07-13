@@ -1,4 +1,5 @@
 #include "Enemy/AI/TankEnemyStateMachine.h"
+#include "Config/GameplayConfig.h"
 #include "Enemy/AI/States/IdleState.h"
 #include "Enemy/AI/States/AlertState.h"
 #include "Enemy/AI/States/ChaseState.h"
@@ -11,23 +12,8 @@ void UTankEnemyStateMachine::BeginPlay()
     Super::BeginPlay();
     SetupTankParameters();
     
-    // Delay initialization to ensure BaseEnemy has set the target
-    if (GetWorld())
-    {
-        FTimerHandle InitTimer;
-        GetWorld()->GetTimerManager().SetTimer(InitTimer, [this]()
-        {
-            // Try to get target from BaseEnemy if we don't have one
-            if (!Target && OwnerEnemy)
-            {
-                if (AActor* EnemyTarget = OwnerEnemy->GetTargetActor())
-                {
-                    SetTarget(EnemyTarget);
-                }
-            }
-            Initialize();
-        }, 0.1f, false);
-    } // Initialize states after parameters are set
+    // Initialize immediately - BaseEnemy has already set the target in its BeginPlay
+    Initialize();
 }
 
 void UTankEnemyStateMachine::InitializeStates()
@@ -65,8 +51,8 @@ void UTankEnemyStateMachine::SetupTankParameters()
     
     // Distance thresholds
     TankParams.AttackRange = 300.0f;              // Melee range
-    TankParams.ChaseRange = 2500.0f;              // Full sight range - persistent
-    TankParams.SightRange = 2500.0f;              
+    TankParams.ChaseRange = GameplayConfig::Enemy::DETECTION_RANGE;  // Full sight range - persistent
+    TankParams.SightRange = GameplayConfig::Enemy::DETECTION_RANGE;              
     TankParams.PreferredCombatDistance = 200.0f;  // Get close for smash
     
     // Timing parameters

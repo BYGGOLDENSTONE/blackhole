@@ -1,4 +1,5 @@
 #include "Enemy/AI/HackerEnemyStateMachine.h"
+#include "Config/GameplayConfig.h"
 #include "Enemy/AI/States/IdleState.h"
 #include "Enemy/AI/States/AlertState.h"
 #include "Enemy/AI/States/ChaseState.h"
@@ -12,23 +13,8 @@ void UHackerEnemyStateMachine::BeginPlay()
     Super::BeginPlay();
     SetupHackerParameters();
     
-    // Delay initialization to ensure BaseEnemy has set the target
-    if (GetWorld())
-    {
-        FTimerHandle InitTimer;
-        GetWorld()->GetTimerManager().SetTimer(InitTimer, [this]()
-        {
-            // Try to get target from BaseEnemy if we don't have one
-            if (!Target && OwnerEnemy)
-            {
-                if (AActor* EnemyTarget = OwnerEnemy->GetTargetActor())
-                {
-                    SetTarget(EnemyTarget);
-                }
-            }
-            Initialize();
-        }, 0.1f, false);
-    } // Initialize states after parameters are set
+    // Initialize immediately - BaseEnemy has already set the target in its BeginPlay
+    Initialize(); // Initialize states after parameters are set
 }
 
 void UHackerEnemyStateMachine::InitializeStates()
@@ -69,7 +55,7 @@ void UHackerEnemyStateMachine::SetupHackerParameters()
     // Distance thresholds
     HackerParams.AttackRange = 1200.0f;            // Long range for mindmeld
     HackerParams.ChaseRange = 1800.0f;             // Limited chase - prefers range
-    HackerParams.SightRange = 2500.0f;              
+    HackerParams.SightRange = GameplayConfig::Enemy::DETECTION_RANGE;              
     HackerParams.PreferredCombatDistance = 800.0f; // Keep distance
     
     // Timing parameters

@@ -20,6 +20,10 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void UpdateAIBehavior(float DeltaTime) override;
+	
+	// Override base enemy capabilities - can do everything
+	virtual bool CanBlock() const override { return true; }
+	virtual bool CanDodge() const override { return true; }
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	USmashAbilityComponent* SmashAbility;

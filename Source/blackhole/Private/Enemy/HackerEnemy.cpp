@@ -6,9 +6,13 @@
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 #include "Systems/ResourceManager.h"
+#include "Enemy/AI/HackerEnemyStateMachine.h"
 
 AHackerEnemy::AHackerEnemy()
 {
+	// Replace base state machine with hacker-specific one
+	StateMachine = CreateDefaultSubobject<UHackerEnemyStateMachine>(TEXT("HackerStateMachine"));
+	
 	MindmeldAbility = CreateDefaultSubobject<UMindmeldComponent>(TEXT("MindmeldAbility"));
 
 	MindmeldRange = 3000.0f;

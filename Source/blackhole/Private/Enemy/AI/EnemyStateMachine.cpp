@@ -12,6 +12,9 @@ UEnemyStateMachine::UEnemyStateMachine()
 {
     PrimaryComponentTick.bCanEverTick = true;
     PrimaryComponentTick.TickInterval = 0.1f; // Tick 10 times per second for performance
+    
+    // Start with tick disabled until properly initialized
+    PrimaryComponentTick.bStartWithTickEnabled = false;
 }
 
 void UEnemyStateMachine::BeginPlay()
@@ -79,15 +82,14 @@ void UEnemyStateMachine::TickComponent(float DeltaTime, ELevelTick TickType, FAc
 {
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
     
-    // Debug: Log tick status
-    static int TickCounter = 0;
-    if (TickCounter++ % 30 == 0) // Log every 3 seconds (assuming 10Hz tick)
+    // Safety check - don't tick if not initialized
+    if (!bIsInitialized)
     {
-        UE_LOG(LogTemp, Warning, TEXT("%s StateMachine: Tick active - State: %s, Target: %s"),
-            OwnerEnemy ? *OwnerEnemy->GetName() : TEXT("NoOwner"),
-            CurrentStateObject ? *UEnum::GetValueAsString(CurrentState) : TEXT("NoState"),
-            Target ? *Target->GetName() : TEXT("NoTarget"));
+        // Tick called before initialization - skipping
+        return;
     }
+    
+    // Tick logging removed - was too verbose
     
     if (!OwnerEnemy || !CurrentStateObject) 
     {
@@ -97,7 +99,23 @@ void UEnemyStateMachine::TickComponent(float DeltaTime, ELevelTick TickType, FAc
         }
         if (!CurrentStateObject)
         {
-            UE_LOG(LogTemp, Error, TEXT("StateMachine: No current state object in tick!"));
+            UE_LOG(LogTemp, Error, TEXT("StateMachine: No current state object in tick! Initialized: %s"),
+                bIsInitialized ? TEXT("Yes") : TEXT("No"));
+            
+            // Try to recover by re-entering current state if we have states
+            if (States.Contains(CurrentState))
+            {
+                UE_LOG(LogTemp, Warning, TEXT("StateMachine: Attempting to recover by re-entering state %s"),
+                    *UEnum::GetValueAsString(CurrentState));
+                EnterState(CurrentState);
+                
+                // If still no state object, something is very wrong
+                if (!CurrentStateObject)
+                {
+                    UE_LOG(LogTemp, Error, TEXT("StateMachine: Recovery failed - disabling tick"));
+                    SetComponentTickEnabled(false);
+                }
+            }
         }
         return;
     }
@@ -158,6 +176,18 @@ void UEnemyStateMachine::Initialize()
             *GetName(), 
             *UEnum::GetValueAsString(CurrentState));
         EnterState(CurrentState);
+        
+        // Verify we have a valid state object
+        if (CurrentStateObject)
+        {
+            bIsInitialized = true;
+            SetComponentTickEnabled(true); // Enable tick only after successful initialization
+            UE_LOG(LogTemp, Warning, TEXT("%s: State machine initialization complete - tick enabled"), *GetName());
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("%s: Failed to set current state object!"), *GetName());
+        }
     }
     else
     {
@@ -188,12 +218,20 @@ void UEnemyStateMachine::RegisterState(EEnemyState StateType, UEnemyStateBase* S
         return;
     }
     
+    // Check if state object is valid
+    if (!IsValid(StateObject))
+    {
+        UE_LOG(LogTemp, Error, TEXT("RegisterState: Invalid state object for %s"), *UEnum::GetValueAsString(StateType));
+        return;
+    }
+    
     StateObject->AddToRoot(); // Prevent garbage collection
     States.Add(StateType, StateObject);
     
-    UE_LOG(LogTemp, Verbose, TEXT("%s: Registered state %s"), 
+    UE_LOG(LogTemp, Warning, TEXT("%s: Registered state %s (Object: %s)"), 
         *GetName(), 
-        *UEnum::GetValueAsString(StateType));
+        *UEnum::GetValueAsString(StateType),
+        *StateObject->GetName());
 }
 
 void UEnemyStateMachine::ChangeState(EEnemyState NewState)
@@ -242,12 +280,21 @@ void UEnemyStateMachine::EnterState(EEnemyState NewState)
     {
         CurrentStateObject = *StatePtr;
         CurrentStateObject->Enter(OwnerEnemy, this);
+        
+        UE_LOG(LogTemp, Verbose, TEXT("%s: Entered state %s - CurrentStateObject set to %s"),
+            OwnerEnemy ? *OwnerEnemy->GetName() : TEXT("NoOwner"),
+            *UEnum::GetValueAsString(NewState),
+            *CurrentStateObject->GetName());
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("%s: No state object for %s!"),
-            *OwnerEnemy->GetName(),
-            *UEnum::GetValueAsString(NewState));
+        UE_LOG(LogTemp, Error, TEXT("%s: No state object for %s! Available states: %d"),
+            OwnerEnemy ? *OwnerEnemy->GetName() : TEXT("NoOwner"),
+            *UEnum::GetValueAsString(NewState),
+            States.Num());
+            
+        // Clear current state object to prevent crashes
+        CurrentStateObject = nullptr;
     }
 }
 
@@ -256,6 +303,7 @@ void UEnemyStateMachine::ExitState(EEnemyState OldState)
     if (CurrentStateObject)
     {
         CurrentStateObject->Exit(OwnerEnemy, this);
+        // Don't clear CurrentStateObject here - it should be set by EnterState
     }
 }
 
@@ -311,27 +359,47 @@ void UEnemyStateMachine::CheckLineOfSight()
     
     FHitResult HitResult;
     FVector Start = OwnerEnemy->GetActorLocation() + FVector(0, 0, 50); // Eye height
-    FVector End = Target->GetActorLocation();
+    FVector TargetLoc = Target->GetActorLocation();
+    
+    // Check multiple target heights to account for wall running
+    TArray<FVector> TargetPositions = {
+        TargetLoc,                                      // Normal position
+        TargetLoc + FVector(0, 0, 100),               // Higher position for wall running
+        TargetLoc + FVector(0, 0, 200),               // Even higher for wall running
+        TargetLoc - FVector(0, 0, 50)                 // Lower position for crouching/falling
+    };
     
     FCollisionQueryParams QueryParams;
     QueryParams.AddIgnoredActor(OwnerEnemy);
     QueryParams.AddIgnoredActor(Target);
     
-    bool bHit = GetWorld()->LineTraceSingleByChannel(
-        HitResult,
-        Start,
-        End,
-        ECC_Visibility,
-        QueryParams
-    );
+    // Check line of sight to multiple heights
+    bHasLineOfSight = false;
+    FVector SuccessfulTargetPos = TargetLoc; // Default to base target location
     
-    bHasLineOfSight = !bHit;
+    for (const FVector& End : TargetPositions)
+    {
+        bool bHit = GetWorld()->LineTraceSingleByChannel(
+            HitResult,
+            Start,
+            End,
+            ECC_Visibility,
+            QueryParams
+        );
+        
+        if (!bHit)
+        {
+            bHasLineOfSight = true;
+            SuccessfulTargetPos = End; // Store the position where we found line of sight
+            break; // Found line of sight at one of the heights
+        }
+    }
     
     // Debug visualization
     if (GetWorld())
     {
         FColor LineColor = bHasLineOfSight ? FColor::Green : FColor::Red;
-        DrawDebugLine(GetWorld(), Start, End, LineColor, false, 0.2f, 0, 1.0f);
+        DrawDebugLine(GetWorld(), Start, SuccessfulTargetPos, LineColor, false, 0.2f, 0, 1.0f);
         
         // Always log line of sight status
         static int LOSCounter = 0;
@@ -341,16 +409,11 @@ void UEnemyStateMachine::CheckLineOfSight()
                 *OwnerEnemy->GetName(), 
                 *Target->GetName(),
                 bHasLineOfSight ? TEXT("YES") : TEXT("NO"),
-                FVector::Dist(Start, End));
+                FVector::Dist(Start, SuccessfulTargetPos));
         }
         
         // Debug text
-        if (GEngine)
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 0.0f, bHasLineOfSight ? FColor::Green : FColor::Red, 
-                FString::Printf(TEXT("%s: LOS to %s: %s"), 
-                *OwnerEnemy->GetName(), *Target->GetName(), bHasLineOfSight ? TEXT("YES") : TEXT("NO")));
-        }
+        // Debug message removed - line of sight
     }
 }
 

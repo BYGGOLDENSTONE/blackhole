@@ -7,6 +7,7 @@
 class UIntegrityComponent;
 class UStaticMeshComponent;
 class ABlackholePlayerCharacter;
+class UEnemyStateMachine;
 
 UCLASS()
 class BLACKHOLE_API ABaseEnemy : public ACharacter
@@ -21,6 +22,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
 	UIntegrityComponent* IntegrityComponent;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
+	UEnemyStateMachine* StateMachine;
 
 	UFUNCTION(BlueprintCallable, Category = "AI")
 	virtual void UpdateAIBehavior(float DeltaTime);
@@ -55,6 +59,9 @@ protected:
 	
 	// Timer-based AI update
 	void TimerUpdateAI();
+	
+	// Store default walk speed
+	float DefaultWalkSpeed;
 
 public:
 	virtual void Tick(float DeltaTime) override;
@@ -80,4 +87,32 @@ public:
 	
 	UFUNCTION(BlueprintImplementableEvent, Category = "Enemy")
 	void OnCombatEnd();
+	
+	// State machine integration
+	UFUNCTION(BlueprintPure, Category = "Enemy")
+	AActor* GetTarget() const { return TargetActor; }
+	
+	UFUNCTION(BlueprintPure, Category = "Enemy")
+	float GetDefaultWalkSpeed() const;
+	
+	// Movement modifiers
+	UFUNCTION(BlueprintCallable, Category = "Enemy")
+	void ApplyMovementSpeedModifier(float Multiplier, float Duration);
+	
+	// Combat abilities
+	UFUNCTION(BlueprintPure, Category = "Enemy")
+	virtual bool CanBlock() const { return false; }
+	
+	UFUNCTION(BlueprintPure, Category = "Enemy")
+	virtual bool CanDodge() const { return false; }
+	
+	UFUNCTION(BlueprintPure, Category = "Enemy")
+	virtual bool HasPatrolRoute() const { return false; }
+	
+	// State reactions
+	UFUNCTION(BlueprintImplementableEvent, Category = "Enemy")
+	void PlayAlertReaction();
+	
+private:
+	FTimerHandle SpeedResetTimerHandle;
 };

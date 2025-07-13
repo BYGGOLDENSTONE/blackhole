@@ -2,13 +2,22 @@
 #include "Components/Attributes/IntegrityComponent.h"
 #include "GameFramework/Actor.h"
 #include "Engine/World.h"
+#include "Engine/EngineTypes.h"
+#include "CollisionQueryParams.h"
+#include "Engine/OverlapResult.h"
 #include "DrawDebugHelpers.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "Engine/DamageEvents.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/Character.h"
 
 USmashAbilityComponent::USmashAbilityComponent()
 {
-	Damage = 10.0f;
+	Damage = 20.0f;  // Increased base damage
 	Cooldown = 1.5f;
-	Range = 200.0f;
+	Range = 250.0f;  // Increased range
+	bIsAreaDamage = false;  // Default to single target
+	AreaRadius = 300.0f;    // Area damage radius
 }
 
 void USmashAbilityComponent::BeginPlay()
@@ -27,27 +36,98 @@ void USmashAbilityComponent::Execute()
 	
 	if (AActor* Owner = GetOwner())
 	{
-		FVector Start = Owner->GetActorLocation();
-		FVector Forward = Owner->GetActorForwardVector();
-		FVector End = Start + (Forward * Range);
-		
-		FHitResult HitResult;
-		FCollisionQueryParams QueryParams;
-		QueryParams.AddIgnoredActor(Owner);
-		
-		if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Pawn, QueryParams))
+		if (bIsAreaDamage)
 		{
-			if (AActor* HitActor = HitResult.GetActor())
+			// Area damage for ground slam
+			PerformAreaDamage(Owner);
+		}
+		else
+		{
+			// Single target damage
+			PerformSingleTargetDamage(Owner);
+		}
+	}
+}
+
+void USmashAbilityComponent::PerformSingleTargetDamage(AActor* Owner)
+{
+	FVector Start = Owner->GetActorLocation();
+	FVector Forward = Owner->GetActorForwardVector();
+	FVector End = Start + (Forward * Range);
+	
+	FHitResult HitResult;
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(Owner);
+	
+	if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Pawn, QueryParams))
+	{
+		if (AActor* HitActor = HitResult.GetActor())
+		{
+			if (UIntegrityComponent* TargetIntegrity = HitActor->FindComponentByClass<UIntegrityComponent>())
+			{
+				TargetIntegrity->TakeDamage(Damage);
+				UE_LOG(LogTemp, Warning, TEXT("SmashAbility: Dealt %f damage to %s"), Damage, *HitActor->GetName());
+			}
+		}
+	}
+	
+	#if WITH_EDITOR
+	DrawDebugLine(GetWorld(), Start, End, FColor::Orange, false, 1.0f, 0, 2.0f);
+	#endif
+}
+
+void USmashAbilityComponent::PerformAreaDamage(AActor* Owner)
+{
+	FVector Center = Owner->GetActorLocation();
+	
+	// Find all actors in radius
+	TArray<FOverlapResult> OverlapResults;
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(Owner);
+	
+	FCollisionShape SphereShape = FCollisionShape::MakeSphere(AreaRadius);
+	
+	if (GetWorld()->OverlapMultiByChannel(OverlapResults, Center, FQuat::Identity, ECC_Pawn, SphereShape, QueryParams))
+	{
+		for (const FOverlapResult& Result : OverlapResults)
+		{
+			if (AActor* HitActor = Result.GetActor())
 			{
 				if (UIntegrityComponent* TargetIntegrity = HitActor->FindComponentByClass<UIntegrityComponent>())
 				{
-					TargetIntegrity->TakeDamage(Damage);
+					// Damage falloff based on distance
+					float Distance = FVector::Dist(Center, HitActor->GetActorLocation());
+					float DamageFalloff = FMath::Clamp(1.0f - (Distance / AreaRadius), 0.3f, 1.0f);
+					float FinalDamage = Damage * DamageFalloff;
+					
+					TargetIntegrity->TakeDamage(FinalDamage);
+					
+					// Apply knockback to player characters
+					if (ACharacter* TargetCharacter = Cast<ACharacter>(HitActor))
+					{
+						// Calculate knockback direction
+						FVector KnockbackDirection = (HitActor->GetActorLocation() - Center).GetSafeNormal();
+						KnockbackDirection.Z = 0.3f; // Add slight upward force
+						KnockbackDirection.Normalize();
+						
+						// Calculate knockback force based on distance (closer = stronger)
+						float KnockbackForce = 1500.0f * DamageFalloff;
+						
+						if (UCharacterMovementComponent* CharMovement = TargetCharacter->GetCharacterMovement())
+						{
+							// Launch the character
+							CharMovement->Launch(KnockbackDirection * KnockbackForce);
+							UE_LOG(LogTemp, Warning, TEXT("SmashAbility Area: Applied knockback force %f to %s"), KnockbackForce, *HitActor->GetName());
+						}
+					}
+					
+					UE_LOG(LogTemp, Warning, TEXT("SmashAbility Area: Dealt %f damage to %s"), FinalDamage, *HitActor->GetName());
 				}
 			}
 		}
-		
-		#if WITH_EDITOR
-		DrawDebugLine(GetWorld(), Start, End, FColor::Orange, false, 1.0f, 0, 2.0f);
-		#endif
 	}
+	
+	#if WITH_EDITOR
+	DrawDebugSphere(GetWorld(), Center, AreaRadius, 12, FColor::Red, false, 1.0f);
+	#endif
 }

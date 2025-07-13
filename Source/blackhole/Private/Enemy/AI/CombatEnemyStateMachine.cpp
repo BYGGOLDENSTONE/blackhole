@@ -1,4 +1,5 @@
 #include "Enemy/AI/CombatEnemyStateMachine.h"
+#include "Config/GameplayConfig.h"
 #include "Enemy/AI/States/IdleState.h"
 #include "Enemy/AI/States/AlertState.h"
 #include "Enemy/AI/States/ChaseState.h"
@@ -11,23 +12,8 @@ void UCombatEnemyStateMachine::BeginPlay()
     Super::BeginPlay();
     SetupCombatParameters();
     
-    // Delay initialization to ensure BaseEnemy has set the target
-    if (GetWorld())
-    {
-        FTimerHandle InitTimer;
-        GetWorld()->GetTimerManager().SetTimer(InitTimer, [this]()
-        {
-            // Try to get target from BaseEnemy if we don't have one
-            if (!Target && OwnerEnemy)
-            {
-                if (AActor* EnemyTarget = OwnerEnemy->GetTargetActor())
-                {
-                    SetTarget(EnemyTarget);
-                }
-            }
-            Initialize();
-        }, 0.1f, false);
-    }
+    // Initialize immediately - BaseEnemy has already set the target in its BeginPlay
+    Initialize();
 }
 
 void UCombatEnemyStateMachine::InitializeStates()
@@ -66,7 +52,7 @@ void UCombatEnemyStateMachine::SetupCombatParameters()
     // Distance thresholds
     CombatParams.AttackRange = 300.0f;             // Standard melee range
     CombatParams.ChaseRange = 2000.0f;             // Good chase capability
-    CombatParams.SightRange = 2500.0f;              
+    CombatParams.SightRange = GameplayConfig::Enemy::DETECTION_RANGE;              
     CombatParams.PreferredCombatDistance = 250.0f; // Flexible positioning
     
     // Timing parameters

@@ -7,9 +7,13 @@
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 #include "Enemy/EnemyUtility.h"
+#include "Enemy/AI/TankEnemyStateMachine.h"
 
 ATankEnemy::ATankEnemy()
 {
+	// Replace base state machine with tank-specific one
+	StateMachine = CreateDefaultSubobject<UTankEnemyStateMachine>(TEXT("TankStateMachine"));
+	
 	// Only create the abilities this enemy type should have
 	SmashAbility = CreateDefaultSubobject<USmashAbilityComponent>(TEXT("SmashAbility"));
 	BlockAbility = CreateDefaultSubobject<UBlockComponent>(TEXT("BlockAbility"));
@@ -49,31 +53,9 @@ void ATankEnemy::BeginPlay()
 
 void ATankEnemy::UpdateAIBehavior(float DeltaTime)
 {
-	// Call parent implementation first to handle combat detection
+	// State machine handles all AI behavior now
+	// This method only exists for compatibility
 	Super::UpdateAIBehavior(DeltaTime);
-	
-	if (!TargetActor || !IntegrityComponent->IsAlive())
-	{
-		return;
-	}
-
-	float Distance = UEnemyUtility::GetDistanceToTarget(this, TargetActor);
-
-	// When player is attacking and close, try to block
-	if (Distance <= 300.0f && IsPlayerAttacking() && FMath::FRand() < BlockChance)
-	{
-		TryBlock();
-	}
-
-	if (Distance <= AttackRange && !BlockAbility->IsBlocking())
-	{
-		TryAttack();
-	}
-	else if (Distance <= ChaseRange)
-	{
-		// Use utility function for movement
-		UEnemyUtility::MoveTowardsTarget(this, TargetActor, DeltaTime, 240.0f); // Tank moves slower
-	}
 }
 
 void ATankEnemy::MoveTowardsTarget(float DeltaTime)
@@ -110,4 +92,29 @@ bool ATankEnemy::IsPlayerAttacking() const
 {
 	// Simple proximity check - in a real game you'd check if player's attack animation is playing
 	return UEnemyUtility::GetDistanceToTarget(this, TargetActor) < 250.0f;
+}
+
+void ATankEnemy::SetShieldVisible(bool bVisible)
+{
+	if (ShieldMesh)
+	{
+		ShieldMesh->SetVisibility(bVisible);
+	}
+}
+
+float ATankEnemy::GetDamage() const
+{
+	if (SmashAbility)
+	{
+		return SmashAbility->GetDamage();
+	}
+	return 20.0f; // Default damage
+}
+
+void ATankEnemy::SetDamage(float NewDamage)
+{
+	if (SmashAbility)
+	{
+		SmashAbility->SetDamage(NewDamage);
+	}
 }

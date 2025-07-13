@@ -11,7 +11,7 @@ namespace GameplayConfig
 	// Enemy AI Configuration
 	namespace Enemy
 	{
-		constexpr float DETECTION_RANGE = 2500.0f;				// Units
+		constexpr float DETECTION_RANGE = 4500.0f;				// Increased from 2500 for better detection
 		constexpr float AI_UPDATE_RATE = 0.2f;					// Seconds
 		constexpr float SIGHT_HEIGHT_OFFSET = 50.0f;			// Units
 		constexpr float DEATH_IMPULSE_Z = 0.5f;				// Normalized

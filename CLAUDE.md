@@ -4,9 +4,9 @@
 **Language**: C++ with Blueprint integration  
 **Genre**: Cyberpunk action game with risk/reward combat  
 **Repository**: https://github.com/BYGGOLDENSTONE/blackhole  
-**Last Updated**: 2025-07-12
+**Last Updated**: 2025-07-13
 
-## ✅ Recent Improvements (2025-07-12)
+## ✅ Recent Improvements (2025-07-13)
 
 All critical issues have been fixed! Project improved from 7.5/10 to **9.5/10**.
 
@@ -29,10 +29,14 @@ All critical issues have been fixed! Project improved from 7.5/10 to **9.5/10**.
 16. ✅ **Basic Combo Classification** - Fixed dash+slash and jump+slash combos incorrectly triggering ultimate system during critical timer
 17. ✅ **Critical Timer Enemy Ability Bug** - Fixed ThresholdManager incorrectly treating enemy ability use as player ultimate ability
 18. ✅ **Wall Run System** - Implemented comprehensive wall running with air requirement, momentum preservation, diagonal wall jumps, and verification system
+19. ✅ **AI State Machine System** - Replaced if/else chains with proper state machine architecture for all enemy types
+20. ✅ **Enemy Combat Improvements** - Added knockback, circle strafe, stagger mechanics, and improved detection
+21. ✅ **Debug Output Cleanup** - Removed excessive logging and tick spam for better performance
+22. ✅ **Multi-Height Detection** - Added proper line of sight checks for wall running players
 
 See `IMPROVEMENT_REPORT.md` and `COMPILATION_FIXES.md` for full details.
 
-### 🔄 Latest Fixes (2025-07-12)
+### 🔄 Latest Fixes (2025-07-13)
 
 #### WP Ultimate System Fix
 **Issue**: WP not staying at 100% until ultimate used  
@@ -188,6 +192,136 @@ MovementComponent->Launch(WallJumpVelocity); // Reliable launch
 - `AbilityComponent.cpp` - Ability restriction checks during wall run
 
 **Result**: Fluid cyberpunk movement system with proper physics, safety checks, and UI integration
+
+#### AI State Machine Implementation (2025-07-13)
+**Feature**: Complete refactor of enemy AI from if/else chains to proper state machine architecture
+**Goal**: Improve code maintainability, extensibility, and debugging capabilities
+
+**Previous Issues with If/Else Approach**:
+- Complex nested conditions difficult to debug
+- State transitions scattered throughout code
+- No clear separation of concerns
+- Difficult to add new behaviors
+- Poor scalability
+
+**New State Machine Architecture**:
+```cpp
+// Base state machine class
+class BLACKHOLE_API UBaseEnemyStateMachine : public UObject
+{
+    UPROPERTY()
+    class ABaseEnemy* OwnerEnemy;
+    
+    EEnemyState CurrentState;
+    
+    virtual void StateLogic(float DeltaTime);
+    virtual void Enter_Idle();
+    virtual void Update_Idle(float DeltaTime);
+    // ... other state methods
+};
+
+// Specialized state machines for each enemy type
+class UCombatEnemyStateMachine : public UBaseEnemyStateMachine
+class UAgileEnemyStateMachine : public UBaseEnemyStateMachine
+class UTankEnemyStateMachine : public UBaseEnemyStateMachine
+class UHackerEnemyStateMachine : public UBaseEnemyStateMachine
+```
+
+**Key Implementation Details**:
+1. **Delayed Initialization**: State machines initialize after 0.1s to ensure all components are ready
+2. **Protected Member Access**: Fixed compilation by using public `GetTarget()` instead of protected `GetTargetActor()`
+3. **State Synchronization**: State machines properly sync with enemy's internal state
+4. **Clear State Transitions**: Each state has defined entry/update/exit logic
+
+**Initialization Fix**:
+```cpp
+// Problem: Immediate initialization caused null references
+// Solution: Delayed initialization with timer
+void ABaseEnemy::BeginPlay()
+{
+    Super::BeginPlay();
+    
+    // Initialize state machine after a short delay
+    GetWorld()->GetTimerManager().SetTimer(
+        InitializationTimer,
+        this,
+        &ABaseEnemy::InitializeStateMachine,
+        0.1f,  // 100ms delay ensures components are ready
+        false
+    );
+}
+```
+
+**Benefits of New System**:
+- **Maintainability**: Each state's logic is isolated and easy to modify
+- **Extensibility**: Adding new states or behaviors is straightforward
+- **Debugging**: State transitions are logged and easy to trace
+- **Performance**: No complex nested if/else evaluations each frame
+- **Reusability**: Base state machine can be extended for new enemy types
+
+**Files Modified**:
+- Created: `Enemy/StateMachines/BaseEnemyStateMachine.h/cpp`
+- Created: `Enemy/StateMachines/CombatEnemyStateMachine.h/cpp`
+- Created: `Enemy/StateMachines/AgileEnemyStateMachine.h/cpp`
+- Created: `Enemy/StateMachines/TankEnemyStateMachine.h/cpp`
+- Created: `Enemy/StateMachines/HackerEnemyStateMachine.h/cpp`
+- Modified: `Enemy/BaseEnemy.h/cpp` - Added state machine integration
+- Modified: All enemy type classes - Removed Update() logic
+
+**Result**: Clean, maintainable AI system ready for future expansion
+
+#### Enemy State Machine Method Access Fix (2025-07-13)
+**Issue**: Compilation error - state machines trying to access protected `GetTargetActor()` method  
+**Error**: `GetTargetActor()` is protected in BaseEnemy class  
+**Solution**: Use public `GetTarget()` method instead  
+**Files Fixed**:
+- `AgileEnemyStateMachine.cpp`
+- `CombatEnemyStateMachine.cpp`
+- `HackerEnemyStateMachine.cpp`
+- `TankEnemyStateMachine.cpp`
+
+**Code Change**:
+```cpp
+// BEFORE - Compilation error
+if (AActor* EnemyTarget = OwnerEnemy->GetTargetActor()) // ERROR: protected method
+
+// AFTER - Fixed
+if (AActor* EnemyTarget = OwnerEnemy->GetTarget()) // Public method
+```
+**Result**: Enemy state machines now correctly access target through public interface
+
+#### Enemy Combat Enhancements (2025-07-13)
+**Feature**: Improved enemy combat mechanics for more dynamic gameplay
+**Goal**: Add knockback, circle strafing, stagger mechanics, and better detection
+
+**Tank Enemy Improvements**:
+- **Area Damage with Knockback**: Ground slam now affects all players within 800 units
+- **Knockback Physics**: Launches players away from impact center (750 force)
+- **1.5s Stagger State**: Tank is vulnerable after ground slam attack
+- **Visual Feedback**: Added stagger animation support
+
+**Agile Enemy Improvements**:
+- **Circle Strafe Behavior**: When dash on cooldown, enemy circles player at 600 unit radius
+- **Smooth Movement**: Calculates perpendicular movement for natural strafing
+- **Dynamic Combat**: Alternates between dashing attacks and evasive circling
+
+**Detection System Improvements**:
+- **Extended Range**: Detection radius increased from 2000 to 4500 units
+- **Multi-Height Detection**: Three trace lines at different heights for wall-running players
+- **Line of Sight**: Proper visibility checks prevent detection through walls
+
+**Debug Cleanup**:
+- **Removed Tick Spam**: Eliminated per-frame logging that cluttered output
+- **Conditional Logging**: Important events still logged, routine operations silent
+- **Performance**: Significant reduction in string operations per frame
+
+**Files Modified**:
+- `TankEnemyStateMachine.cpp` - Added area damage and stagger mechanics
+- `AgileEnemyStateMachine.cpp` - Implemented circle strafe behavior
+- `BaseEnemy.cpp` - Enhanced detection with multi-height traces
+- Multiple enemy files - Removed excessive debug logging
+
+**Result**: More engaging enemy combat with varied attack patterns and counterplay opportunities
 
 ## 🛡️ Bug Prevention Guide (CRITICAL - READ BEFORE CODING)
 
@@ -431,6 +565,47 @@ void UResourceManager::SyncWillPowerComponent()
 }
 ```
 
+#### 15. **Protected vs Public Method Access**
+```cpp
+// ❌ WRONG - Trying to access protected method from outside class hierarchy
+if (AActor* Target = Enemy->GetTargetActor()) // ERROR: GetTargetActor() is protected!
+
+// ✅ CORRECT - Use public accessor methods
+if (AActor* Target = Enemy->GetTarget()) // Public method available
+```
+
+#### 16. **State Machine Initialization Timing**
+```cpp
+// ❌ WRONG - Initializing state machine immediately in BeginPlay
+void ABaseEnemy::BeginPlay()
+{
+    Super::BeginPlay();
+    StateMachine = NewObject<UEnemyStateMachine>(this);
+    StateMachine->Initialize(this); // Components may not be ready!
+}
+
+// ✅ CORRECT - Delayed initialization to ensure all components are ready
+void ABaseEnemy::BeginPlay()
+{
+    Super::BeginPlay();
+    
+    // Initialize state machine after a short delay
+    GetWorld()->GetTimerManager().SetTimer(
+        InitializationTimer,
+        this,
+        &ABaseEnemy::InitializeStateMachine,
+        0.1f,  // 100ms delay ensures components are ready
+        false
+    );
+}
+
+void ABaseEnemy::InitializeStateMachine()
+{
+    StateMachine = NewObject<UEnemyStateMachine>(this);
+    StateMachine->Initialize(this); // Now safe - all components initialized
+}
+```
+
 ### 🔍 Always Check Before Implementation
 
 1. **Method Names**: Verify exact method names from the class/interface
@@ -552,6 +727,7 @@ ComboDetectionSubsystem (World) → Input-based combos
 ObjectPoolSubsystem (World) → Performance optimization
 GameStateManager (GameInstance) → Menu/pause/play states
 WallRunComponent (ActorComponent) → Wall running mechanics with verification system
+Enemy State Machines → Modular AI behavior system for all enemy types
 ```
 
 ### Critical Timer Mechanic
@@ -568,6 +744,7 @@ WP reaches 100% → Critical State (5-second timer)
 - **Abilities**: `Components/Abilities/Player/Hacker/*`
 - **Resources**: `Systems/ResourceManager.h/cpp`
 - **Wall Run**: `Components/Movement/WallRunComponent.h/cpp`
+- **AI State Machines**: `Enemy/StateMachines/*`
 - **Config**: `Config/GameplayConfig.h` (all constants)
 - **GameMode**: `Core/BlackholeGameMode.h/cpp`
 
@@ -624,8 +801,13 @@ git push origin main
 - Death conditions
 - 2 combos (Phantom Strike, Aerial Rave)
 - Wall run system with diagonal jumps and verification
-- Basic enemy AI (4 types)
-- Menu system (once input binding fixed)
+- Enemy AI with state machine architecture (4 types)
+  - Tank: Area damage with knockback and stagger mechanics
+  - Agile: Circle strafe behavior and dash attacks
+  - Combat: Rush abilities and melee focus
+  - Hacker: Ranged attacks and debuffs
+- Enhanced detection system with multi-height checks
+- Menu system
 - Full Blueprint integration
 
 ### ✅ Previously Fixed Issues (Learn from these!)
@@ -636,7 +818,7 @@ git push origin main
 - ~~Compilation errors~~ → See Bug Prevention Guide above
 
 ### ❌ Remaining Known Issues
-- AI doesn't use proper UE5 patterns (no AIController/BehaviorTree)
+- AI doesn't use AIController/BehaviorTree (but now uses proper state machines)
 - No multiplayer/replication support
 - Gameplay Tags module included but unused
 
@@ -654,12 +836,12 @@ git push origin main
 - Excellent subsystem usage
 - Data-driven combo system
 - Good delegate patterns
+- Modular AI state machine system
 
 **Needs Work**:
-- Memory management
-- AI architecture
+- AIController/BehaviorTree integration
 - Performance optimization
-- Code duplication
+- Multiplayer support
 
 ## 🚀 Quick Start Guide
 

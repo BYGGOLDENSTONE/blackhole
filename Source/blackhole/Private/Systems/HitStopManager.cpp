@@ -86,7 +86,7 @@ void UHitStopManager::RequestHitStop(const FHitStopConfig& Config)
 	// Visual feedback
 	if (CurrentConfig.bIsCritical && GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 0.5f, FColor::Red, TEXT("CRITICAL HIT!"));
+		// Debug message removed - critical hit
 	}
 }
 

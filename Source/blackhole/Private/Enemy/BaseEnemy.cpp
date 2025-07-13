@@ -10,6 +10,7 @@
 #include "Config/GameplayConfig.h"
 #include "Player/BlackholePlayerCharacter.h"
 #include "Enemy/AI/EnemyStateMachine.h"
+#include "Enemy/AI/BlackholeAIController.h"
 
 ABaseEnemy::ABaseEnemy()
 {
@@ -17,8 +18,7 @@ ABaseEnemy::ABaseEnemy()
 
 	IntegrityComponent = CreateDefaultSubobject<UIntegrityComponent>(TEXT("Integrity"));
 	
-	// Create state machine component - base class uses default
-	StateMachine = CreateDefaultSubobject<UEnemyStateMachine>(TEXT("StateMachine"));
+	// Don't create state machine here - derived classes create their own specific types
 	
 	// Tag all enemies so hack abilities can identify them
 	Tags.Add(FName("Enemy"));
@@ -33,6 +33,10 @@ ABaseEnemy::ABaseEnemy()
 	
 	// Set default AI update rate from config
 	AIUpdateRate = GameplayConfig::Enemy::AI_UPDATE_RATE;
+	
+	// Set AI controller class
+	AIControllerClass = ABlackholeAIController::StaticClass();
+	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 }
 
 void ABaseEnemy::BeginPlay()
@@ -43,6 +47,28 @@ void ABaseEnemy::BeginPlay()
 	if (GetCharacterMovement())
 	{
 		DefaultWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
+		UE_LOG(LogTemp, Warning, TEXT("%s: Default walk speed set to %.0f"), *GetName(), DefaultWalkSpeed);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("%s: No CharacterMovement component found!"), *GetName());
+	}
+	
+	// Verify AI Controller
+	if (GetController())
+	{
+		if (AAIController* AIController = Cast<AAIController>(GetController()))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("%s: AIController present: %s"), *GetName(), *AIController->GetName());
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("%s: Controller is not an AIController!"), *GetName());
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("%s: No controller found! AutoPossessAI: %d"), *GetName(), (int32)AutoPossessAI);
 	}
 	
 	// Try to find player if no target set
@@ -73,7 +99,7 @@ void ABaseEnemy::BeginPlay()
 	}
 	else
 	{
-		UE_LOG(LogTemp, Error, TEXT("%s: No state machine component found!"), *GetName());
+		UE_LOG(LogTemp, Error, TEXT("%s: No state machine component found after CreateStateMachine()!"), *GetName());
 	}
 	
 	// Bind to integrity component's OnReachedZero event
@@ -121,7 +147,7 @@ void ABaseEnemy::UpdateAIBehavior(float DeltaTime)
 							// Show on screen message
 							if (GEngine)
 							{
-								GEngine->AddOnScreenDebugMessage(-1, GameplayConfig::Enemy::COMBAT_MESSAGE_DURATION, FColor::Red, TEXT("COMBAT STARTED!"));
+								// Debug message removed - combat started
 							}
 						}
 					}

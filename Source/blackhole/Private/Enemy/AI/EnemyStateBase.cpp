@@ -63,13 +63,7 @@ bool UEnemyStateBase::IsPlayerInRange(ABaseEnemy* Enemy, float Range) const
     UE_LOG(LogTemp, Verbose, TEXT("%s: IsPlayerInRange - Distance: %.0f, Range: %.0f, InRange: %s"),
         *Enemy->GetName(), Distance, Range, bInRange ? TEXT("YES") : TEXT("NO"));
     
-    // Debug logging
-    if (GEngine)
-    {
-        GEngine->AddOnScreenDebugMessage(-1, 0.0f, bInRange ? FColor::Green : FColor::Yellow, 
-            FString::Printf(TEXT("%s: Distance to player: %.0f (Range: %.0f) - %s"), 
-            *Enemy->GetName(), Distance, Range, bInRange ? TEXT("IN RANGE") : TEXT("OUT OF RANGE")));
-    }
+    // Debug message removed - player range check
     
     return bInRange;
 }
@@ -126,4 +120,38 @@ void UEnemyStateBase::StartAbilityCooldown(ABaseEnemy* Enemy, const FString& Abi
     {
         StateMachine->StartCooldown(AbilityName, Duration);
     }
+}
+
+void UEnemyStateBase::RotateTowardsTarget(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine, float DeltaTime, float RotationSpeed) const
+{
+    if (!Enemy || !StateMachine) return;
+    
+    AActor* Target = StateMachine->GetTarget();
+    if (!Target) return;
+    
+    // Get direction to target
+    FVector DirectionToTarget = Target->GetActorLocation() - Enemy->GetActorLocation();
+    DirectionToTarget.Z = 0.0f; // Keep rotation on horizontal plane
+    DirectionToTarget.Normalize();
+    
+    // Get desired rotation
+    FRotator DesiredRotation = DirectionToTarget.Rotation();
+    
+    // Smoothly interpolate to desired rotation
+    FRotator CurrentRotation = Enemy->GetActorRotation();
+    FRotator NewRotation = FMath::RInterpTo(CurrentRotation, DesiredRotation, DeltaTime, RotationSpeed);
+    
+    // Debug logging
+    float YawDiff = FMath::Abs(FMath::FindDeltaAngleDegrees(CurrentRotation.Yaw, DesiredRotation.Yaw));
+    if (YawDiff > 1.0f) // Only log if there's meaningful rotation needed
+    {
+        UE_LOG(LogTemp, VeryVerbose, TEXT("%s: Rotating - Current: %.1f, Desired: %.1f, New: %.1f, Speed: %.1f"),
+            *Enemy->GetName(),
+            CurrentRotation.Yaw,
+            DesiredRotation.Yaw,
+            NewRotation.Yaw,
+            RotationSpeed);
+    }
+    
+    Enemy->SetActorRotation(NewRotation);
 }

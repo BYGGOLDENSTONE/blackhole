@@ -202,14 +202,6 @@ void UHackerJumpAbility::TickComponent(float DeltaTime, ELevelTick TickType, FAc
 	{
 		TimeSinceLastJump += DeltaTime;
 		
-		// Debug log every 0.1 seconds
-		static float LogTimer = 0.0f;
-		LogTimer += DeltaTime;
-		if (LogTimer >= 0.1f)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("HackerJump: Tick - JumpCount=%d, TimeSinceLastJump=%.2f, JumpCooldown=%.2f"), 
-				CurrentJumpCount, TimeSinceLastJump, JumpCooldown);
-			LogTimer = 0.0f;
-		}
+		// Debug tick logging removed - too verbose
 	}
 }

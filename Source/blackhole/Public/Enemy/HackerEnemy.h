@@ -17,6 +17,10 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void UpdateAIBehavior(float DeltaTime) override;
+	
+	// Override base enemy capabilities - can only dodge
+	virtual bool CanBlock() const override { return false; }
+	virtual bool CanDodge() const override { return true; }
 	virtual void OnDeath() override;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")

@@ -217,11 +217,7 @@ void UGameStateManager::PerformStateTransition(EGameState FromState, EGameState 
 	// Handle specific transitions
 	if (ToState == EGameState::GameOver)
 	{
-		// Show game over debug message
-		if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("GAME OVER"));
-		}
+		// Debug message removed - game over
 	}
 	else if (ToState == EGameState::Playing && FromState == EGameState::MainMenu)
 	{

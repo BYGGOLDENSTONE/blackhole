@@ -586,11 +586,7 @@ void ABlackholePlayerCharacter::UseUtilityJump()
 	
 	// Debug: Show that jump input was received
 	UE_LOG(LogTemp, Warning, TEXT("UseUtilityJump() called!"));
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::White, 
-			TEXT("SPACE pressed!"), true, FVector2D(1.5f, 1.5f));
-	}
+	// Debug message removed - space pressed
 	
 	// Check wall running first - wall run takes priority for jump input
 	if (IsValid(WallRunComponent))
@@ -941,8 +937,7 @@ void ABlackholePlayerCharacter::Die()
 	// Show death message
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("YOU DIED!"));
-		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("Press ESC to restart"));
+		// Debug messages removed - death notification
 	}
 	
 	// Notify GameStateManager

@@ -1,6 +1,6 @@
 # Compilation Fixes Log
 
-**Date**: 2025-07-12  
+**Date**: 2025-07-12 (Updated 2025-07-13)  
 **Fixed By**: Claude Assistant
 
 ## Summary
@@ -151,6 +151,71 @@ FTimerHandle(); // Temporary handle
 void OnCriticalTimerExpiredInternal(); // Unique function name
 FTimerHandle CriticalUpdateTimerHandle; // Stored handle
 ```
+
+### 12. ✅ Protected Method Access in Enemy State Machines
+**Files**: `AgileEnemyStateMachine.cpp`, `CombatEnemyStateMachine.cpp`, `HackerEnemyStateMachine.cpp`, `TankEnemyStateMachine.cpp`  
+**Error**: `'GetTargetActor': cannot access protected member declared in class 'ABaseEnemy'`  
+**Date**: 2025-07-13  
+**Fix**: Changed to use the public `GetTarget()` method instead of the protected `GetTargetActor()` method.
+
+```cpp
+// Before (ERROR):
+if (AActor* EnemyTarget = OwnerEnemy->GetTargetActor()) // ERROR: protected method
+
+// After (FIXED):
+if (AActor* EnemyTarget = OwnerEnemy->GetTarget()) // Public method
+```
+
+### 13. ✅ State Machine Initialization Order Issues
+**Files**: `BaseEnemy.h/cpp` and all enemy type classes  
+**Issue**: State machines initialized immediately in BeginPlay() causing null reference crashes  
+**Date**: 2025-07-13  
+**Root Cause**: Components and references not fully initialized when state machine tries to access them  
+**Fix**: Added delayed initialization using timer
+
+```cpp
+// Before (CRASH):
+void ABaseEnemy::BeginPlay()
+{
+    Super::BeginPlay();
+    
+    // Create and initialize state machine
+    if (StateMachineClass)
+    {
+        StateMachine = NewObject<UBaseEnemyStateMachine>(this, StateMachineClass);
+        StateMachine->Initialize(this); // Components not ready!
+    }
+}
+
+// After (FIXED):
+void ABaseEnemy::BeginPlay()
+{
+    Super::BeginPlay();
+    
+    // Initialize state machine after a short delay to ensure all components are ready
+    GetWorld()->GetTimerManager().SetTimer(
+        InitializationTimer,
+        this,
+        &ABaseEnemy::InitializeStateMachine,
+        0.1f,  // 100ms delay
+        false
+    );
+}
+
+void ABaseEnemy::InitializeStateMachine()
+{
+    if (StateMachineClass)
+    {
+        StateMachine = NewObject<UBaseEnemyStateMachine>(this, StateMachineClass);
+        StateMachine->Initialize(this); // Now safe - all components ready
+    }
+}
+```
+
+**Additional Notes**:
+- The 100ms delay ensures all actor components are fully initialized
+- This pattern is common in Unreal when dealing with complex initialization dependencies
+- The timer is automatically cleaned up when the actor is destroyed
 
 ## Notes
 

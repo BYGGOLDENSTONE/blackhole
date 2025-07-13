@@ -1097,7 +1097,14 @@ void ABlackholeHUD::DrawWallRunTimer()
 		return;
 	}
 	
+	// Only show wall run UI when actively wall running
 	if (!WallRunComp->IsWallRunning())
+	{
+		return;
+	}
+	
+	// Extra safety check - ensure we have a valid wall side
+	if (WallRunComp->GetCurrentWallSide() == EWallSide::None)
 	{
 		return;
 	}

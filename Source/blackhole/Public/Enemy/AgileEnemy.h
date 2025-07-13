@@ -18,6 +18,10 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void UpdateAIBehavior(float DeltaTime) override;
+	
+	// Override base enemy capabilities
+	virtual bool CanBlock() const override { return false; }
+	virtual bool CanDodge() const override { return true; }
 
 	// This enemy can attack and dodge, but CANNOT block
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")

@@ -5,6 +5,7 @@
 #include "Enemy/AI/States/AgileCombatState.h"
 #include "Enemy/AI/States/RetreatState.h"
 #include "Enemy/AgileEnemy.h"
+#include "Config/GameplayConfig.h"
 
 void UAgileEnemyStateMachine::BeginPlay()
 {
@@ -17,29 +18,10 @@ void UAgileEnemyStateMachine::BeginPlay()
         GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
     SetupAgileParameters();
     
-    // Delay initialization to ensure BaseEnemy has set the target
-    if (GetWorld())
-    {
-        FTimerHandle InitTimer;
-        GetWorld()->GetTimerManager().SetTimer(InitTimer, [this]()
-        {
-            UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: Delayed Initialize"), 
-                GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
-                
-            // Try to get target from BaseEnemy if we don't have one
-            if (!Target && OwnerEnemy)
-            {
-                if (AActor* EnemyTarget = OwnerEnemy->GetTargetActor())
-                {
-                    SetTarget(EnemyTarget);
-                    UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: Got target from BaseEnemy: %s"), 
-                        *OwnerEnemy->GetName(), *EnemyTarget->GetName());
-                }
-            }
-            
-            Initialize(); // Initialize states after parameters are set
-        }, 0.1f, false); // Small delay to ensure proper initialization order
-    }
+    // Initialize immediately - BaseEnemy has already set the target in its BeginPlay
+    UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: Calling Initialize immediately"), 
+        GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
+    Initialize();
     
     UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: BeginPlay complete"), 
         GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
@@ -92,7 +74,7 @@ void UAgileEnemyStateMachine::SetupAgileParameters()
     // Distance thresholds
     AgileParams.AttackRange = 250.0f;              // Slightly longer reach
     AgileParams.ChaseRange = 2200.0f;              // Good chase range
-    AgileParams.SightRange = 2500.0f;              
+    AgileParams.SightRange = GameplayConfig::Enemy::DETECTION_RANGE;              
     AgileParams.PreferredCombatDistance = 250.0f;  // Hit and run distance
     
     // Timing parameters
