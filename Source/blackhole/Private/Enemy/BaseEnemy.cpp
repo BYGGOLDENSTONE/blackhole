@@ -9,12 +9,16 @@
 #include "TimerManager.h"
 #include "Config/GameplayConfig.h"
 #include "Player/BlackholePlayerCharacter.h"
+#include "Enemy/AI/EnemyStateMachine.h"
 
 ABaseEnemy::ABaseEnemy()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
 	IntegrityComponent = CreateDefaultSubobject<UIntegrityComponent>(TEXT("Integrity"));
+	
+	// Create state machine component - base class uses default
+	StateMachine = CreateDefaultSubobject<UEnemyStateMachine>(TEXT("StateMachine"));
 	
 	// Tag all enemies so hack abilities can identify them
 	Tags.Add(FName("Enemy"));
@@ -35,6 +39,12 @@ void ABaseEnemy::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	// Store default walk speed
+	if (GetCharacterMovement())
+	{
+		DefaultWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
+	}
+	
 	// Try to find player if no target set
 	if (!TargetActor)
 	{
@@ -48,17 +58,32 @@ void ABaseEnemy::BeginPlay()
 		}
 	}
 	
+	// Set target for state machine
+	if (StateMachine)
+	{
+		if (TargetActor)
+		{
+			StateMachine->SetTarget(TargetActor);
+			UE_LOG(LogTemp, Warning, TEXT("%s: Target set for state machine in BeginPlay - %s"), *GetName(), *TargetActor->GetName());
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("%s: No target actor to set for state machine!"), *GetName());
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("%s: No state machine component found!"), *GetName());
+	}
+	
 	// Bind to integrity component's OnReachedZero event
 	if (IntegrityComponent)
 	{
 		IntegrityComponent->OnReachedZero.AddDynamic(this, &ABaseEnemy::OnDeath);
 	}
 	
-	// Start AI update timer
-	if (GetWorld() && !bIsDead)
-	{
-		GetWorld()->GetTimerManager().SetTimer(AIUpdateTimer, this, &ABaseEnemy::TimerUpdateAI, AIUpdateRate, true);
-	}
+	// State machine handles AI updates now - no need for timer
+	// Legacy AI timer disabled in favor of state machine
 }
 
 void ABaseEnemy::Tick(float DeltaTime)
@@ -71,26 +96,17 @@ void ABaseEnemy::Tick(float DeltaTime)
 
 void ABaseEnemy::UpdateAIBehavior(float DeltaTime)
 {
+	// Legacy method - kept for compatibility
+	// State machine now handles all AI behavior
+	// This method is only called if derived classes haven't migrated yet
+	
 	// Check if we can see the player and start combat if needed
-	if (TargetActor && !bHasStartedCombat)
+	if (TargetActor && !bHasStartedCombat && StateMachine)
 	{
-		UE_LOG(LogTemp, VeryVerbose, TEXT("%s: Checking combat start - Has target"), *GetName());
-		// Check both distance and line of sight
-		float Distance = FVector::Dist(GetActorLocation(), TargetActor->GetActorLocation());
-		if (Distance < GameplayConfig::Enemy::DETECTION_RANGE) // Within detection range
+		if (StateMachine->HasLineOfSight())
 		{
-			// Check line of sight
-			FHitResult HitResult;
-			FCollisionQueryParams QueryParams;
-			QueryParams.AddIgnoredActor(this);
-			QueryParams.AddIgnoredActor(TargetActor);
-			
-			FVector Start = GetActorLocation() + FVector(0, 0, GameplayConfig::Enemy::SIGHT_HEIGHT_OFFSET);
-			FVector End = TargetActor->GetActorLocation() + FVector(0, 0, GameplayConfig::Enemy::SIGHT_HEIGHT_OFFSET);
-			
-			bool bHasLineOfSight = !GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, QueryParams);
-			
-			if (bHasLineOfSight)
+			float Distance = FVector::Dist(GetActorLocation(), TargetActor->GetActorLocation());
+			if (Distance < GameplayConfig::Enemy::DETECTION_RANGE)
 			{
 				// Start combat when first enemy sees player
 				if (UWorld* World = GetWorld())
@@ -111,6 +127,7 @@ void ABaseEnemy::UpdateAIBehavior(float DeltaTime)
 					}
 				}
 				bHasStartedCombat = true;
+				OnCombatStart();
 			}
 		}
 	}
@@ -134,6 +151,12 @@ void ABaseEnemy::OnDeath()
 	}
 	
 	bIsDead = true;
+	
+	// Notify state machine
+	if (StateMachine)
+	{
+		StateMachine->ChangeState(EEnemyState::Dead);
+	}
 	
 	// Stop AI updates
 	if (GetWorld())
@@ -178,11 +201,44 @@ ABlackholePlayerCharacter* ABaseEnemy::GetTargetPlayer() const
 
 void ABaseEnemy::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	// Clean up timer
+	// Clean up timers
 	if (GetWorld())
 	{
 		GetWorld()->GetTimerManager().ClearTimer(AIUpdateTimer);
+		GetWorld()->GetTimerManager().ClearTimer(SpeedResetTimerHandle);
 	}
 	
 	Super::EndPlay(EndPlayReason);
+}
+
+float ABaseEnemy::GetDefaultWalkSpeed() const
+{
+	return DefaultWalkSpeed;
+}
+
+void ABaseEnemy::ApplyMovementSpeedModifier(float Multiplier, float Duration)
+{
+	if (!GetCharacterMovement() || !GetWorld()) return;
+	
+	// Clear any existing speed reset timer
+	GetWorld()->GetTimerManager().ClearTimer(SpeedResetTimerHandle);
+	
+	// Apply speed modifier
+	GetCharacterMovement()->MaxWalkSpeed = DefaultWalkSpeed * Multiplier;
+	
+	// Reset after duration
+	if (Duration > 0.0f)
+	{
+		// Use weak pointer to prevent crashes if enemy is destroyed
+		TWeakObjectPtr<ABaseEnemy> WeakThis = this;
+		float ResetSpeed = DefaultWalkSpeed;
+		
+		GetWorld()->GetTimerManager().SetTimer(SpeedResetTimerHandle, [WeakThis, ResetSpeed]()
+		{
+			if (WeakThis.IsValid() && WeakThis->GetCharacterMovement())
+			{
+				WeakThis->GetCharacterMovement()->MaxWalkSpeed = ResetSpeed;
+			}
+		}, Duration, false);
+	}
 }
