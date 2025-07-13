@@ -64,6 +64,21 @@ protected:
 	float DefaultWalkSpeed;
 
 public:
+	// Combat configuration - public for state machine access
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Minimum Engagement Distance"))
+	float MinimumEngagementDistance;
+	
+	// Data Table Configuration
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stats")
+	class UDataTable* EnemyStatsDataTable;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stats")
+	FName StatsRowName;
+	
+	// Load stats from data table
+	UFUNCTION(BlueprintCallable, Category = "Stats")
+	void LoadStatsFromDataTable();
+	
 	virtual void Tick(float DeltaTime) override;
 	
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;

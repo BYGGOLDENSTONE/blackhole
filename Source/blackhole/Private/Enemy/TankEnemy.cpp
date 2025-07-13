@@ -19,14 +19,14 @@ ATankEnemy::ATankEnemy()
 	BlockAbility = CreateDefaultSubobject<UBlockComponent>(TEXT("BlockAbility"));
 	// NO DodgeAbility - this enemy cannot dodge!
 
-	AttackRange = 150.0f;
-	ChaseRange = 800.0f; // Shorter chase range - tank is slower
+	AttackRange = 200.0f; // Increased attack range
+	ChaseRange = 1500.0f; // More persistent
 	BlockChance = 0.5f; // 50% chance to block when player is attacking
 	
 	// Ground slam configuration
-	GroundSlamRadius = 1000.0f; // Large area effect
-	GroundSlamDamageMultiplier = 2.0f; // Double damage for ground slam
-	GroundSlamKnockbackForce = 1000.0f; // Strong knockback
+	GroundSlamRadius = 1500.0f; // Very large area effect
+	GroundSlamDamageMultiplier = 3.0f; // Triple damage for ground slam
+	GroundSlamKnockbackForce = 1500.0f; // Very strong knockback
 
 	// Configure tank movement settings - heavy and slow
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
@@ -41,6 +41,9 @@ ATankEnemy::ATankEnemy()
 		// Tank is heavy - less affected by impulses
 		Movement->Mass = 200.0f; // Double the default mass
 	}
+	
+	// Set default data table row name
+	StatsRowName = FName("Tank");
 	
 	// Create shield mesh component
 	ShieldMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Shield"));

@@ -96,6 +96,9 @@ void USmashAbilityComponent::PerformAreaDamage(AActor* Owner)
 			{
 				if (UIntegrityComponent* TargetIntegrity = HitActor->FindComponentByClass<UIntegrityComponent>())
 				{
+					// Skip damaging self
+					if (HitActor == Owner) continue;
+					
 					// Damage falloff based on distance
 					float Distance = FVector::Dist(Center, HitActor->GetActorLocation());
 					float DamageFalloff = FMath::Clamp(1.0f - (Distance / AreaRadius), 0.3f, 1.0f);
@@ -103,7 +106,7 @@ void USmashAbilityComponent::PerformAreaDamage(AActor* Owner)
 					
 					TargetIntegrity->TakeDamage(FinalDamage);
 					
-					// Apply knockback to player characters
+					// Apply knockback to all characters (players and enemies)
 					if (ACharacter* TargetCharacter = Cast<ACharacter>(HitActor))
 					{
 						// Calculate knockback direction

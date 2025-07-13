@@ -28,45 +28,46 @@ void UAgileCombatState::Update(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachi
     
     if (!StateMachine || !StateMachine->GetTarget()) return;
     
-    float DistanceToTarget = FVector::Dist(Enemy->GetActorLocation(), StateMachine->GetTarget()->GetActorLocation());
+    AActor* Target = StateMachine->GetTarget();
+    float DistanceToTarget = FVector::Dist(Enemy->GetActorLocation(), Target->GetActorLocation());
     bool bDashOnCooldown = IsAbilityOnCooldown(Enemy, TEXT("DashAttack"));
     
-    // Agile enemy behavior based on dash availability
-    if (bDashOnCooldown)
+    // Check if player is looking at the enemy
+    FVector PlayerForward = Target->GetActorForwardVector();
+    FVector ToEnemy = (Enemy->GetActorLocation() - Target->GetActorLocation()).GetSafeNormal();
+    float DotProduct = FVector::DotProduct(PlayerForward, ToEnemy);
+    bool bPlayerLookingAtEnemy = DotProduct > 0.7f; // ~45 degree cone
+    
+    // Aggressive agile enemy behavior
+    if (!bDashOnCooldown)
     {
-        // When dash is on cooldown, maintain distance and circle strafe
-        if (DistanceToTarget < 400.0f)
+        // Dash is available - use it aggressively
+        if (bPlayerLookingAtEnemy || DistanceToTarget > 600.0f)
         {
-            // Too close - retreat while facing target
-            FVector RetreatDirection = (Enemy->GetActorLocation() - StateMachine->GetTarget()->GetActorLocation()).GetSafeNormal();
-            FVector RetreatLocation = Enemy->GetActorLocation() + (RetreatDirection * 200.0f);
-            
-            if (AAIController* AIController = Cast<AAIController>(Enemy->GetController()))
-            {
-                AIController->MoveToLocation(RetreatLocation, 10.0f);
-                Enemy->SetActorRotation((-RetreatDirection).Rotation());
-            }
+            // Force a dash attack if player is looking at us or we're far away
+            // The combat action selection will prioritize dash
             bIsCircleStrafing = false;
+            return; // Let combat action system handle the dash
         }
-        else if (DistanceToTarget > 400.0f && DistanceToTarget < 800.0f)
-        {
-            // Optimal range - circle strafe
-            bIsCircleStrafing = true;
-            UpdateCircleStrafe(Enemy, StateMachine, DeltaTime);
-        }
-        else
-        {
-            // Too far - maintain distance but don't get too close
-            bIsCircleStrafing = false;
-        }
+    }
+    
+    // When dash is on cooldown, be aggressive
+    if (DistanceToTarget < 150.0f)
+    {
+        // Very close - circle strafe for better positioning
+        bIsCircleStrafing = true;
+        UpdateCircleStrafe(Enemy, StateMachine, DeltaTime);
+    }
+    else if (DistanceToTarget > 150.0f && DistanceToTarget < 400.0f)
+    {
+        // Medium range - aggressive approach
+        bIsCircleStrafing = false;
+        // Let base combat state handle movement
     }
     else
     {
-        // Dash available - stop strafing to prepare for attack
+        // Far away - stop strafing and close distance
         bIsCircleStrafing = false;
-        
-        // If we're at good dash range (500-800), combat state will handle the dash attack
-        // If too close (<300), let normal combat handle it
     }
 }
 

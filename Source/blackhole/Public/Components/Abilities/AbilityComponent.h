@@ -132,6 +132,13 @@ public:
 	// State management (made public for ThresholdManager)
 	UFUNCTION(BlueprintCallable, Category = "Ability")
 	void SetAbilityState(EAbilityState NewState);
+	
+	// Setters for protected properties (for data table system)
+	UFUNCTION(BlueprintCallable, Category = "Ability")
+	void SetRange(float NewRange) { Range = NewRange; }
+	
+	UFUNCTION(BlueprintCallable, Category = "Ability")
+	void SetCooldown(float NewCooldown) { Cooldown = NewCooldown; }
 
 protected:
 	void StartCooldown();

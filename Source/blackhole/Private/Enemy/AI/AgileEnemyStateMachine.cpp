@@ -3,7 +3,6 @@
 #include "Enemy/AI/States/AlertState.h"
 #include "Enemy/AI/States/ChaseState.h"
 #include "Enemy/AI/States/AgileCombatState.h"
-#include "Enemy/AI/States/RetreatState.h"
 #include "Enemy/AgileEnemy.h"
 #include "Config/GameplayConfig.h"
 
@@ -44,7 +43,7 @@ void UAgileEnemyStateMachine::CreateDefaultStates()
     UAlertState* AlertState = NewObject<UAlertState>(this, UAlertState::StaticClass());
     UChaseState* ChaseState = NewObject<UChaseState>(this, UChaseState::StaticClass());
     UAgileCombatState* CombatState = NewObject<UAgileCombatState>(this, UAgileCombatState::StaticClass());
-    URetreatState* RetreatState = NewObject<URetreatState>(this, URetreatState::StaticClass());
+    // No retreat state for agile enemies - they never retreat
     
     UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: States created, now registering"), 
         GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
@@ -54,7 +53,7 @@ void UAgileEnemyStateMachine::CreateDefaultStates()
     RegisterState(EEnemyState::Alert, AlertState);
     RegisterState(EEnemyState::Chase, ChaseState);
     RegisterState(EEnemyState::Combat, CombatState);
-    RegisterState(EEnemyState::Retreat, RetreatState);
+    // No retreat state registered - agile enemies fight to the death
     
     UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: All states registered"), 
         GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
@@ -68,14 +67,17 @@ void UAgileEnemyStateMachine::SetupAgileParameters()
     FEnemyAIParameters AgileParams;
     
     // Health thresholds
-    AgileParams.RetreatHealthPercent = 0.4f;      // Retreat earlier than tank
-    AgileParams.DefensiveHealthPercent = 0.6f;    // More cautious
+    AgileParams.RetreatHealthPercent = 0.0f;      // Never retreat
+    AgileParams.DefensiveHealthPercent = 0.0f;    // Always aggressive
     
-    // Distance thresholds
-    AgileParams.AttackRange = 250.0f;              // Slightly longer reach
-    AgileParams.ChaseRange = 2200.0f;              // Good chase range
+    // Distance thresholds  
+    AAgileEnemy* AgileOwner = Cast<AAgileEnemy>(GetOwner());
+    float AttackRange = AgileOwner ? AgileOwner->AttackRange : 200.0f;
+    
+    AgileParams.AttackRange = AttackRange;         // Use configurable attack range
+    AgileParams.ChaseRange = 3000.0f;              // Very persistent chaser
     AgileParams.SightRange = GameplayConfig::Enemy::DETECTION_RANGE;              
-    AgileParams.PreferredCombatDistance = 250.0f;  // Hit and run distance
+    AgileParams.PreferredCombatDistance = 100.0f;  // Get very close
     
     // Timing parameters
     AgileParams.ReactionTime = 0.2f;               // Very fast reactions
@@ -91,7 +93,7 @@ void UAgileEnemyStateMachine::SetupAgileParameters()
     AgileParams.AbilityCooldown = 3.0f;            // Quick ability use
     
     // Personality
-    AgileParams.AggressionLevel = 0.7f;            // Medium-high aggression
+    AgileParams.AggressionLevel = 1.0f;            // Maximum aggression
     
     SetAIParameters(AgileParams);
 }

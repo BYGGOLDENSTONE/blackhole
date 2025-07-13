@@ -46,8 +46,8 @@ void UCombatEnemyStateMachine::SetupCombatParameters()
     FEnemyAIParameters CombatParams;
     
     // Health thresholds
-    CombatParams.RetreatHealthPercent = 0.3f;      // Balanced retreat threshold
-    CombatParams.DefensiveHealthPercent = 0.5f;    // Standard defensive threshold
+    CombatParams.RetreatHealthPercent = 0.1f;      // Only retreat when nearly dead
+    CombatParams.DefensiveHealthPercent = 0.3f;    // Less defensive
     
     // Distance thresholds
     CombatParams.AttackRange = 300.0f;             // Standard melee range
@@ -69,7 +69,7 @@ void UCombatEnemyStateMachine::SetupCombatParameters()
     CombatParams.AbilityCooldown = 3.5f;           // Moderate ability use
     
     // Personality
-    CombatParams.AggressionLevel = 0.5f;           // Perfectly balanced
+    CombatParams.AggressionLevel = 0.8f;           // High aggression
     
     SetAIParameters(CombatParams);
 }

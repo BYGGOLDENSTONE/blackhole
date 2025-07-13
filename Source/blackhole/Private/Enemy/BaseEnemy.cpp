@@ -11,6 +11,8 @@
 #include "Player/BlackholePlayerCharacter.h"
 #include "Enemy/AI/EnemyStateMachine.h"
 #include "Enemy/AI/BlackholeAIController.h"
+#include "Data/EnemyStatsData.h"
+#include "Engine/DataTable.h"
 
 ABaseEnemy::ABaseEnemy()
 {
@@ -37,6 +39,13 @@ ABaseEnemy::ABaseEnemy()
 	// Set AI controller class
 	AIControllerClass = ABlackholeAIController::StaticClass();
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
+	
+	// Default minimum engagement distance
+	MinimumEngagementDistance = 100.0f;
+	
+	// Data table configuration
+	EnemyStatsDataTable = nullptr;
+	StatsRowName = NAME_None;
 	
 	// Configure movement component for smooth enemy movement
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
@@ -65,6 +74,12 @@ ABaseEnemy::ABaseEnemy()
 void ABaseEnemy::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	// Load stats from data table if configured
+	if (EnemyStatsDataTable && !StatsRowName.IsNone())
+	{
+		LoadStatsFromDataTable();
+	}
 	
 	// Store default walk speed
 	if (GetCharacterMovement())
@@ -290,4 +305,18 @@ void ABaseEnemy::ApplyMovementSpeedModifier(float Multiplier, float Duration)
 			}
 		}, Duration, false);
 	}
+}
+
+void ABaseEnemy::LoadStatsFromDataTable()
+{
+	if (!EnemyStatsDataTable || StatsRowName.IsNone())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("%s: No data table or row name configured"), *GetName());
+		return;
+	}
+	
+	FEnemyStatsData Stats = UEnemyStatsManager::GetEnemyStats(this, EnemyStatsDataTable, StatsRowName);
+	UEnemyStatsManager::ApplyStatsToEnemy(this, Stats);
+	
+	UE_LOG(LogTemp, Log, TEXT("%s: Loaded stats from data table row '%s'"), *GetName(), *StatsRowName.ToString());
 }

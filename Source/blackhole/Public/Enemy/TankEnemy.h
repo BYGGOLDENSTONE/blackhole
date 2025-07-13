@@ -31,6 +31,8 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	UBlockComponent* BlockAbility;
 
+public:
+	// Combat stats - public for data table access
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
 	float AttackRange;
 
@@ -39,12 +41,15 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
 	float BlockChance;
+
+protected:
 	
 	// Shield mesh component - visible when blocking
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	UStaticMeshComponent* ShieldMesh;
-	
-	// Area damage configuration
+
+public:
+	// Area damage configuration - public for state machine access
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Ground Slam Radius"))
 	float GroundSlamRadius;
 	
@@ -53,8 +58,6 @@ protected:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Ground Slam Knockback Force"))
 	float GroundSlamKnockbackForce;
-
-public:
 	// Public methods for state machine access
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void SetShieldVisible(bool bVisible);

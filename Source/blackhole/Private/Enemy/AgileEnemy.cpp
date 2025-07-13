@@ -29,6 +29,9 @@ AAgileEnemy::AAgileEnemy()
 	DashCooldown = 2.0f; // More frequent dashes (was 3.0)
 	DashBehindDistance = 250.0f; // Distance behind player after dash
 	
+	// Set default data table row name
+	StatsRowName = FName("Agile");
+	
 	// Configure agile movement settings - will be set in BeginPlay with MovementSpeed
 }
 
@@ -52,13 +55,7 @@ void AAgileEnemy::BeginPlay()
 		Movement->bOrientRotationToMovement = true;
 	}
 	
-	// Apply attack speed multiplier to smash ability
-	if (SmashAbility)
-	{
-		// Reduce animation time for faster attacks
-		float BaseAnimTime = SmashAbility->GetAnimationTime();
-		SmashAbility->SetAnimationTime(BaseAnimTime / AttackSpeedMultiplier);
-	}
+	// Attack speed multiplier is handled in the combat state's cooldowns
 }
 
 void AAgileEnemy::UpdateAIBehavior(float DeltaTime)

@@ -167,16 +167,19 @@ void UCombatState::UpdateCombatPosition(ABaseEnemy* Enemy, UEnemyStateMachine* S
     
     FVector DesiredLocation;
     
+    // Use enemy's minimum engagement distance
+    float MinDistance = Enemy->MinimumEngagementDistance;
+    
     // More aggressive positioning - only back up if very close
-    if (Distance < 100.0f)  // Much closer threshold
+    if (Distance < MinDistance * 0.8f)  // Too close
     {
-        // Too close - back up slightly
-        DesiredLocation = Enemy->GetActorLocation() - ToPlayer * 150.0f;
+        // Back up to minimum distance
+        DesiredLocation = Enemy->GetActorLocation() - ToPlayer * (MinDistance - Distance + 50.0f);
     }
-    else if (Distance > 250.0f)  // Close in if outside attack range
+    else if (Distance > Params.AttackRange * 0.8f)  // Close in if outside attack range
     {
-        // Too far - move directly to attack position
-        DesiredLocation = StateMachine->GetTarget()->GetActorLocation() - ToPlayer * 200.0f;
+        // Too far - move to optimal attack position
+        DesiredLocation = StateMachine->GetTarget()->GetActorLocation() - ToPlayer * MinDistance;
         
         // Move directly to target with higher acceptance radius for faster approach
         AIController->MoveToLocation(DesiredLocation, 30.0f);

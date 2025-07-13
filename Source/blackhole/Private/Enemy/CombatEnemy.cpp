@@ -19,8 +19,10 @@ ACombatEnemy::ACombatEnemy()
 	BlockAbility = CreateDefaultSubobject<UBlockComponent>(TEXT("BlockAbility"));
 	DodgeAbility = CreateDefaultSubobject<UDodgeComponent>(TEXT("DodgeAbility"));
 
-	AttackRange = 150.0f;
-	ChaseRange = 1000.0f;
+	AttackRange = 200.0f; // Increased attack range
+	ChaseRange = 2000.0f; // More persistent
+	DodgeChance = 0.25f; // 25% chance to dodge
+	BlockChance = 0.25f; // 25% chance to block
 	
 	// Configure combat enemy movement - balanced
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
@@ -32,6 +34,9 @@ ACombatEnemy::ACombatEnemy()
 		Movement->bUseControllerDesiredRotation = false;
 		Movement->bOrientRotationToMovement = true;
 	}
+	
+	// Set default data table row name
+	StatsRowName = FName("Combat");
 	
 	// Create shield mesh component
 	ShieldMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Shield"));

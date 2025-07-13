@@ -26,11 +26,15 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	UMindmeldComponent* MindmeldAbility;
 
+public:
+	// Combat stats - public for data table access
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
 	float MindmeldRange;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
 	float SafeDistance;
+
+protected:
 
 private:
 	void MaintainLineOfSight(float DeltaTime);

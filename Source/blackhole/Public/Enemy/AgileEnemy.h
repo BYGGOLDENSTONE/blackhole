@@ -30,16 +30,21 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	UDodgeComponent* DodgeAbility;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
-	float AttackRange;
-
+public:
+	// Combat stats - public for data table access
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
 	float ChaseRange;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
 	float DodgeChance;
-	
-	// Movement and combat stats
+
+protected:
+
+public:
+	// Attack range - public for state machine access
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
+	float AttackRange;
+	// Movement and combat stats - public for state machine access
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Movement Speed"))
 	float MovementSpeed;
 	

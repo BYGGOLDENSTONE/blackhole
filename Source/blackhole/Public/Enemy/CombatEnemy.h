@@ -34,15 +34,23 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	UDodgeComponent* DodgeAbility;
 
+	// Shield mesh component - visible when blocking
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	UStaticMeshComponent* ShieldMesh;
+
+public:
+	// Combat stats - public for data table access
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
 	float AttackRange;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
 	float ChaseRange;
 	
-	// Shield mesh component - visible when blocking
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
-	UStaticMeshComponent* ShieldMesh;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
+	float DodgeChance;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
+	float BlockChance;
 
 private:
 	void MoveTowardsTarget(float DeltaTime);

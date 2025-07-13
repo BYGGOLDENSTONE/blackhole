@@ -46,14 +46,14 @@ void UTankEnemyStateMachine::SetupTankParameters()
     FEnemyAIParameters TankParams;
     
     // Health thresholds
-    TankParams.RetreatHealthPercent = 0.2f;      // Only retreat when very low
-    TankParams.DefensiveHealthPercent = 0.4f;    // Start being more defensive
+    TankParams.RetreatHealthPercent = 0.0f;      // Never retreat
+    TankParams.DefensiveHealthPercent = 0.3f;    // Only defensive when very low
     
     // Distance thresholds
     TankParams.AttackRange = 300.0f;              // Melee range
     TankParams.ChaseRange = GameplayConfig::Enemy::DETECTION_RANGE;  // Full sight range - persistent
     TankParams.SightRange = GameplayConfig::Enemy::DETECTION_RANGE;              
-    TankParams.PreferredCombatDistance = 200.0f;  // Get close for smash
+    TankParams.PreferredCombatDistance = 100.0f;  // Get very close
     
     // Timing parameters
     TankParams.ReactionTime = 0.5f;               // Slower reactions - heavy unit
@@ -69,7 +69,7 @@ void UTankEnemyStateMachine::SetupTankParameters()
     TankParams.AbilityCooldown = 4.0f;
     
     // Personality
-    TankParams.AggressionLevel = 0.3f;            // Low aggression - defensive
+    TankParams.AggressionLevel = 0.8f;            // High aggression
     
     SetAIParameters(TankParams);
 }
