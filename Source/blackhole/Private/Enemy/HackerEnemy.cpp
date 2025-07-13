@@ -17,6 +17,17 @@ AHackerEnemy::AHackerEnemy()
 
 	MindmeldRange = 3000.0f;
 	SafeDistance = 500.0f;
+	
+	// Configure hacker movement - cautious and ranged
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->MaxWalkSpeed = 350.0f; // Slower, prefers ranged combat
+		Movement->MaxAcceleration = 500.0f; // Moderate acceleration
+		Movement->BrakingDecelerationWalking = 800.0f; // Quick stops for positioning
+		Movement->RotationRate = FRotator(0.0f, 300.0f, 0.0f); // Normal turning
+		Movement->bUseControllerDesiredRotation = false;
+		Movement->bOrientRotationToMovement = true;
+	}
 }
 
 void AHackerEnemy::BeginPlay()

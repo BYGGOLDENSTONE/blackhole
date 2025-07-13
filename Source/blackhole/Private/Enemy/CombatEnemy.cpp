@@ -22,6 +22,17 @@ ACombatEnemy::ACombatEnemy()
 	AttackRange = 150.0f;
 	ChaseRange = 1000.0f;
 	
+	// Configure combat enemy movement - balanced
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->MaxWalkSpeed = 400.0f; // Medium speed
+		Movement->MaxAcceleration = 600.0f; // Medium acceleration
+		Movement->BrakingDecelerationWalking = 600.0f; // Medium stops
+		Movement->RotationRate = FRotator(0.0f, 360.0f, 0.0f); // Normal turning
+		Movement->bUseControllerDesiredRotation = false;
+		Movement->bOrientRotationToMovement = true;
+	}
+	
 	// Create shield mesh component
 	ShieldMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Shield"));
 	ShieldMesh->SetupAttachment(GetMesh(), FName("shieldsocket"));

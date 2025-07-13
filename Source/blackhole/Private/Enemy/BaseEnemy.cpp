@@ -37,6 +37,29 @@ ABaseEnemy::ABaseEnemy()
 	// Set AI controller class
 	AIControllerClass = ABlackholeAIController::StaticClass();
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
+	
+	// Configure movement component for smooth enemy movement
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		// Enable rotation towards movement direction
+		Movement->bOrientRotationToMovement = true;
+		
+		// Set smooth rotation rate to prevent twitching
+		Movement->RotationRate = FRotator(0.0f, 270.0f, 0.0f); // Smooth 270 deg/sec turn rate
+		
+		// Disable controller rotation to prevent conflicts
+		bUseControllerRotationPitch = false;
+		bUseControllerRotationYaw = false;
+		bUseControllerRotationRoll = false;
+		
+		// Set acceleration for smooth starts/stops
+		Movement->MaxAcceleration = 800.0f;
+		Movement->BrakingDecelerationWalking = 800.0f;
+		
+		// Enable path following for smoother navigation
+		Movement->bUseRVOAvoidance = true;
+		Movement->AvoidanceWeight = 0.5f;
+	}
 }
 
 void ABaseEnemy::BeginPlay()

@@ -26,25 +26,47 @@ void UAgileCombatState::Update(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachi
 {
     Super::Update(Enemy, StateMachine, DeltaTime);
     
-    // Check if we should circle strafe (when dash is on cooldown)
-    if (IsAbilityOnCooldown(Enemy, TEXT("DashAttack")) && StateMachine && StateMachine->GetTarget())
+    if (!StateMachine || !StateMachine->GetTarget()) return;
+    
+    float DistanceToTarget = FVector::Dist(Enemy->GetActorLocation(), StateMachine->GetTarget()->GetActorLocation());
+    bool bDashOnCooldown = IsAbilityOnCooldown(Enemy, TEXT("DashAttack"));
+    
+    // Agile enemy behavior based on dash availability
+    if (bDashOnCooldown)
     {
-        float DistanceToTarget = FVector::Dist(Enemy->GetActorLocation(), StateMachine->GetTarget()->GetActorLocation());
-        
-        // Circle strafe at medium range
-        if (DistanceToTarget > 300.0f && DistanceToTarget < 800.0f)
+        // When dash is on cooldown, maintain distance and circle strafe
+        if (DistanceToTarget < 400.0f)
         {
+            // Too close - retreat while facing target
+            FVector RetreatDirection = (Enemy->GetActorLocation() - StateMachine->GetTarget()->GetActorLocation()).GetSafeNormal();
+            FVector RetreatLocation = Enemy->GetActorLocation() + (RetreatDirection * 200.0f);
+            
+            if (AAIController* AIController = Cast<AAIController>(Enemy->GetController()))
+            {
+                AIController->MoveToLocation(RetreatLocation, 10.0f);
+                Enemy->SetActorRotation((-RetreatDirection).Rotation());
+            }
+            bIsCircleStrafing = false;
+        }
+        else if (DistanceToTarget > 400.0f && DistanceToTarget < 800.0f)
+        {
+            // Optimal range - circle strafe
             bIsCircleStrafing = true;
             UpdateCircleStrafe(Enemy, StateMachine, DeltaTime);
         }
         else
         {
+            // Too far - maintain distance but don't get too close
             bIsCircleStrafing = false;
         }
     }
     else
     {
+        // Dash available - stop strafing to prepare for attack
         bIsCircleStrafing = false;
+        
+        // If we're at good dash range (500-800), combat state will handle the dash attack
+        // If too close (<300), let normal combat handle it
     }
 }
 
@@ -133,16 +155,33 @@ void UAgileCombatState::ExecuteDashAttack(ABaseEnemy* Enemy, UEnemyStateMachine*
     FVector TargetLocation = Target->GetActorLocation();
     FVector EnemyLocation = Enemy->GetActorLocation();
     
-    // Calculate dash to position behind target
-    FVector ToTarget = (TargetLocation - EnemyLocation).GetSafeNormal();
-    FVector TargetForward = Target->GetActorForwardVector();
+    // Get target's velocity for prediction
+    FVector TargetVelocity = FVector::ZeroVector;
+    if (APawn* TargetPawn = Cast<APawn>(Target))
+    {
+        if (UMovementComponent* MovComp = TargetPawn->GetMovementComponent())
+        {
+            TargetVelocity = MovComp->Velocity;
+        }
+    }
     
-    // Dash to position behind the target
-    FVector DashTarget = TargetLocation - (TargetForward * 150.0f); // 150 units behind
+    // Predict where target will be in 0.3 seconds (dash duration)
+    FVector PredictedTargetLocation = TargetLocation + (TargetVelocity * 0.3f);
+    
+    // Calculate position behind predicted target location
+    FVector TargetForward = Target->GetActorForwardVector();
+    FVector DashTarget = PredictedTargetLocation - (TargetForward * 200.0f); // 200 units behind (increased from 150)
+    
+    // Ensure dash target is at same height as enemy (no vertical dash)
+    DashTarget.Z = EnemyLocation.Z;
+    
     FVector DashDirection = (DashTarget - EnemyLocation).GetSafeNormal();
     
     if (UCharacterMovementComponent* Movement = Enemy->GetCharacterMovement())
     {
+        // Stop current movement first to ensure clean dash
+        Movement->StopMovementImmediately();
+        
         // Fast dash towards behind position
         Movement->AddImpulse(DashDirection * 3000.0f, true);
         

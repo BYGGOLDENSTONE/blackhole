@@ -21,6 +21,18 @@ AAgileEnemy::AAgileEnemy()
 	AttackRange = 150.0f;
 	ChaseRange = 1000.0f;
 	DodgeChance = 0.3f; // 30% chance to dodge when attacked
+	
+	// Configure agile movement settings
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		// Agile enemies are faster and more responsive
+		Movement->MaxWalkSpeed = 500.0f; // Faster than base enemies
+		Movement->MaxAcceleration = 1200.0f; // Quick acceleration
+		Movement->BrakingDecelerationWalking = 1200.0f; // Quick stops
+		Movement->RotationRate = FRotator(0.0f, 540.0f, 0.0f); // Very fast turning
+		Movement->bUseControllerDesiredRotation = false;
+		Movement->bOrientRotationToMovement = true;
+	}
 }
 
 void AAgileEnemy::BeginPlay()

@@ -23,8 +23,19 @@ ATankEnemy::ATankEnemy()
 	ChaseRange = 800.0f; // Shorter chase range - tank is slower
 	BlockChance = 0.5f; // 50% chance to block when player is attacking
 
-	// Make tank enemy slower
-	GetCharacterMovement()->MaxWalkSpeed = 400.0f; // Default is usually 600
+	// Configure tank movement settings - heavy and slow
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->MaxWalkSpeed = 300.0f; // Very slow
+		Movement->MaxAcceleration = 400.0f; // Slow acceleration
+		Movement->BrakingDecelerationWalking = 400.0f; // Slow stops
+		Movement->RotationRate = FRotator(0.0f, 120.0f, 0.0f); // Slow turning
+		Movement->bUseControllerDesiredRotation = false;
+		Movement->bOrientRotationToMovement = true;
+		
+		// Tank is heavy - less affected by impulses
+		Movement->Mass = 200.0f; // Double the default mass
+	}
 	
 	// Create shield mesh component
 	ShieldMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Shield"));
