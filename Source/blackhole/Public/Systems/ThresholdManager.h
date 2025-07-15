@@ -131,6 +131,9 @@ public:
 	// Force ultimate mode activation (for testing)
 	void ActivateUltimateMode();
 	
+	// Start critical timer when WP reaches 0
+	void StartCriticalTimer();
+	
 	// Force cache player abilities (for testing)
 	void CachePlayerAbilities();
 	
@@ -185,10 +188,6 @@ private:
 	UFUNCTION()
 	void OnWPThresholdChanged(EResourceThreshold NewThreshold);
 	
-	// Handle WP reaching 100%
-	UFUNCTION()
-	void OnWPMaxReachedHandler(int32 TimesReached);
-	
 	// Deactivate ultimate mode and disable the used ability
 	void DeactivateUltimateMode(UAbilityComponent* UsedAbility);
 	
@@ -196,7 +195,6 @@ private:
 	void UpdateSurvivorBuffs();
 	
 	// Critical timer functions
-	void StartCriticalTimer();
 	void StopCriticalTimer();
 	void OnCriticalTimerExpiredInternal(); // Internal function for timer callback
 	void UpdateCriticalTimer();

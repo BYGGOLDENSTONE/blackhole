@@ -22,7 +22,7 @@ void UThresholdManager::Initialize(FSubsystemCollectionBase& Collection)
 		if (ResourceManager)
 		{
 			ResourceManager->OnWillPowerThresholdReached.AddDynamic(this, &UThresholdManager::OnWPThresholdChanged);
-			ResourceManager->OnWPMaxReached.AddDynamic(this, &UThresholdManager::OnWPMaxReachedHandler);
+			// No longer need OnWPMaxReached since ultimates trigger at 0 WP now
 		}
 	}
 }
@@ -33,11 +33,10 @@ void UThresholdManager::Deinitialize()
 	if (IsValid(ResourceManager))
 	{
 		ResourceManager->OnWillPowerThresholdReached.RemoveDynamic(this, &UThresholdManager::OnWPThresholdChanged);
-		ResourceManager->OnWPMaxReached.RemoveDynamic(this, &UThresholdManager::OnWPMaxReachedHandler);
+		// No longer need OnWPMaxReached since ultimates trigger at 0 WP now
 	}
 	
-	// Clear critical timer
-	StopCriticalTimer();
+	// No critical timer needed in new system
 	
 	// Clear all delegate bindings to prevent crashes
 	OnCombatStarted.Clear();
@@ -156,11 +155,21 @@ void UThresholdManager::OnWPThresholdChanged(EResourceThreshold NewThreshold)
 	// Clean up invalid abilities before processing
 	CleanupInvalidAbilities();
 	
-	// Handle new threshold system
+	// Handle energy-based thresholds
 	switch (NewThreshold)
 	{
-		case EResourceThreshold::Normal: // 0-50%
-			// Remove buff if going back to normal
+		case EResourceThreshold::Critical: // 0-20% energy - danger zone
+			// Remove buff when critically low on energy
+			if (CurrentBuff.bIsBuffed)
+			{
+				CurrentBuff.bIsBuffed = false;
+				UpdateSurvivorBuffs();
+				UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Critical low energy - buffs removed"));
+			}
+			break;
+			
+		case EResourceThreshold::Warning: // 20-50% energy
+			// Remove buff in warning zone
 			if (CurrentBuff.bIsBuffed)
 			{
 				CurrentBuff.bIsBuffed = false;
@@ -168,18 +177,14 @@ void UThresholdManager::OnWPThresholdChanged(EResourceThreshold NewThreshold)
 			}
 			break;
 			
-		case EResourceThreshold::Buffed: // 50-100%
-			// Apply buff at 50% WP
+		case EResourceThreshold::Normal: // 50-100% energy - healthy
+			// Apply buff when energy is healthy
 			if (!CurrentBuff.bIsBuffed)
 			{
 				CurrentBuff.bIsBuffed = true;
 				UpdateSurvivorBuffs();
-				UE_LOG(LogTemp, Log, TEXT("ThresholdManager: 50%% WP reached - Abilities buffed!"));
+				UE_LOG(LogTemp, Log, TEXT("ThresholdManager: Healthy energy (50%%+) - abilities buffed!"));
 			}
-			break;
-			
-		case EResourceThreshold::Critical: // 100% - handled by OnWPMaxReachedHandler
-			// This shouldn't be reached as we handle 100% separately
 			break;
 			
 		default:
@@ -188,6 +193,8 @@ void UThresholdManager::OnWPThresholdChanged(EResourceThreshold NewThreshold)
 }
 
 
+// No longer needed - ultimates trigger at 0 WP now
+/*
 void UThresholdManager::OnWPMaxReachedHandler(int32 TimesReached)
 {
 	UE_LOG(LogTemp, Error, TEXT("=== ThresholdManager::OnWPMaxReachedHandler START ==="));
@@ -254,6 +261,7 @@ void UThresholdManager::OnWPMaxReachedHandler(int32 TimesReached)
 	CurrentWP = ResourceManager->GetCurrentWillPower();
 	UE_LOG(LogTemp, Error, TEXT("=== ThresholdManager::OnWPMaxReachedHandler END - Critical Timer Started - WP = %.1f/%.1f ==="), CurrentWP, MaxWP);
 }
+*/
 
 void UThresholdManager::ActivateUltimateMode()
 {
@@ -276,6 +284,13 @@ void UThresholdManager::ActivateUltimateMode()
 	
 	// Clean up invalid abilities before processing
 	CleanupInvalidAbilities();
+	
+	// CRITICAL FIX: Cache abilities if not already cached
+	if (AllPlayerAbilities.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: No abilities cached - caching now!"));
+		CachePlayerAbilities();
+	}
 	
 	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Activating ultimate mode, checking %d abilities"), AllPlayerAbilities.Num());
 	
@@ -410,7 +425,7 @@ void UThresholdManager::DeactivateUltimateMode(UAbilityComponent* UsedAbility)
 			*UsedAbility->GetName(), DisabledAbilities.Num());
 	}
 	
-	// Reset WP to 0 - ONLY when ultimate ability is actually used
+	// Reset WP to 100 (full energy) - ONLY when ultimate ability is actually used
 	if (IsValid(ResourceManager))
 	{
 		// Clear critical state first
@@ -418,8 +433,8 @@ void UThresholdManager::DeactivateUltimateMode(UAbilityComponent* UsedAbility)
 		
 		// Authorize the reset - this is the ONLY legitimate place to reset WP
 		ResourceManager->AuthorizeWPReset();
-		ResourceManager->ResetWPAfterMax();
-		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: Authorized WP reset after ultimate ability use"));
+		ResourceManager->ResetWPAfterMax(); // This resets WP to 100 (full energy)
+		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: Authorized WP reset to 100 after ultimate ability use"));
 	}
 	else
 	{
@@ -543,10 +558,15 @@ void UThresholdManager::CachePlayerAbilities()
 {
 	AllPlayerAbilities.Empty();
 	
+	// Try to get player character if we don't have it
 	if (!PlayerCharacter)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: No player character to cache abilities from"));
-		return;
+		PlayerCharacter = Cast<ABlackholePlayerCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
+		if (!PlayerCharacter)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: No player character to cache abilities from"));
+			return;
+		}
 	}
 	
 	// Get all ability components on player
@@ -648,6 +668,13 @@ void UThresholdManager::StartCriticalTimer()
 		return;
 	}
 	
+	// Ensure combat is started before critical timer
+	if (!bIsInCombat)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Starting combat for critical timer"));
+		StartCombat();
+	}
+	
 	bCriticalTimerActive = true;
 	CriticalTimerStartTime = GetWorld()->GetTimeSeconds();
 	
@@ -657,8 +684,7 @@ void UThresholdManager::StartCriticalTimer()
 		ResourceManager->SetCriticalState(true);
 	}
 	
-	// Activate ultimate mode immediately so abilities are ready
-	ActivateUltimateMode();
+	// Ultimate mode will be activated separately to avoid circular dependency
 	
 	// Start the death timer
 	GetWorld()->GetTimerManager().SetTimer(
@@ -678,7 +704,7 @@ void UThresholdManager::StartCriticalTimer()
 		true
 	);
 	
-	UE_LOG(LogTemp, Error, TEXT("ThresholdManager: CRITICAL ERROR - Player has %.1f seconds to use ultimate ability or DIE!"), CriticalTimerDuration);
+	UE_LOG(LogTemp, Error, TEXT("ThresholdManager: CRITICAL ERROR - WP at 0! Player has %.1f seconds to use ultimate ability or DIE!"), CriticalTimerDuration);
 	OnCriticalTimer.Broadcast(CriticalTimerDuration);
 }
 
@@ -724,16 +750,8 @@ void UThresholdManager::OnCriticalTimerExpiredInternal()
 		ResourceManager->SetCriticalState(false);
 	}
 	
-	// Check if this is the final chance (4th time reaching 100%)
-	int32 TimesReached = IsValid(ResourceManager) ? ResourceManager->GetWPMaxReachedCount() : 0;
-	if (TimesReached >= GameplayConfig::Thresholds::MAX_WP_REACHES)
-	{
-		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: CRITICAL TIMER EXPIRED ON FINAL CHANCE (%d) - PERMANENT DEATH!"), TimesReached);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: CRITICAL TIMER EXPIRED (%d/%d) - PLAYER DEATH!"), TimesReached, GameplayConfig::Thresholds::MAX_WP_REACHES);
-	}
+	// Critical timer expired - player failed to use ultimate in time
+	UE_LOG(LogTemp, Error, TEXT("ThresholdManager: CRITICAL TIMER EXPIRED - PLAYER FAILED TO USE ULTIMATE AT 0 WP!"));
 	
 	// Broadcast timer expired event
 	OnCriticalTimerExpired.Broadcast();

@@ -7,7 +7,6 @@
 #include "BlackholeHUD.generated.h"
 
 class ABlackholePlayerCharacter;
-class UIntegrityComponent;
 class UWillPowerComponent;
 class UResourceManager;
 class USlashAbilityComponent;
@@ -155,9 +154,6 @@ protected:
 	
 	// Draw wall run timer display
 	void DrawWallRunTimer();
-
-	UPROPERTY(EditDefaultsOnly, Category = "HUD")
-	FColor IntegrityColor;
 
 	UPROPERTY(EditDefaultsOnly, Category = "HUD")
 	FColor WillPowerColor;

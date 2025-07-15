@@ -34,6 +34,10 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combo|Combat", meta = (ClampMin = "100", ClampMax = "2000"))
     float ComboRange = 300.0f;
+    
+    // WP reward for successful combo execution
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combo|Rewards", meta = (ClampMin = "5", ClampMax = "50"))
+    float WPRewardAmount = 15.0f;
 
     // Visual feedback
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combo|Visual")

@@ -1,7 +1,7 @@
 #include "Components/Abilities/Combos/JumpSlashCombo.h"
 #include "Player/BlackholePlayerCharacter.h"
-#include "Components/Attributes/IntegrityComponent.h"
 #include "Systems/HitStopManager.h"
+#include "Engine/DamageEvents.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Engine/World.h"
@@ -91,26 +91,26 @@ void UJumpSlashCombo::ApplyDownwardSlash()
     
     if (Target)
     {
-            if (UIntegrityComponent* TargetIntegrity = Target->FindComponentByClass<UIntegrityComponent>())
-            {
-                // Apply aerial damage
-                float FinalDamage = Damage * DamageMultiplier * GetDamageMultiplier();
-                TargetIntegrity->TakeDamage(FinalDamage);
-                
-                // NOTE: Disabled hit stop to avoid conflicts with combo time slow
-                // The combo time slow provides the dramatic effect we want
-                /*
-                if (UHitStopManager* HitStopMgr = CachedWorld->GetSubsystem<UHitStopManager>())
-                {
-                    ApplyHitStop(HitStopMgr, FinalDamage);
-                }
-                */
-                
-                // Visual feedback
-                DrawComboVisuals(Start, Target->GetActorLocation());
-                PlayComboFeedback(Target->GetActorLocation());
-            }
+        // Apply aerial damage using actor's TakeDamage (routes to WP)
+        float FinalDamage = Damage * DamageMultiplier * GetDamageMultiplier();
+        
+        FVector ImpactDirection = (Target->GetActorLocation() - OwnerCharacter->GetActorLocation()).GetSafeNormal();
+        FPointDamageEvent DamageEvent(FinalDamage, FHitResult(), ImpactDirection, nullptr);
+        Target->TakeDamage(FinalDamage, DamageEvent, nullptr, OwnerCharacter);
+        
+        // NOTE: Disabled hit stop to avoid conflicts with combo time slow
+        // The combo time slow provides the dramatic effect we want
+        /*
+        if (UHitStopManager* HitStopMgr = CachedWorld->GetSubsystem<UHitStopManager>())
+        {
+            ApplyHitStop(HitStopMgr, FinalDamage);
         }
+        */
+        
+        // Visual feedback
+        DrawComboVisuals(Start, Target->GetActorLocation());
+        PlayComboFeedback(Target->GetActorLocation());
+    }
     
     // Apply downward force
     if (UCharacterMovementComponent* Movement = OwnerCharacter->GetCharacterMovement())
@@ -140,14 +140,18 @@ void UJumpSlashCombo::CreateShockwave()
         {
             if (AActor* HitActor = Result.GetActor())
             {
-                if (UIntegrityComponent* TargetIntegrity = HitActor->FindComponentByClass<UIntegrityComponent>())
+                // Apply shockwave damage to characters
+                if (Cast<ACharacter>(HitActor))
                 {
                     // Calculate distance-based damage falloff
                     float Distance = FVector::Dist(ShockwaveOrigin, HitActor->GetActorLocation());
                     float DamageFalloff = 1.0f - (Distance / ShockwaveRadius);
                     float FinalDamage = ShockwaveDamage * DamageFalloff * GetDamageMultiplier();
                     
-                    TargetIntegrity->TakeDamage(FinalDamage);
+                    // Use actor's TakeDamage (routes to WP)
+                    FVector ImpactDirection = (HitActor->GetActorLocation() - ShockwaveOrigin).GetSafeNormal();
+                    FPointDamageEvent DamageEvent(FinalDamage, FHitResult(), ImpactDirection, nullptr);
+                    HitActor->TakeDamage(FinalDamage, DamageEvent, nullptr, OwnerCharacter);
                     
                     // NOTE: Disabled hit stop to avoid conflicts with combo time slow
                     /*
@@ -225,7 +229,8 @@ AActor* UJumpSlashCombo::FindBestTarget(const FVector& Start, const FVector& For
     if (bDirectHit && DirectHit.GetActor())
     {
         AActor* DirectTarget = DirectHit.GetActor();
-        if (DirectTarget->FindComponentByClass<UIntegrityComponent>())
+        // Check if it's a valid target (has WP to damage)
+        if (Cast<ACharacter>(DirectTarget))
         {
             // If we have a direct hit and player is on ground, prefer this target
             if (bPlayerOnGround)
@@ -267,8 +272,8 @@ AActor* UJumpSlashCombo::FindBestTarget(const FVector& Start, const FVector& For
         AActor* HitActor = Hit.GetActor();
         if (!HitActor) continue;
         
-        // Check if it has integrity component (can be damaged)
-        if (!HitActor->FindComponentByClass<UIntegrityComponent>()) continue;
+        // Check if it's a valid target (character that can be damaged)
+        if (!Cast<ACharacter>(HitActor)) continue;
         
         FVector ToTarget = HitActor->GetActorLocation() - Start;
         float Distance = ToTarget.Size();

@@ -1,7 +1,6 @@
 #include "Enemy/AI/States/RetreatState.h"
 #include "Enemy/BaseEnemy.h"
 #include "Enemy/AI/EnemyStateMachine.h"
-#include "Components/Attributes/IntegrityComponent.h"
 #include "AIController.h"
 #include "NavigationSystem.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -74,19 +73,16 @@ void URetreatState::Update(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine, 
                 Movement->StopMovementImmediately();
             }
             
-            // Apply healing after delay
+            // Apply healing after delay (increase WP back to max)
             if (TimeInState >= HealStartTime)
             {
-                if (UIntegrityComponent* Integrity = Enemy->FindComponentByClass<UIntegrityComponent>())
+                float CurrentHealth = Enemy->GetCurrentWP();
+                float MaxHealth = Enemy->GetMaxWP();
+                
+                if (CurrentHealth < MaxHealth)
                 {
-                    float CurrentHealth = Integrity->GetCurrentValue();
-                    float MaxHealth = Integrity->GetMaxValue();
-                    
-                    if (CurrentHealth < MaxHealth)
-                    {
-                        float HealAmount = HealRate * DeltaTime;
-                        Integrity->SetCurrentValue(FMath::Min(CurrentHealth + HealAmount, MaxHealth));
-                    }
+                    float HealAmount = HealRate * DeltaTime;
+                    Enemy->SetCurrentWP(FMath::Min(CurrentHealth + HealAmount, MaxHealth));
                 }
             }
         }

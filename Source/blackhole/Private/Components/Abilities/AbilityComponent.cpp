@@ -86,6 +86,22 @@ bool UAbilityComponent::CanExecute() const
 		return false;
 	}
 	
+	// ULTIMATE MODE BYPASS - if in ultimate mode, skip most checks
+	if (bIsInUltimateMode && !bIsBasicAbility)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Ability %s: Ultimate mode active - bypassing normal checks"), *GetName());
+		
+		// Only check if owner is alive
+		if (AActor* Owner = GetOwner())
+		{
+			if (ABlackholePlayerCharacter* PlayerOwner = Cast<ABlackholePlayerCharacter>(Owner))
+			{
+				return !PlayerOwner->IsDead();
+			}
+		}
+		return true; // Allow ultimate execution
+	}
+	
 	// Check ability state
 	if (CurrentState == EAbilityState::Disabled || CurrentState == EAbilityState::Executing)
 	{
@@ -146,30 +162,21 @@ bool UAbilityComponent::ValidateResources() const
 	// Fallback to old system if interface not implemented
 	if (UResourceManager* ResMgr = GetResourceManager())
 	{
-		// No additional checks needed
-
-		// WP validation: At 100% WP, abilities work differently
-		if (WPCost > 0.0f)
+		float CurrentWP = ResMgr->GetCurrentWillPower();
+		
+		// If WP > 0, ALWAYS allow ability use (to trigger critical state)
+		if (CurrentWP > 0.0f)
 		{
-			float CurrentWP = ResMgr->GetCurrentWillPower();
-			float MaxWP = ResMgr->GetMaxWillPower();
-			
-			// At 100% WP, non-basic abilities are allowed (they'll become ultimates)
-			if (CurrentWP >= MaxWP && !bIsBasicAbility)
-			{
-				UE_LOG(LogTemp, Warning, TEXT("Ability %s: Allowed at 100%% WP - will trigger ultimate mode"), *GetName());
-				return true;
-			}
-			// Basic abilities always work
-			else if (bIsBasicAbility)
-			{
-				return true;
-			}
-			// Below 100% WP, check normal resource availability
-			else if (CurrentWP < MaxWP)
-			{
-				return true; // Allow all abilities below 100% WP
-			}
+			UE_LOG(LogTemp, Verbose, TEXT("Ability %s: WP > 0 (%.1f) - allowing use regardless of cost (%.1f)"), 
+				*GetName(), CurrentWP, WPCost);
+			return true;
+		}
+		
+		// If WP = 0, only block if not in ultimate mode
+		if (CurrentWP <= 0.0f)
+		{
+			UE_LOG(LogTemp, Verbose, TEXT("Ability %s: WP at 0, blocking unless in ultimate mode"), *GetName());
+			return false; // Will be bypassed if in ultimate mode
 		}
 	}
 
@@ -188,91 +195,39 @@ void UAbilityComponent::Execute()
 	UE_LOG(LogTemp, Warning, TEXT("Ability %s: Execute() called, bIsInUltimateMode=%s, bIsDisabled=%s"), 
 		*GetName(), bIsInUltimateMode ? TEXT("TRUE") : TEXT("FALSE"), bIsDisabled ? TEXT("TRUE") : TEXT("FALSE"));
 	
-	// Check if we're at 100% WP and need ultimate mode
-	bool bShouldBeUltimate = false;
-	if (UResourceManager* ResMgr = GetResourceManager())
-	{
-		float CurrentWP = ResMgr->GetCurrentWillPower();
-		float MaxWP = ResMgr->GetMaxWillPower();
-		
-		// If at 100% WP and not a basic ability, this MUST be an ultimate
-		if (CurrentWP >= MaxWP && !bIsBasicAbility)
-		{
-			bShouldBeUltimate = true;
-			
-			if (UWorld* World = GetWorld())
-			{
-				if (UThresholdManager* ThresholdMgr = World->GetSubsystem<UThresholdManager>())
-				{
-					// Ensure combat is started
-					if (!ThresholdMgr->IsInCombat())
-					{
-						UE_LOG(LogTemp, Warning, TEXT("Ability %s: Starting combat for ultimate mode"), *GetName());
-						ThresholdMgr->StartCombat();
-					}
-					
-					// Force activate ultimate mode if not already active
-					if (!ThresholdMgr->IsUltimateModeActive())
-					{
-						UE_LOG(LogTemp, Warning, TEXT("Ability %s: Force activating ultimate mode"), *GetName());
-						ThresholdMgr->ActivateUltimateMode();
-					}
-					
-					// Now set this ability to ultimate mode
-					bIsInUltimateMode = true;
-					UE_LOG(LogTemp, Error, TEXT("Ability %s: Set to ultimate mode due to 100%% WP"), *GetName());
-				}
-			}
-		}
-		
-		if (CurrentWP >= MaxWP * 0.9f) // Log when close to or at 100% WP
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Ability %s: Execute called with WP=%.1f/%.1f (%.1f%%), UltimateMode=%s, ShouldBeUltimate=%s"), 
-				*GetName(), CurrentWP, MaxWP, (CurrentWP/MaxWP)*100.0f, 
-				bIsInUltimateMode ? TEXT("TRUE") : TEXT("FALSE"),
-				bShouldBeUltimate ? TEXT("TRUE") : TEXT("FALSE"));
-		}
-	}
-	
 	if (CanExecute())
 	{
 		SetAbilityState(EAbilityState::Executing);
 		
-		// If this should be ultimate, execute as ultimate (no resource cost)
-		if (bShouldBeUltimate || bIsInUltimateMode)
+		// Check if we're in ultimate mode
+		if (bIsInUltimateMode && !bIsBasicAbility)
 		{
-			UE_LOG(LogTemp, Error, TEXT("!!! ULTIMATE ABILITY EXECUTING !!!"));
-			UE_LOG(LogTemp, Error, TEXT("Ability %s: Executing ULTIMATE version! (bShouldBeUltimate=%s, bIsInUltimateMode=%s)"), 
-				*GetName(), bShouldBeUltimate ? TEXT("TRUE") : TEXT("FALSE"), 
-				bIsInUltimateMode ? TEXT("TRUE") : TEXT("FALSE"));
-			
-			// First execute the ultimate ability
+			// Execute ultimate version - no resource cost, no cooldown
+			UE_LOG(LogTemp, Warning, TEXT("Ability %s: Executing ULTIMATE version!"), *GetName());
 			ExecuteUltimate();
 			
-			// Set state back to ready since ultimates don't have cooldowns
-			SetAbilityState(EAbilityState::Ready);
-			
-			// ONLY notify ThresholdManager after successfully executing the ultimate
-			// This ensures the ultimate actually fired before we disable it
+			// Notify threshold manager that an ultimate was used
 			if (UWorld* World = GetWorld())
 			{
 				if (UThresholdManager* ThresholdMgr = World->GetSubsystem<UThresholdManager>())
 				{
-					UE_LOG(LogTemp, Warning, TEXT("Ability %s: Notifying ThresholdManager of ultimate execution"), *GetName());
 					ThresholdMgr->OnAbilityExecuted(this);
 				}
 			}
 			
-			return;
+			// Ultimate abilities go back to Ready state, not Cooldown
+			SetAbilityState(EAbilityState::Ready);
 		}
-		
-		// Normal ability execution
-		StartCooldown();
-		
-		// Use new resource consumption
-		ConsumeAbilityResources();
-		
-		SetAbilityState(EAbilityState::Cooldown);
+		else
+		{
+			// Normal ability execution
+			StartCooldown();
+			
+			// Use new resource consumption
+			ConsumeAbilityResources();
+			
+			SetAbilityState(EAbilityState::Cooldown);
+		}
 	}
 }
 
@@ -290,6 +245,26 @@ void UAbilityComponent::ExecuteUltimate()
 	{
 		UE_LOG(LogTemp, Error, TEXT("Ability %s: ExecuteUltimate called but bIsInUltimateMode is FALSE! Setting to TRUE"), *GetName());
 		bIsInUltimateMode = true;
+	}
+}
+
+void UAbilityComponent::SetUltimateMode(bool bEnabled)
+{
+	bIsInUltimateMode = bEnabled;
+	
+	if (bEnabled && !bIsBasicAbility)
+	{
+		// Clear cooldown when entering ultimate mode
+		bIsOnCooldown = false;
+		CurrentCooldown = 0.0f;
+		
+		// Reset ability state to ready
+		if (CurrentState == EAbilityState::Cooldown)
+		{
+			SetAbilityState(EAbilityState::Ready);
+		}
+		
+		UE_LOG(LogTemp, Warning, TEXT("Ability %s: Ultimate mode enabled - cooldown cleared"), *GetName());
 	}
 }
 
@@ -374,33 +349,34 @@ IResourceConsumer* UAbilityComponent::GetOwnerResourceInterface() const
 
 bool UAbilityComponent::ConsumeAbilityResources()
 {
-	// BLACKHOLE CORRUPTION SYSTEM:
-	// Unlike traditional resource systems, abilities in Blackhole ADD corruption (WP)
-	// rather than consuming it. This creates a risk/reward dynamic where:
-	// - Using abilities corrupts the player (increases WP)
-	// - At 50% WP: Player gets combat buffs
-	// - At 100% WP: Abilities transform into ultimates
-	// - Using an ultimate permanently disables that ability
-	// - Death occurs after losing 3 abilities or reaching 100% WP for the 4th time
+	// BLACKHOLE ENERGY SYSTEM:
+	// Abilities consume WP (Will Power) as an energy/mana resource:
+	// - Using abilities consumes WP (reduces energy)
+	// - Killing enemies restores WP
+	// - At 0% WP: Death from energy depletion
+	// - Basic abilities (slash, dash, jump) cost 0 WP
 	
 	// Try interface first
 	if (IResourceConsumer* ResourceInterface = GetOwnerResourceInterface())
 	{
-		// Note: Despite the function name, this ADDS corruption
+		// Consume WP as energy cost
 		return ResourceInterface->Execute_ConsumeResources(GetOwner(), 0.0f, WPCost);
 	}
 	
 	// Fallback to old system
 	if (UResourceManager* ResMgr = GetResourceManager())
 	{
-		// ADD WP corruption (NOT consume) - this is intentional!
+		// Consume WP as energy cost
 		if (WPCost > 0.0f)
 		{
-			ResMgr->AddWillPower(WPCost);
-			UE_LOG(LogTemp, VeryVerbose, TEXT("%s corrupted player with +%.1f WP"), *GetName(), WPCost);
+			if (!ResMgr->ConsumeWillPower(WPCost))
+			{
+				UE_LOG(LogTemp, Warning, TEXT("%s: Not enough WP to use ability (need %.1f)"), *GetName(), WPCost);
+				return false;
+			}
+			UE_LOG(LogTemp, VeryVerbose, TEXT("%s consumed %.1f WP"), *GetName(), WPCost);
 		}
 
-		// Always return true - corruption cannot fail
 		return true;
 	}
 	return false;

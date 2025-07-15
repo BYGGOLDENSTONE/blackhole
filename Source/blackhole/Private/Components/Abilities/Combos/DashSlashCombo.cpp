@@ -1,7 +1,7 @@
 #include "Components/Abilities/Combos/DashSlashCombo.h"
 #include "Player/BlackholePlayerCharacter.h"
-#include "Components/Attributes/IntegrityComponent.h"
 #include "Systems/HitStopManager.h"
+#include "Engine/DamageEvents.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Engine/World.h"
@@ -77,25 +77,25 @@ void UDashSlashCombo::ExecuteCombo()
                     OwnerCharacter->GetActorLocation());
             }
             
-            // Apply backstab damage
-            if (UIntegrityComponent* TargetIntegrity = Target->FindComponentByClass<UIntegrityComponent>())
+            // Apply backstab damage using actor's TakeDamage (routes to WP)
+            float FinalDamage = Damage * DamageMultiplier * BackstabDamageMultiplier * GetDamageMultiplier();
+            
+            FVector ImpactDirection = (Target->GetActorLocation() - OwnerCharacter->GetActorLocation()).GetSafeNormal();
+            FPointDamageEvent DamageEvent(FinalDamage, FHitResult(), ImpactDirection, nullptr);
+            Target->TakeDamage(FinalDamage, DamageEvent, nullptr, OwnerCharacter);
+            
+            // NOTE: Disabled hit stop to avoid conflicts with combo time slow
+            // The combo time slow provides the dramatic effect we want
+            /*
+            if (UHitStopManager* HitStopMgr = CachedWorld->GetSubsystem<UHitStopManager>())
             {
-                float FinalDamage = Damage * DamageMultiplier * BackstabDamageMultiplier * GetDamageMultiplier();
-                TargetIntegrity->TakeDamage(FinalDamage);
-                
-                // NOTE: Disabled hit stop to avoid conflicts with combo time slow
-                // The combo time slow provides the dramatic effect we want
-                /*
-                if (UHitStopManager* HitStopMgr = CachedWorld->GetSubsystem<UHitStopManager>())
-                {
-                    ApplyHitStop(HitStopMgr, FinalDamage);
-                }
-                */
-                
-                // Visual feedback
-                DrawComboVisuals(Start, Target->GetActorLocation());
-                PlayComboFeedback(Target->GetActorLocation());
+                ApplyHitStop(HitStopMgr, FinalDamage);
             }
+            */
+            
+            // Visual feedback
+            DrawComboVisuals(Start, Target->GetActorLocation());
+            PlayComboFeedback(Target->GetActorLocation());
         }
     }
     
@@ -186,7 +186,8 @@ AActor* UDashSlashCombo::FindBestTarget(const FVector& Start, const FVector& For
     if (bDirectHit && DirectHit.GetActor())
     {
         AActor* DirectTarget = DirectHit.GetActor();
-        if (DirectTarget->FindComponentByClass<UIntegrityComponent>())
+        // Check if it's a valid target (has WP to damage)
+        if (Cast<ACharacter>(DirectTarget))
         {
             // If we have a direct hit and player is on ground, prefer this target
             if (bPlayerOnGround)
@@ -228,8 +229,8 @@ AActor* UDashSlashCombo::FindBestTarget(const FVector& Start, const FVector& For
         AActor* HitActor = Hit.GetActor();
         if (!HitActor) continue;
         
-        // Check if it has integrity component (can be damaged)
-        if (!HitActor->FindComponentByClass<UIntegrityComponent>()) continue;
+        // Check if it's a valid target (character that can be damaged)
+        if (!Cast<ACharacter>(HitActor)) continue;
         
         FVector ToTarget = HitActor->GetActorLocation() - Start;
         float Distance = ToTarget.Size();

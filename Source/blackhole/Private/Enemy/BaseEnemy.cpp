@@ -1,9 +1,9 @@
 #include "Enemy/BaseEnemy.h"
-#include "Components/Attributes/IntegrityComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Systems/ThresholdManager.h"
+#include "Systems/ResourceManager.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
@@ -18,7 +18,9 @@ ABaseEnemy::ABaseEnemy()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	IntegrityComponent = CreateDefaultSubobject<UIntegrityComponent>(TEXT("Integrity"));
+	// Initialize WP values (will be overridden by data table if configured)
+	MaxWP = 100.0f; // Default enemy health
+	CurrentWP = MaxWP;
 	
 	// Don't create state machine here - derived classes create their own specific types
 	
@@ -140,11 +142,7 @@ void ABaseEnemy::BeginPlay()
 		UE_LOG(LogTemp, Error, TEXT("%s: No state machine component found after CreateStateMachine()!"), *GetName());
 	}
 	
-	// Bind to integrity component's OnReachedZero event
-	if (IntegrityComponent)
-	{
-		IntegrityComponent->OnReachedZero.AddDynamic(this, &ABaseEnemy::OnDeath);
-	}
+	// Death is now handled by checking WP in TakeDamage
 	
 	// State machine handles AI updates now - no need for timer
 	// Legacy AI timer disabled in favor of state machine
@@ -207,6 +205,26 @@ void ABaseEnemy::SetTargetActor(AActor* NewTarget)
 	TargetActor = NewTarget;
 }
 
+float ABaseEnemy::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, 
+	class AController* EventInstigator, AActor* DamageCauser)
+{
+	// Reduce WP by damage amount
+	float OldWP = CurrentWP;
+	CurrentWP = FMath::Clamp(CurrentWP - DamageAmount, 0.0f, MaxWP);
+	
+	UE_LOG(LogTemp, Warning, TEXT("%s took %.1f damage, WP: %.1f/%.1f"), 
+		*GetName(), DamageAmount, CurrentWP, MaxWP);
+	
+	// Check for death
+	if (CurrentWP <= 0.0f && OldWP > 0.0f)
+	{
+		OnDeath();
+	}
+	
+	// Return actual damage dealt
+	return OldWP - CurrentWP;
+}
+
 void ABaseEnemy::OnDeath()
 {
 	if (bIsDead)
@@ -215,6 +233,19 @@ void ABaseEnemy::OnDeath()
 	}
 	
 	bIsDead = true;
+	
+	// Grant WP reward to player
+	if (UWorld* World = GetWorld())
+	{
+		if (UGameInstance* GameInstance = World->GetGameInstance())
+		{
+			if (UResourceManager* ResourceMgr = GameInstance->GetSubsystem<UResourceManager>())
+			{
+				ResourceMgr->AddWillPower(WPRewardOnKill);
+				UE_LOG(LogTemp, Warning, TEXT("%s killed: Player gained +%.1f WP"), *GetName(), WPRewardOnKill);
+			}
+		}
+	}
 	
 	// Notify state machine
 	if (StateMachine)

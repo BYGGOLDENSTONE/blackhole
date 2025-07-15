@@ -23,9 +23,12 @@ namespace GameplayConfig
 	// Resource System Configuration
 	namespace Resources
 	{
-		constexpr float MAX_WILLPOWER = 100.0f;				// WP units
+		constexpr float MAX_WILLPOWER = 100.0f;				// WP units (energy system)
+		constexpr float INITIAL_WILLPOWER = 100.0f;			// Start at full energy
 		constexpr float WP_WARNING_PERCENT = 0.9f;				// 90%
 		constexpr float WP_BUFFED_THRESHOLD = 0.5f;			// 50%
+		constexpr float WP_LOW_THRESHOLD = 0.2f;				// 20% - danger zone
+		constexpr float WP_CRITICAL_LOW = 10.0f;				// Critical low health
 	}
 
 	// Player Movement Configuration
@@ -120,12 +123,8 @@ namespace GameplayConfig
 		constexpr float DEFAULT_MAX_VALUE = 100.0f;			// Default for all attributes
 		constexpr float DEFAULT_REGEN_RATE = 0.0f;				// Per second
 		
-		// Integrity (Health) specific
-		namespace Integrity
-		{
-			constexpr float MAX_VALUE = 100.0f;				// HP units
-			constexpr float BLOCK_DAMAGE_REDUCTION = 0.5f;		// 50% reduction when blocking
-		}
+		// Combat modifiers
+		constexpr float BLOCK_DAMAGE_REDUCTION = 0.5f;			// 50% reduction when blocking
 	}
 
 	// Threshold System Configuration

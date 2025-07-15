@@ -1,5 +1,4 @@
 #include "Enemy/HackerEnemy.h"
-#include "Components/Attributes/IntegrityComponent.h"
 #include "Components/Abilities/Enemy/MindmeldComponent.h"
 #include "Player/BlackholePlayerCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -31,6 +30,9 @@ AHackerEnemy::AHackerEnemy()
 	
 	// Set default data table row name
 	StatsRowName = FName("Hacker");
+	
+	// Hacker enemies give high WP reward due to their danger
+	WPRewardOnKill = 25.0f;
 }
 
 void AHackerEnemy::BeginPlay()
@@ -48,7 +50,7 @@ void AHackerEnemy::UpdateAIBehavior(float DeltaTime)
 	// Call parent implementation first to handle combat detection
 	Super::UpdateAIBehavior(DeltaTime);
 	
-	if (!TargetActor || !IntegrityComponent->IsAlive())
+	if (!TargetActor || !IsAlive())
 	{
 		return;
 	}

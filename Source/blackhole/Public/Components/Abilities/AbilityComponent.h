@@ -33,10 +33,10 @@ protected:
 	float Cooldown;
 
 
-	// WP Corruption System - IMPORTANT: This ADDS corruption, not consumes WP
-	// Higher WPCost = More corruption added when using ability
-	// At 100% WP, abilities transform into ultimates
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability", meta = (DisplayName = "WP Corruption Added"))
+	// WP Energy System - Abilities consume WP as energy/mana
+	// Higher WPCost = More energy consumed when using ability
+	// Basic abilities (slash, dash, jump) have 0 WP cost
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability", meta = (DisplayName = "WP Energy Cost"))
 	float WPCost;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
@@ -109,7 +109,7 @@ public:
 	
 	// Ultimate mode support
 	UFUNCTION(BlueprintCallable, Category = "Ability")
-	void SetUltimateMode(bool bEnabled) { bIsInUltimateMode = bEnabled; }
+	void SetUltimateMode(bool bEnabled);
 	
 	UFUNCTION(BlueprintPure, Category = "Ability")
 	bool IsInUltimateMode() const { return bIsInUltimateMode; }

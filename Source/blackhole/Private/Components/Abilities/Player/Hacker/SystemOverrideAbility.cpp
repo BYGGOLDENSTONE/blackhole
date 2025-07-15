@@ -9,8 +9,8 @@
 #include "DrawDebugHelpers.h"
 #include "Kismet/GameplayStatics.h"
 #include "Enemy/BaseEnemy.h"
-#include "Components/Attributes/IntegrityComponent.h"
 #include "Systems/ResourceManager.h"
+#include "Engine/DamageEvents.h"
 #include "Systems/HitStopManager.h"
 
 USystemOverrideAbility::USystemOverrideAbility()
@@ -135,16 +135,15 @@ void USystemOverrideAbility::PerformSystemOverride()
 	{
 		if (IsValid(Enemy))
 		{
-			// Apply damage
-			UIntegrityComponent* TargetIntegrity = Enemy->FindComponentByClass<UIntegrityComponent>();
-			if (TargetIntegrity)
-			{
-				float FinalDamage = AreaDamage * GetDamageMultiplier();
-				TargetIntegrity->TakeDamage(FinalDamage);
-				
-				UE_LOG(LogTemp, Log, TEXT("System Override damaged %s for %.1f"), 
-					*Enemy->GetName(), FinalDamage);
-			}
+			// Apply damage using actor's TakeDamage (routes to WP)
+			float FinalDamage = AreaDamage * GetDamageMultiplier();
+			
+			FVector ImpactDirection = GetOwner() ? (Enemy->GetActorLocation() - GetOwner()->GetActorLocation()).GetSafeNormal() : FVector::ForwardVector;
+			FPointDamageEvent DamageEvent(FinalDamage, FHitResult(), ImpactDirection, nullptr);
+			Enemy->TakeDamage(FinalDamage, DamageEvent, nullptr, GetOwner());
+			
+			UE_LOG(LogTemp, Log, TEXT("System Override damaged %s for %.1f"), 
+				*Enemy->GetName(), FinalDamage);
 
 			// Disable enemy systems
 			DisableEnemy(Enemy);

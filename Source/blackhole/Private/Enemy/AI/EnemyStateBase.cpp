@@ -2,7 +2,6 @@
 #include "Enemy/BaseEnemy.h"
 #include "Enemy/AI/EnemyStateMachine.h"
 #include "Player/BlackholePlayerCharacter.h"
-#include "Components/Attributes/IntegrityComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
@@ -94,11 +93,9 @@ float UEnemyStateBase::GetHealthPercent(ABaseEnemy* Enemy) const
 {
     if (!Enemy) return 0.0f;
     
-    UIntegrityComponent* Integrity = Enemy->FindComponentByClass<UIntegrityComponent>();
-    if (!Integrity) return 0.0f;
-    
-    float MaxHealth = Integrity->GetMaxValue();
-    float CurrentHealth = Integrity->GetCurrentValue();
+    // Use WP as health
+    float MaxHealth = Enemy->GetMaxWP();
+    float CurrentHealth = Enemy->GetCurrentWP();
     
     return MaxHealth > 0.0f ? CurrentHealth / MaxHealth : 0.0f;
 }

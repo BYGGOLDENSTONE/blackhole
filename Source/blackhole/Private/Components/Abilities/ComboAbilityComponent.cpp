@@ -1,6 +1,7 @@
 #include "Components/Abilities/ComboAbilityComponent.h"
 #include "Player/BlackholePlayerCharacter.h"
 #include "Systems/HitStopManager.h"
+#include "Systems/ResourceManager.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
@@ -80,6 +81,13 @@ void UComboAbilityComponent::Execute()
     
     // Execute the combo
     ExecuteCombo();
+    
+    // Reward WP for successful combo execution
+    if (UResourceManager* ResourceMgr = GetResourceManager())
+    {
+        ResourceMgr->AddWillPower(WPRewardAmount);
+        UE_LOG(LogTemp, Warning, TEXT("Combo %s executed: Player gained +%.1f WP"), *GetName(), WPRewardAmount);
+    }
 }
 
 void UComboAbilityComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)

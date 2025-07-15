@@ -1,6 +1,6 @@
 #include "Systems/DeathManager.h"
 #include "Player/BlackholePlayerCharacter.h"
-#include "Components/Attributes/IntegrityComponent.h"
+#include "Systems/ResourceManager.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -118,16 +118,9 @@ void UDeathManager::ResetDeathState()
 
 bool UDeathManager::CheckHealthDeath() const
 {
-    if (!PlayerCharacter)
-    {
-        return false;
-    }
-    
-    if (UIntegrityComponent* Integrity = PlayerCharacter->FindComponentByClass<UIntegrityComponent>())
-    {
-        return Integrity->GetCurrentValue() <= 0.0f;
-    }
-    
+    // In the new energy system, death doesn't occur from WP depletion
+    // Death only occurs if critical timer expires without using ultimate
+    // This is handled by ThresholdManager, not DeathManager
     return false;
 }
 

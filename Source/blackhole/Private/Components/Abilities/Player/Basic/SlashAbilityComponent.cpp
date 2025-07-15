@@ -1,6 +1,6 @@
 #include "Components/Abilities/Player/Basic/SlashAbilityComponent.h"
-#include "Components/Attributes/IntegrityComponent.h"
 #include "GameFramework/Actor.h"
+#include "Engine/DamageEvents.h"
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
 #include "Player/BlackholePlayerCharacter.h"
@@ -76,25 +76,25 @@ void USlashAbilityComponent::Execute()
 				
 				if (bHit && AimHit.GetActor())
 				{
-					// We hit something - check if it's a valid target
-					if (UIntegrityComponent* TargetIntegrity = AimHit.GetActor()->FindComponentByClass<UIntegrityComponent>())
+					// We hit something - apply damage
+					// Apply damage with survivor buff multiplier
+					float FinalDamage = Damage * GetDamageMultiplier();
+					
+					// Use the actor's TakeDamage method (will route to WP)
+					FPointDamageEvent DamageEvent(FinalDamage, AimHit, CameraForward, nullptr);
+					AimHit.GetActor()->TakeDamage(FinalDamage, DamageEvent, nullptr, Owner);
+					
+					// Trigger hit stop
+					if (UHitStopManager* HitStopMgr = GetWorld()->GetSubsystem<UHitStopManager>())
 					{
-						// Apply damage with survivor buff multiplier
-						float FinalDamage = Damage * GetDamageMultiplier();
-						TargetIntegrity->TakeDamage(FinalDamage);
-						
-						// Trigger hit stop
-						if (UHitStopManager* HitStopMgr = GetWorld()->GetSubsystem<UHitStopManager>())
-						{
-							HitStopMgr->RequestLightHitStop();
-						}
-						
-						#if WITH_EDITOR
-						// Show hit location
-						DrawDebugSphere(GetWorld(), AimHit.Location, 20.0f, 8, FColor::Red, false, 0.5f);
-						DrawDebugLine(GetWorld(), CameraLocation, AimHit.Location, FColor::Green, false, 0.5f, 0, 2.0f);
-						#endif
+						HitStopMgr->RequestLightHitStop();
 					}
+					
+					#if WITH_EDITOR
+					// Show hit location
+					DrawDebugSphere(GetWorld(), AimHit.Location, 20.0f, 8, FColor::Red, false, 0.5f);
+					DrawDebugLine(GetWorld(), CameraLocation, AimHit.Location, FColor::Green, false, 0.5f, 0, 2.0f);
+					#endif
 				}
 				else
 				{
@@ -118,15 +118,16 @@ void USlashAbilityComponent::Execute()
 				{
 					if (AActor* HitActor = HitResult.GetActor())
 					{
-						if (UIntegrityComponent* TargetIntegrity = HitActor->FindComponentByClass<UIntegrityComponent>())
+						// Apply damage to the hit actor
+						float FinalDamage = Damage * GetDamageMultiplier();
+						
+						// Use the actor's TakeDamage method (will route to WP)
+						FPointDamageEvent DamageEvent(FinalDamage, HitResult, Owner->GetActorForwardVector(), nullptr);
+						HitActor->TakeDamage(FinalDamage, DamageEvent, nullptr, Owner);
+						
+						if (UHitStopManager* HitStopMgr = GetWorld()->GetSubsystem<UHitStopManager>())
 						{
-							float FinalDamage = Damage * GetDamageMultiplier();
-							TargetIntegrity->TakeDamage(FinalDamage);
-							
-							if (UHitStopManager* HitStopMgr = GetWorld()->GetSubsystem<UHitStopManager>())
-							{
-								HitStopMgr->RequestLightHitStop();
-							}
+							HitStopMgr->RequestLightHitStop();
 						}
 					}
 				}
@@ -146,17 +147,17 @@ void USlashAbilityComponent::Execute()
 			{
 				if (AActor* HitActor = HitResult.GetActor())
 				{
-					if (UIntegrityComponent* TargetIntegrity = HitActor->FindComponentByClass<UIntegrityComponent>())
+					// Apply damage to the hit actor
+					float FinalDamage = Damage * GetDamageMultiplier();
+					
+					// Use the actor's TakeDamage method (will route to WP)
+					FPointDamageEvent DamageEvent(FinalDamage, HitResult, Owner->GetActorForwardVector(), nullptr);
+					HitActor->TakeDamage(FinalDamage, DamageEvent, nullptr, Owner);
+					
+					// Trigger hit stop
+					if (UHitStopManager* HitStopMgr = GetWorld()->GetSubsystem<UHitStopManager>())
 					{
-						// Apply damage with survivor buff multiplier
-						float FinalDamage = Damage * GetDamageMultiplier();
-						TargetIntegrity->TakeDamage(FinalDamage);
-						
-						// Trigger hit stop
-						if (UHitStopManager* HitStopMgr = GetWorld()->GetSubsystem<UHitStopManager>())
-						{
-							HitStopMgr->RequestLightHitStop();
-						}
+						HitStopMgr->RequestLightHitStop();
 					}
 				}
 			}

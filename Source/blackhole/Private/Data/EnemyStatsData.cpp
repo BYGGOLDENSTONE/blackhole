@@ -6,7 +6,6 @@
 #include "Enemy/HackerEnemy.h"
 #include "Enemy/AI/EnemyStateMachine.h"
 #include "Enemy/AI/EnemyStates.h"
-#include "Components/Attributes/IntegrityComponent.h"
 #include "Components/Abilities/Enemy/SmashAbilityComponent.h"
 #include "Components/Abilities/Enemy/BlockComponent.h"
 #include "Components/Abilities/Enemy/DodgeComponent.h"
@@ -42,12 +41,9 @@ void UEnemyStatsManager::ApplyStatsToEnemy(ABaseEnemy* Enemy, const FEnemyStatsD
 		return;
 	}
 	
-	// Apply basic stats
-	if (UIntegrityComponent* Integrity = Enemy->FindComponentByClass<UIntegrityComponent>())
-	{
-		Integrity->SetMaxValue(Stats.MaxHealth);
-		Integrity->SetCurrentValue(Stats.MaxHealth);
-	}
+	// Apply health as WP
+	Enemy->SetMaxWP(Stats.MaxHealth);
+	Enemy->SetCurrentWP(Stats.MaxHealth);
 	
 	// Apply movement stats
 	if (UCharacterMovementComponent* Movement = Enemy->GetCharacterMovement())

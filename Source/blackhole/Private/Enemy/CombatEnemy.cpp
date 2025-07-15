@@ -1,5 +1,4 @@
 #include "Enemy/CombatEnemy.h"
-#include "Components/Attributes/IntegrityComponent.h"
 #include "Components/Abilities/Enemy/SmashAbilityComponent.h"
 #include "Components/Abilities/Enemy/BlockComponent.h"
 #include "Components/Abilities/Enemy/DodgeComponent.h"
@@ -38,6 +37,9 @@ ACombatEnemy::ACombatEnemy()
 	// Set default data table row name
 	StatsRowName = FName("Combat");
 	
+	// Combat enemies give standard WP reward
+	WPRewardOnKill = 10.0f;
+	
 	// Create shield mesh component
 	ShieldMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Shield"));
 	ShieldMesh->SetupAttachment(GetMesh(), FName("shieldsocket"));
@@ -61,7 +63,7 @@ void ACombatEnemy::UpdateAIBehavior(float DeltaTime)
 	// Call parent implementation first to handle combat detection
 	Super::UpdateAIBehavior(DeltaTime);
 	
-	if (!TargetActor || !IntegrityComponent->IsAlive())
+	if (!TargetActor || !IsAlive())
 	{
 		return;
 	}

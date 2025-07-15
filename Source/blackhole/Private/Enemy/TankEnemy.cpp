@@ -1,5 +1,4 @@
 #include "Enemy/TankEnemy.h"
-#include "Components/Attributes/IntegrityComponent.h"
 #include "Components/Abilities/Enemy/SmashAbilityComponent.h"
 #include "Components/Abilities/Enemy/BlockComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -45,6 +44,9 @@ ATankEnemy::ATankEnemy()
 	// Set default data table row name
 	StatsRowName = FName("Tank");
 	
+	// Tank enemies give more WP on kill due to higher difficulty
+	WPRewardOnKill = 20.0f;
+	
 	// Create shield mesh component
 	ShieldMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Shield"));
 	ShieldMesh->SetupAttachment(GetMesh(), FName("shieldsocket"));
@@ -62,12 +64,9 @@ void ATankEnemy::BeginPlay()
 		TargetActor = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
 	}
 
-	// Tank has more health
-	if (IntegrityComponent)
-	{
-		IntegrityComponent->SetMaxValue(150.0f);
-		IntegrityComponent->SetCurrentValue(150.0f);
-	}
+	// Tank has more health (as WP)
+	MaxWP = 150.0f;
+	CurrentWP = MaxWP;
 }
 
 void ATankEnemy::UpdateAIBehavior(float DeltaTime)

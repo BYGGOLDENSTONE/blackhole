@@ -20,6 +20,7 @@ enum class EResourceThreshold : uint8
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnResourceChanged, float, NewValue, float, MaxValue);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnThresholdReached, EResourceThreshold, Threshold);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnWPMaxReached, int32, TimesReached);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnWPDepleted);
 
 UCLASS()
 class BLACKHOLE_API UResourceManager : public UGameInstanceSubsystem
@@ -40,13 +41,25 @@ public:
 	
 	UPROPERTY(BlueprintAssignable, Category = "Resource Events")
 	FOnWPMaxReached OnWPMaxReached;
+	
+	// Delegate for when WP reaches 0 (death from damage)
+	UPROPERTY(BlueprintAssignable, Category = "Resource Events")
+	FOnWPDepleted OnWPDepleted;
 		
 	// Resource modification with validation
+	// WP is now a traditional energy/mana system:
+	// - Taking damage reduces WP (toward 0 = death)
+	// - Using abilities consumes WP (toward 0 = no energy)
+	// - Killing enemies restores WP (toward 100 = full energy)
 	UFUNCTION(BlueprintCallable, Category = "Resources")
 	bool ConsumeWillPower(float Amount);
 	
 	UFUNCTION(BlueprintCallable, Category = "Resources")
 	void AddWillPower(float Amount);
+	
+	// Take damage (reduces WP)
+	UFUNCTION(BlueprintCallable, Category = "Resources")
+	void TakeDamage(float DamageAmount);
 		
 	// Getters
 	UFUNCTION(BlueprintPure, Category = "Resources")
@@ -61,9 +74,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Resources")
 	EResourceThreshold GetCurrentWPThreshold() const;
 	
-	// Check if player has enough WP
+	// Check if player has enough WP for ability use
 	UFUNCTION(BlueprintPure, Category = "Resources")
 	bool HasEnoughWillPower(float Amount) const { return CurrentWP >= Amount; }
+	
+	// Check if player is alive (WP > 0)
+	UFUNCTION(BlueprintPure, Category = "Resources")
+	bool IsAlive() const { return CurrentWP > 0.0f; }
 
 	// Check if can consume resources
 	UFUNCTION(BlueprintPure, Category = "Resources")

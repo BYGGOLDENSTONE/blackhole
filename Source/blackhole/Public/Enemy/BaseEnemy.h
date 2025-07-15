@@ -4,7 +4,6 @@
 #include "GameFramework/Character.h"
 #include "BaseEnemy.generated.h"
 
-class UIntegrityComponent;
 class UStaticMeshComponent;
 class ABlackholePlayerCharacter;
 class UEnemyStateMachine;
@@ -16,12 +15,24 @@ class BLACKHOLE_API ABaseEnemy : public ACharacter
 
 public:
 	ABaseEnemy();
+	
+	// Override to handle damage as WP reduction
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, 
+		class AController* EventInstigator, AActor* DamageCauser) override;
 
 protected:
 	virtual void BeginPlay() override;
 
+	// Enemy health is now tracked as WP (same as player)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
-	UIntegrityComponent* IntegrityComponent;
+	float CurrentWP;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attributes")
+	float MaxWP;
+	
+	// WP reward given to player on kill
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Attributes")
+	float WPRewardOnKill = 10.0f;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
 	UEnemyStateMachine* StateMachine;
@@ -86,6 +97,21 @@ public:
 	// Utility accessors for EnemyUtility
 	UFUNCTION(BlueprintPure, Category = "Enemy")
 	bool IsDead() const { return bIsDead; }
+	
+	UFUNCTION(BlueprintPure, Category = "Enemy")
+	bool IsAlive() const { return CurrentWP > 0.0f; }
+	
+	UFUNCTION(BlueprintPure, Category = "Enemy")
+	float GetCurrentWP() const { return CurrentWP; }
+	
+	UFUNCTION(BlueprintPure, Category = "Enemy")
+	float GetMaxWP() const { return MaxWP; }
+	
+	UFUNCTION(BlueprintCallable, Category = "Enemy")
+	void SetCurrentWP(float NewWP) { CurrentWP = FMath::Clamp(NewWP, 0.0f, MaxWP); }
+	
+	UFUNCTION(BlueprintCallable, Category = "Enemy")
+	void SetMaxWP(float NewMaxWP) { MaxWP = FMath::Max(0.0f, NewMaxWP); }
 	
 	UFUNCTION(BlueprintPure, Category = "Enemy")
 	ABlackholePlayerCharacter* GetTargetPlayer() const;

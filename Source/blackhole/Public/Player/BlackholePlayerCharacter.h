@@ -9,7 +9,6 @@
 
 class USpringArmComponent;
 class UCameraComponent;
-class UIntegrityComponent;
 class UWillPowerComponent;
 class USlashAbilityComponent;
 // class USystemFreezeAbilityComponent; // Removed
@@ -55,6 +54,10 @@ public:
 	// Get aim direction and location from camera
 	UFUNCTION(BlueprintCallable, Category = "Aiming")
 	void GetAimLocationAndDirection(FVector& OutLocation, FVector& OutDirection) const;
+	
+	// Override to route damage to WP instead of health
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, 
+		class AController* EventInstigator, AActor* DamageCauser) override;
 
 
 protected:
@@ -92,9 +95,6 @@ protected:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Settings", meta = (DisplayName = "Camera Rotation Lag Speed"))
 	float CameraRotationLagSpeed = 12.0f;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
-	UIntegrityComponent* IntegrityComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
 	UWillPowerComponent* WillPowerComponent;
@@ -273,6 +273,10 @@ private:
 	// Handle ThresholdManager death event
 	UFUNCTION()
 	void OnThresholdDeath();
+	
+	// Handle WP depletion (activates ultimate mode)
+	UFUNCTION()
+	void OnWPDepleted();
 	
 
 public:

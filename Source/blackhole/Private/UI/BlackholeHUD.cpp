@@ -1,6 +1,5 @@
 #include "UI/BlackholeHUD.h"
 #include "Player/BlackholePlayerCharacter.h"
-#include "Components/Attributes/IntegrityComponent.h"
 #include "Components/Attributes/WillPowerComponent.h"
 #include "Systems/ResourceManager.h"
 #include "Systems/ThresholdManager.h"
@@ -22,6 +21,7 @@
 #include "Components/Abilities/AbilityComponent.h"
 #include "Systems/ThresholdManager.h"
 #include "Components/Movement/WallRunComponent.h"
+#include "Enemy/BaseEnemy.h"
 #include "Engine/Canvas.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
@@ -35,7 +35,6 @@ ABlackholeHUD::ABlackholeHUD()
 	AttributeBarHeight = 20.0f;
 	CooldownIconSize = 50.0f;
 
-	IntegrityColor = FColor::Red;
 	WillPowerColor = FColor::Blue;
 	
 	// Initialize cached values
@@ -206,17 +205,28 @@ void ABlackholeHUD::DrawHUD()
 	float StartY = 50.0f;
 	float VerticalSpacing = 30.0f;
 
-	if (UIntegrityComponent* Integrity = PlayerCharacter->FindComponentByClass<UIntegrityComponent>())
+	// Draw WP as the primary resource (energy system)
+	int resourceBarIndex = 0;
+	// Calculate dynamic color based on WP level
+	float WPPercent = CachedMaxWP > 0 ? CachedWP / CachedMaxWP : 0.0f;
+	FColor DynamicWPColor;
+	if (WPPercent >= 0.5f)
 	{
-		DrawAttribute("Integrity", Integrity->GetCurrentValue(), Integrity->GetMaxValue(), 
-					  StartX, StartY, IntegrityColor);
+		// 50-100% = Green (healthy)
+		DynamicWPColor = FColor::Green;
 	}
-
-	// Draw WP only in Hacker path
-	int resourceBarIndex = 1;
-	// Always draw Will Power for Hacker path
+	else if (WPPercent >= 0.2f)
+	{
+		// 20-50% = Yellow (warning)
+		DynamicWPColor = FColor::Yellow;
+	}
+	else
+	{
+		// 0-20% = Red (critical)
+		DynamicWPColor = FColor::Red;
+	}
 	DrawAttribute("Will Power", CachedWP, CachedMaxWP, 
-				  StartX, StartY + VerticalSpacing * resourceBarIndex, WillPowerColor);
+				  StartX, StartY + VerticalSpacing * resourceBarIndex, DynamicWPColor);
 	resourceBarIndex++;
 	
 	// Path is always Hacker now
@@ -256,22 +266,8 @@ void ABlackholeHUD::DrawAttribute(const FString& Name, float Current, float Max,
 		// Draw the filled portion
 		if (FilledWidth > 0)
 		{
-			// Different colors for different thresholds
-			FColor WPColor = Color;
-			float Percent = Current / Max;
-			
-			if (Percent >= 1.0f)
-			{
-				// Ultimate mode - pulsing red/white
-				WPColor = FMath::Sin(GetWorld()->GetTimeSeconds() * 4.0f) > 0 ? FColor::Red : FColor::White;
-			}
-			else if (Percent >= 0.5f)
-			{
-				// Buffed state - bright cyan
-				WPColor = FColor::Cyan;
-			}
-			
-			DrawRect(WPColor, BarX, BarY, FilledWidth, AttributeBarHeight);
+			// Use the already calculated dynamic color
+			DrawRect(Color, BarX, BarY, FilledWidth, AttributeBarHeight);
 		}
 		
 		// Draw threshold markers
@@ -279,9 +275,9 @@ void ABlackholeHUD::DrawAttribute(const FString& Name, float Current, float Max,
 		DrawLine(Threshold50, BarY - 2, Threshold50, BarY + AttributeBarHeight + 2, FColor::Yellow, 2.0f);
 		
 		// Draw threshold text
-		if (Current >= Max)
+		if (Current <= Max * 0.2f)
 		{
-			DrawText(TEXT("ULTIMATE!"), FColor::Red, BarX + AttributeBarWidth / 2 - 30, BarY - 15, nullptr, 1.0f, false);
+			DrawText(TEXT("LOW ENERGY"), FColor::Red, BarX + AttributeBarWidth / 2 - 30, BarY - 15, nullptr, 1.0f, false);
 		}
 		else if (Current >= Max * 0.5f)
 		{
@@ -345,9 +341,10 @@ void ABlackholeHUD::DrawTargetInfo()
 	FCString::Sprintf(TargetTextBuffer, TEXT("Target: %s"), *Target->GetName());
 	DrawText(TargetTextBuffer, FColor::Yellow, InfoX, InfoY);
 
-	if (UIntegrityComponent* TargetIntegrity = Target->FindComponentByClass<UIntegrityComponent>())
+	// Display enemy WP
+	if (ABaseEnemy* Enemy = Cast<ABaseEnemy>(Target))
 	{
-		DrawAttribute("Enemy HP", TargetIntegrity->GetCurrentValue(), TargetIntegrity->GetMaxValue(),
+		DrawAttribute("Enemy WP", Enemy->GetCurrentWP(), Enemy->GetMaxWP(),
 					  InfoX - 100.0f, InfoY + 20.0f, FColor::Red);
 	}
 }
@@ -759,9 +756,8 @@ void ABlackholeHUD::DrawDebugStatus()
 			}
 			else
 			{
-				// Check if abilities are buffed (50-99% WP)
-				if (ResourceManager && ResourceManager->GetWillPowerPercent() >= 0.5f && 
-					ResourceManager->GetWillPowerPercent() < 1.0f)
+				// Check if abilities are buffed (50-100% WP)
+				if (ResourceManager && ResourceManager->GetWillPowerPercent() >= 0.5f)
 				{
 					Status = TEXT("BUFFED");
 					StatusColor = FColor::Cyan;
@@ -791,9 +787,13 @@ void ABlackholeHUD::DrawDebugStatus()
 		DrawText(FString::Printf(TEXT("WP: %d%%"), WPPercent), WillPowerColor, X, Y);
 		Y += LineHeight;
 		
-		if (WPPercent >= 100)
+		if (WPPercent <= 0)
 		{
-			DrawText(TEXT("USE ABILITY TO SACRIFICE!"), FColor::Red, X, Y);
+			DrawText(TEXT("ULTIMATE MODE ACTIVE!"), FColor::Cyan, X, Y);
+		}
+		else if (WPPercent <= 20)
+		{
+			DrawText(TEXT("LOW ENERGY - USE COMBOS!"), FColor::Red, X, Y);
 		}
 		else if (WPPercent >= 50)
 		{

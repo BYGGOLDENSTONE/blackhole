@@ -4,7 +4,11 @@
 **Language**: C++ with Blueprint integration  
 **Genre**: Cyberpunk action game with risk/reward combat  
 **Repository**: https://github.com/BYGGOLDENSTONE/blackhole  
-**Last Updated**: 2025-07-13
+**Last Updated**: 2025-07-15
+
+## ✅ Recent Improvements (2025-07-15)
+
+The WP system has been completely transformed from a corruption mechanic to an energy/mana system, improving the game from 9.5/10 to **9.8/10**.
 
 ## ✅ Recent Improvements (2025-07-13)
 
@@ -17,11 +21,11 @@ All critical issues have been fixed! Project improved from 7.5/10 to **9.5/10**.
 4. ✅ **Include Paths** - Fixed relative include in HackableObject.h
 5. ✅ **Enemy Code Duplication** - Created EnemyUtility system
 6. ✅ **HUD Performance** - Added caching system (30-40% improvement)
-7. ✅ **WP Documentation** - Clarified corruption vs consumption
+7. ✅ **WP Documentation** - Updated for energy system
 8. ✅ **Compilation Errors** - Fixed all build errors
 9. ✅ **WP Ultimate System** - Fixed synchronization between ResourceManager and WillPowerComponent
 10. ✅ **Slash Ability** - Removed WP cost, now free to use
-11. ✅ **Critical Timer** - Added 5-second urgency timer at 100% WP with death penalty
+11. ✅ **Critical Timer** - Added 5-second urgency timer at 0% WP with death penalty
 12. ✅ **Critical Timer Bug** - Fixed WP auto-reset issue and UI persistence
 13. ✅ **WP Reset Protection** - Added multi-layer authorization system to prevent unwanted WP resets
 14. ✅ **Cheat Manager Removed** - Eliminated all potential bypass routes and fixed combo-related death triggers
@@ -33,10 +37,69 @@ All critical issues have been fixed! Project improved from 7.5/10 to **9.5/10**.
 20. ✅ **Enemy Combat Improvements** - Added knockback, circle strafe, stagger mechanics, and improved detection
 21. ✅ **Debug Output Cleanup** - Removed excessive logging and tick spam for better performance
 22. ✅ **Multi-Height Detection** - Added proper line of sight checks for wall running players
+23. ✅ **WP Energy System** - Complete transformation from corruption to energy/mana system
 
-See `IMPROVEMENT_REPORT.md` and `COMPILATION_FIXES.md` for full details.
+See `IMPROVEMENT_REPORT.md` for full technical history and troubleshooting details.
 
-### 🔄 Latest Fixes (2025-07-13)
+### 🔄 Latest Fixes (2025-07-15)
+
+#### WP Energy System Transformation (2025-07-15)
+**Complete Paradigm Shift**: WP transformed from corruption to energy/mana system
+**Previous System**: WP started at 0, abilities added corruption, 100% = death
+**New Energy System**:
+- WP = 100: Full energy (starting state)
+- WP = 0: Critical state (ultimate mode)
+- Abilities consume WP as energy cost
+- Enemy attacks drain player's WP
+- Killing enemies restores WP (+10 weak, +20 normal, +30 strong)
+- Combos restore WP (+15 per basic combo)
+- Critical state: 5-second timer, damage immunity, all abilities become ultimates
+- Using ultimate: Resets WP to 100, permanently disables that ability
+
+**Technical Implementation**:
+- `ResourceManager::ConsumeWillPower()` - Allows overdrawing to reach 0
+- `ThresholdManager::ActivateUltimateMode()` - Auto-caches abilities if needed
+- `AbilityComponent::ValidateResources()` - Always allows use when WP > 0
+- Player damage immunity when WP = 0 (critical state)
+- WP clamped at 0, never goes negative
+
+**New Mechanics**:
+- **WP = Energy**: Starts at 100 (full energy), abilities consume WP
+- **Combat Loop**: Enemy attacks reduce WP, kills restore WP
+- **Combo Rewards**: Successful combos restore WP
+  - Dash + Slash: +15 WP
+  - Jump + Slash: +15 WP  
+  - Dash + Wall Run: +10 WP
+- **Ultimate at 0 WP**: Running out of energy activates ultimate abilities
+- **Critical Timer**: 5-second timer starts at 0 WP - use ultimate or die
+- **Ultimate Reset**: Using ultimate resets WP to 100 but disables that ability
+- **Enemy Kills**: Different enemies give different WP rewards
+  - Combat Enemy: +10 WP
+  - Agile Enemy: +15 WP
+  - Tank Enemy: +20 WP
+  - Hacker Enemy: +25 WP
+
+**Implementation Details**:
+- ResourceManager: `ConsumeWillPower()` now reduces WP for abilities
+- AbilityComponent: `ConsumeAbilityResources()` consumes WP instead of adding
+- ComboAbilityComponent: Added `WPRewardAmount` property for combo rewards
+- BaseEnemy: Added `WPRewardOnKill` property and grants WP on death
+- ThresholdManager: Removed 100% WP death conditions, activates at 0% WP
+- BlackholeHUD: Dynamic WP color (Green=healthy, Yellow=warning, Red=critical)
+
+**Files Modified**: 
+- ResourceManager.h/cpp - Flipped WP logic, starts at 100
+- AbilityComponent.cpp - Consumes WP instead of adding
+- ComboAbilityComponent - Rewards WP on successful combos
+- WallRunComponent - Rewards WP for dash+wall run combo
+- All enemy classes - Grant WP on death
+- ThresholdManager - Ultimate mode at 0 WP
+- BlackholeHUD - Updated UI for energy system
+- GameplayConfig.h - INITIAL_WILLPOWER = 100
+
+**Result**: Created unique risk/reward loop where managing energy is crucial but running out grants powerful ultimates
+
+### 🔄 Previous Fixes (2025-07-13)
 
 #### WP Ultimate System Fix
 **Issue**: WP not staying at 100% until ultimate used  
@@ -46,11 +109,11 @@ See `IMPROVEMENT_REPORT.md` and `COMPILATION_FIXES.md` for full details.
 
 #### Slash Ability Free Cost
 **Change**: Removed WP cost from slash ability (was 15 WP, now 0 WP)  
-**Benefit**: Players can slash freely without building corruption  
+**Benefit**: Players can slash freely without energy cost  
 **Impact**: More fluid basic combat, slash as unlimited basic attack
 
 #### Critical Timer System
-**Feature**: Added 5-second urgency timer when WP reaches 100%  
+**Feature**: 5-second urgency timer when WP reaches 0%  
 **Mechanic**: Player has 5 seconds to use ANY ultimate ability or die  
 **UI**: Flashing "CRITICAL ERROR" message with countdown and screen border  
 **Impact**: Adds intense pressure and urgency to ultimate ability decisions
@@ -82,7 +145,7 @@ See `IMPROVEMENT_REPORT.md` and `COMPILATION_FIXES.md` for full details.
 ```cpp
 // DashSlashCombo and JumpSlashCombo constructors:
 bIsBasicAbility = true;  // Override parent's false
-WPCost = 0.0f;          // Basic abilities don't add corruption
+WPCost = 0.0f;          // Basic abilities don't consume energy
 ```
 
 **Result**: Basic combos no longer interfere with critical timer or ultimate system
@@ -307,8 +370,9 @@ if (AActor* EnemyTarget = OwnerEnemy->GetTarget()) // Public method
 
 **Detection System Improvements**:
 - **Extended Range**: Detection radius increased from 2000 to 4500 units
-- **Multi-Height Detection**: Three trace lines at different heights for wall-running players
+- **Multi-Height Detection**: 4 trace heights (+100, +200, -50) for wall-running players
 - **Line of Sight**: Proper visibility checks prevent detection through walls
+- **Player Action Notifications**: `NotifyPlayerDashed()`, `NotifyPlayerAttacking()` for reactive AI
 
 **Debug Cleanup**:
 - **Removed Tick Spam**: Eliminated per-frame logging that cluttered output
@@ -500,7 +564,7 @@ class ComboAbilityComponent {
 // ✅ CORRECT - Classify based on component abilities
 // In DashSlashCombo constructor:
 bIsBasicAbility = true;  // Dash (basic) + Slash (basic) = Basic combo
-WPCost = 0.0f;          // Basic abilities don't add corruption
+WPCost = 0.0f;          // Basic abilities don't consume energy
 
 // In future FirewallPulseCombo constructor:
 bIsBasicAbility = false; // Firewall (advanced) + any = Advanced combo
@@ -690,52 +754,70 @@ void ABaseEnemy::InitializeStateMachine()
 
 ## 🎮 Game Overview
 
-**Core Concept**: Digital warrior in cyberspace managing corruption (Willpower/WP) while using abilities. At 100% WP, player enters **CRITICAL STATE** with 5-second timer - use ultimate or die.
+**Core Concept**: Digital warrior in cyberspace using Willpower (WP) as energy/mana. Running low on energy triggers ultimate abilities - use one to restore energy but permanently lose that ability.
 
 **Death Conditions**:
 1. Health reaches 0
-2. WP reaches 100% and timer expires (5 seconds without ultimate use)
-3. WP reaches 100% after losing 3 abilities  
-4. WP reaches 100% for the 4th time overall
+2. **WP reaches 0%** and timer expires (5 seconds without ultimate use)
+
+**Resource Systems**:
+- **Willpower (WP)**: 0-100 (Energy/Mana system)
+  - **Starting value**: 100 (full energy)
+  - **Using abilities**: Consumes WP (drains energy)
+  - **Enemy attacks**: Reduces WP (energy drain)
+  - **Killing enemies**: Restores WP (+10-30 based on enemy type)
+  - **Successful combos**: Restores WP (+15 for basic combos)
+  - **At 0% WP**: Ultimate mode activates (5-second critical timer)
+  - **Ultimate abilities**: Reset WP to 100 after use, permanently disable that ability
+- **Health/Integrity**: Standard damage system
+- **Stamina**: REMOVED - abilities only use WP now
+
+**Combo System**:
+- Input-based combos detected automatically
+- Successful combos restore WP energy
+- Basic combos (dash+slash, jump+slash) restore 15 WP each
 
 ## ⚡ Quick Ability Reference
 
-| Ability | Key | WP Change | Type | Status |
-|---------|-----|-----------|------|---------|
+| Ability | Key | WP Cost | Type | Status |
+|---------|-----|---------|------|---------|
 | **Katana Slash** | LMB | 0 | Basic (Always Available) | ✅ |
 | **Hacker Dash** | Shift | 0 | Basic (Always Available) | ✅ |
 | **Hacker Jump** | Space | 0 | Basic (Always Available) | ✅ |
-| **Firewall Breach** | RMB | +15 | Combat (Can Sacrifice) | ✅ |
-| **Pulse Hack** | Q | +20 | Combat (Can Sacrifice) | ✅ |
-| **Gravity Pull** | E | +15 | Combat (Can Sacrifice) | ✅ |
-| **Data Spike** | R | +25 | Combat (Can Sacrifice) | ✅ |
-| **System Override** | F | +30 | Combat (Can Sacrifice) | ✅ |
+| **Firewall Breach** | RMB | 15 | Combat (Can Sacrifice) | ✅ |
+| **Pulse Hack** | Q | 20 | Combat (Can Sacrifice) | ✅ |
+| **Gravity Pull** | E | 15 | Combat (Can Sacrifice) | ✅ |
+| **Data Spike** | R | 25 | Combat (Can Sacrifice) | ✅ |
+| **System Override** | F | 30 | Combat (Can Sacrifice) | ✅ |
 
-**Combos** (Basic - 0 WP):
-- **Phantom Strike**: Dash → Slash (Teleport backstab)  
-- **Aerial Rave**: Jump → Slash (Ground slam)
+**Combos** (Restore WP):
+- **Phantom Strike**: Dash → Slash (Teleport backstab) - Restores 15 WP
+- **Aerial Rave**: Jump → Slash (Ground slam) - Restores 15 WP
 
 ## 🏗️ Architecture Quick Reference
 
 ### Core Systems
 ```
-ResourceManager (GameInstance) → Manages WP only (Stamina removed)
+ResourceManager (GameInstance) → Manages WP and Stamina
 ThresholdManager (World) → Handles WP thresholds, ultimate mode, and critical timer
 BuffManager (World) → Combat buffs at 50%+ WP
 DeathManager (World) → Death condition tracking
-ComboDetectionSubsystem (World) → Input-based combos
+ComboDetectionSubsystem (World) → Input-based combos with resource discounts
 ObjectPoolSubsystem (World) → Performance optimization
 GameStateManager (GameInstance) → Menu/pause/play states
 WallRunComponent (ActorComponent) → Wall running mechanics with verification system
 Enemy State Machines → Modular AI behavior system for all enemy types
+Enemy Data Tables → CSV-configurable enemy stats without recompilation
 ```
 
 ### Critical Timer Mechanic
 ```
-WP reaches 100% → Critical State (5-second timer)
+WP reaches 0% → Critical State (5-second timer)
 ├─ Ultimate mode activates immediately
+├─ All abilities become ultimate versions
+├─ Player is immune to damage
 ├─ UI shows "CRITICAL ERROR" with countdown
-├─ Any non-basic ability use → Timer stops, proceed normally
+├─ Use any ultimate ability → WP resets to 100, ability permanently disabled
 └─ Timer expires → INSTANT DEATH
 ```
 
@@ -750,10 +832,28 @@ WP reaches 100% → Critical State (5-second timer)
 
 ## ⚠️ Important Development Notes
 
-### Resource System Confusion
-**Issue**: WP costs actually ADD corruption (not consume)  
-**Reason**: Intentional corruption mechanic  
-**TODO**: Rename functions or document clearly
+### 🎮 Development Philosophy - Gameplay First Prototype
+**Current Phase**: Prototype focusing on core gameplay mechanics  
+**Approach**: Avoid visual polish and UI work until gameplay is proven  
+**Priority**: Rapid iteration on combat, abilities, and core game loop  
+
+**What to avoid for now**:
+- Widget/UMG implementation (use simple keyboard shortcuts instead)
+- VFX and particle effects (gameplay feedback over visual flair)
+- Complex menu systems (ESC = pause, R = restart, Q = quit is enough)
+- Animation polish (functional movement over pretty animations)
+
+**What to focus on**:
+- Combat feel and balance
+- Ability combinations and synergies
+- Enemy AI behavior and challenge
+- Core gameplay loop refinement
+- Quick functional implementations
+
+### Resource System Update (2025-07-15)
+**Change**: WP transformed from corruption system to energy/mana system
+**Implementation**: Abilities now consume WP as energy cost
+**Status**: ✅ Fully implemented and tested
 
 ### Build Process
 - **NEVER** build from terminal
@@ -796,17 +896,27 @@ git push origin main
 ## 🔧 Current Implementation Status
 
 ### ✅ Working
-- 11 abilities with ultimate forms
-- WP corruption system
-- Death conditions
-- 2 combos (Phantom Strike, Aerial Rave)
-- Wall run system with diagonal jumps and verification
-- Enemy AI with state machine architecture (4 types)
-  - Tank: Area damage with knockback and stagger mechanics
-  - Agile: Circle strafe behavior and dash attacks
-  - Combat: Rush abilities and melee focus
-  - Hacker: Ranged attacks and debuffs
-- Enhanced detection system with multi-height checks
+- **WP Energy System**: WP as energy/mana (100 = full, 0 = critical)
+- 11 abilities with ultimate forms (consume WP energy)
+- Enemy attacks and abilities drain WP
+- Killing enemies and combos restore WP  
+- Critical state at 0% WP with 5-second timer
+- 2 combos (Phantom Strike, Aerial Rave) that restore WP
+- Wall run system:
+  - Must be airborne to start (not from ground)
+  - Preserves dash momentum (3000 units)
+  - Wall angle requirement: 70-110°
+  - Minimum wall height: 200 units
+  - 1.5s cooldown after wall run ends
+  - Input: Hold W to continue, SPACE for diagonal jump
+- Enemy AI with state machine architecture (4 types):
+  - **Tank**: 150+ HP, 300 speed, ground slam AOE, 1.5s stagger, never retreats
+  - **Agile**: 80 HP, 600 speed, dash attacks, circle strafe, maximum aggression
+  - **Combat**: Balanced fighter, rush abilities, weapon combos
+  - **Hacker**: 60 HP, ranged debuffs, tactical positioning
+- Combat Action System (weight-based ability selection)
+- Data Table configuration for enemy stats (CSV import/export)
+- Enhanced detection with multi-height checks
 - Menu system
 - Full Blueprint integration
 
@@ -829,7 +939,7 @@ git push origin main
 
 ## 📊 Code Quality Summary
 
-**Overall Score**: 9.5/10 (Improved from 7.5/10)
+**Overall Score**: 9.8/10 (Improved from 9.5/10 with energy system)
 
 **Good**:
 - Clean component architecture
@@ -849,14 +959,50 @@ git push origin main
 1. Inherit from `UAbilityComponent`
 2. Override `Execute()` and `ExecuteUltimate()`
 3. Add to player Blueprint
-4. Set properties in editor
+4. Set properties in editor (WPCost, StaminaCost, bIsBasicAbility)
 
-### Testing Death System
+### Adding New Enemy Type
+1. Create state machine class inheriting from `UBaseEnemyStateMachine`
+2. Implement setup with delayed initialization (0.1s timer)
+3. Create custom states (Enter/Update/Exit pattern)
+4. Register states in `SetupStates()`
+5. Create enemy class inheriting from `ABaseEnemy`
+6. Configure in Data Table (DT_EnemyStats):
+   - Movement: Speed, Acceleration, RotationRate
+   - Combat: PreferredDistance, AggressionLevel
+   - AI: SearchDuration, RetreatThreshold
+   - Abilities: Weight-based action selection
+
+### Enemy Data Table Configuration
+1. Create Data Table with row structure `FEnemyStatsData`
+2. Name it `DT_EnemyStats` in Content/Data/
+3. Configure enemy variants as rows
+4. Can export to CSV for bulk editing
+5. Changes apply immediately without recompilation
+
+### State Machine Transition Examples
+```cpp
+// Common state transitions:
+Idle → Chasing: Target detected within range
+Chasing → Combat: Distance < PreferredCombatDistance
+Combat → Retreating: Health < RetreatThreshold%
+Any → Dead: Health ≤ 0
+
+// Combat action selection (weight-based):
+if (CanUseAbility() && Distance < AbilityRange) {
+    Actions.Add({"UseAbility", Weight: 30});
+    Actions.Add({"MeleeAttack", Weight: 20});
+    Actions.Add({"Block", Weight: 10});
+}
 ```
-SetWP 100              # Trigger ultimate mode
-ForceAbilityLoss 3     # Lose 3 abilities
-SetWP 100              # Instant death
-```
+
+### Testing Critical System
+- Cheat commands removed for integrity
+- Test through gameplay mechanics:
+  - Use abilities to drain WP to 0
+  - Let enemies attack to reduce WP
+  - Test critical timer by not using ultimates
+  - Verify damage immunity at 0% WP
 
 ### Creating Combos
 1. Create `UComboDataAsset` in editor

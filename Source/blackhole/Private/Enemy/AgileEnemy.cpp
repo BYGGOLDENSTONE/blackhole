@@ -1,5 +1,4 @@
 #include "Enemy/AgileEnemy.h"
-#include "Components/Attributes/IntegrityComponent.h"
 #include "Components/Abilities/Enemy/SmashAbilityComponent.h"
 #include "Components/Abilities/Enemy/DodgeComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -32,6 +31,9 @@ AAgileEnemy::AAgileEnemy()
 	// Set default data table row name
 	StatsRowName = FName("Agile");
 	
+	// Agile enemies give moderate WP reward
+	WPRewardOnKill = 15.0f;
+	
 	// Configure agile movement settings - will be set in BeginPlay with MovementSpeed
 }
 
@@ -63,7 +65,7 @@ void AAgileEnemy::UpdateAIBehavior(float DeltaTime)
 	// Call parent implementation first to handle combat detection
 	Super::UpdateAIBehavior(DeltaTime);
 	
-	if (!TargetActor || !IntegrityComponent->IsAlive())
+	if (!TargetActor || !IsAlive())
 	{
 		return;
 	}

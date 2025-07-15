@@ -9,8 +9,8 @@
 #include "Camera/CameraComponent.h"
 #include "Player/BlackholePlayerCharacter.h"
 #include "Enemy/BaseEnemy.h"
-#include "Components/Attributes/IntegrityComponent.h"
 #include "Systems/ResourceManager.h"
+#include "Engine/DamageEvents.h"
 #include "Systems/HitStopManager.h"
 #include "Utils/ErrorHandling.h"
 
@@ -224,26 +224,25 @@ void UDataSpikeAbility::ProcessProjectileHit(const FHitResult& HitResult, int32&
 	}
 
 	// Apply immediate damage
-	UIntegrityComponent* TargetIntegrity = Enemy->FindComponentByClass<UIntegrityComponent>();
-	if (TargetIntegrity)
+	float FinalDamage = ProjectileDamage * GetDamageMultiplier();
+	if (bIsUltimate)
 	{
-		float FinalDamage = ProjectileDamage * GetDamageMultiplier();
-		if (bIsUltimate)
-		{
-			FinalDamage *= GameplayConfig::Abilities::DataSpike::ULTIMATE_DAMAGE_MULT;
-		}
-		
-		TargetIntegrity->TakeDamage(FinalDamage);
-		
-		// Trigger hit stop
-		if (UHitStopManager* HitStopMgr = GetWorldSubsystemSafe<UHitStopManager>(this))
-		{
-			HitStopMgr->RequestMediumHitStop();
-		}
-		
-		UE_LOG(LogTemp, Log, TEXT("Data Spike hit %s for %.1f damage"), 
-			*Enemy->GetName(), FinalDamage);
+		FinalDamage *= GameplayConfig::Abilities::DataSpike::ULTIMATE_DAMAGE_MULT;
 	}
+	
+	// Use actor's TakeDamage (routes to WP)
+	FVector ImpactDirection = GetOwner() ? (HitResult.Location - GetOwner()->GetActorLocation()).GetSafeNormal() : FVector::ForwardVector;
+	FPointDamageEvent DamageEvent(FinalDamage, HitResult, ImpactDirection, nullptr);
+	Enemy->TakeDamage(FinalDamage, DamageEvent, nullptr, GetOwner());
+	
+	// Trigger hit stop
+	if (UHitStopManager* HitStopMgr = GetWorldSubsystemSafe<UHitStopManager>(this))
+	{
+		HitStopMgr->RequestMediumHitStop();
+	}
+	
+	UE_LOG(LogTemp, Log, TEXT("Data Spike hit %s for %.1f damage"), 
+		*Enemy->GetName(), FinalDamage);
 
 	// Apply data corruption DOT
 	ApplyDataCorruption(Enemy, bIsUltimate);
@@ -370,15 +369,12 @@ void UDataSpikeAbility::OnDOTTick(ABaseEnemy* Enemy)
 
 	FDataCorruption& Corruption = ActiveDOTs[WeakEnemy];
 	
-	// Apply DOT damage
-	UIntegrityComponent* TargetIntegrity = Enemy->FindComponentByClass<UIntegrityComponent>();
-	if (TargetIntegrity)
-	{
-		TargetIntegrity->TakeDamage(Corruption.DamagePerTick);
-		
-		UE_LOG(LogTemp, Verbose, TEXT("Data corruption tick on %s: %.1f damage (%d ticks remaining)"), 
-			*Enemy->GetName(), Corruption.DamagePerTick, Corruption.TicksRemaining - 1);
-	}
+	// Apply DOT damage using actor's TakeDamage (routes to WP)
+	FPointDamageEvent DamageEvent(Corruption.DamagePerTick, FHitResult(), FVector::ForwardVector, nullptr);
+	Enemy->TakeDamage(Corruption.DamagePerTick, DamageEvent, nullptr, GetOwner());
+	
+	UE_LOG(LogTemp, Verbose, TEXT("Data corruption tick on %s: %.1f damage (%d ticks remaining)"), 
+		*Enemy->GetName(), Corruption.DamagePerTick, Corruption.TicksRemaining - 1);
 
 	// Reduce remaining ticks
 	Corruption.TicksRemaining--;

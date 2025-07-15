@@ -10,7 +10,6 @@
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
 #include "Components/StaticMeshComponent.h"
-#include "Components/Attributes/IntegrityComponent.h"
 #include "Components/Attributes/WillPowerComponent.h"
 #include "Systems/ResourceManager.h"
 #include "Systems/ThresholdManager.h"
@@ -71,7 +70,6 @@ ABlackholePlayerCharacter::ABlackholePlayerCharacter()
 	// Set FOV from editable property
 	CameraComponent->SetFieldOfView(CameraFOV);
 
-	IntegrityComponent = CreateDefaultSubobject<UIntegrityComponent>(TEXT("Integrity"));
 	WillPowerComponent = CreateDefaultSubobject<UWillPowerComponent>(TEXT("WillPower"));
 
 	// Create movement components
@@ -152,10 +150,10 @@ void ABlackholePlayerCharacter::BeginPlay()
 		}
 	}
 	
-	// Bind to integrity component's OnReachedZero event
-	if (IntegrityComponent)
+	// Bind to ResourceManager's OnWPDepleted event (WP reached 0 activates ultimates)
+	if (UResourceManager* ResourceMgr = GetGameInstance()->GetSubsystem<UResourceManager>())
 	{
-		IntegrityComponent->OnReachedZero.AddDynamic(this, &ABlackholePlayerCharacter::Die);
+		ResourceMgr->OnWPDepleted.AddDynamic(this, &ABlackholePlayerCharacter::OnWPDepleted);
 	}
 	
 }
@@ -194,9 +192,9 @@ void ABlackholePlayerCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason
 		}
 	}
 	
-	if (IsValid(IntegrityComponent))
+	if (UResourceManager* ResourceMgr = GetGameInstance()->GetSubsystem<UResourceManager>())
 	{
-		IntegrityComponent->OnReachedZero.RemoveDynamic(this, &ABlackholePlayerCharacter::Die);
+		ResourceMgr->OnWPDepleted.RemoveDynamic(this, &ABlackholePlayerCharacter::OnWPDepleted);
 	}
 	
 	Super::EndPlay(EndPlayReason);
@@ -214,21 +212,23 @@ bool ABlackholePlayerCharacter::HasResources_Implementation(float StaminaCost, f
 {
 	// StaminaCost parameter kept for interface compatibility but ignored
 	
-	// Check WP (remember: positive WP cost means we're adding corruption)
-	if (WPCost > 0.0f)
+	// Check WP status
+	if (UResourceManager* ResourceManager = GetGameInstance()->GetSubsystem<UResourceManager>())
 	{
-		if (UResourceManager* ResourceManager = GetGameInstance()->GetSubsystem<UResourceManager>())
+		float CurrentWP = ResourceManager->GetCurrentWillPower();
+		
+		// If WP > 0, always allow ability use (to trigger critical state)
+		if (CurrentWP > 0.0f)
 		{
-			float CurrentWP = ResourceManager->GetCurrentWillPower();
-			float MaxWP = ResourceManager->GetMaxWillPower();
-			
-			// At 100% WP, abilities are allowed (they become ultimates)
-			// Don't block at max WP - let the ability system handle ultimate mode
-			if (CurrentWP >= MaxWP)
-			{
-				UE_LOG(LogTemp, VeryVerbose, TEXT("HasResources: At 100%% WP, allowing ability for ultimate mode"));
-				return true;
-			}
+			UE_LOG(LogTemp, VeryVerbose, TEXT("HasResources: WP > 0 (%.1f) - allowing ability use"), CurrentWP);
+			return true;
+		}
+		
+		// If WP = 0, block (ultimate mode will bypass this)
+		if (CurrentWP <= 0.0f)
+		{
+			UE_LOG(LogTemp, VeryVerbose, TEXT("HasResources: WP at 0 - blocking unless in ultimate mode"));
+			return false;
 		}
 	}
 	
@@ -241,12 +241,16 @@ bool ABlackholePlayerCharacter::ConsumeResources_Implementation(float StaminaCos
 	
 	// StaminaCost parameter kept for interface compatibility but ignored
 	
-	// Add WP (corruption)
-	if (WPCost != 0.0f)
+	// Consume WP (energy)
+	if (WPCost > 0.0f)
 	{
 		if (UResourceManager* ResourceManager = GetGameInstance()->GetSubsystem<UResourceManager>())
 		{
-			ResourceManager->AddWillPower(WPCost);
+			if (!ResourceManager->ConsumeWillPower(WPCost))
+			{
+				UE_LOG(LogTemp, Warning, TEXT("Player: Not enough WP to use ability (need %.1f)"), WPCost);
+				return false;
+			}
 		}
 	}
 	
@@ -863,9 +867,9 @@ void ABlackholePlayerCharacter::Die()
 	
 	// Unbind from all delegates BEFORE disabling components
 	
-	if (IsValid(IntegrityComponent))
+	if (UResourceManager* ResourceMgr = GetGameInstance()->GetSubsystem<UResourceManager>())
 	{
-		IntegrityComponent->OnReachedZero.RemoveDynamic(this, &ABlackholePlayerCharacter::Die);
+		ResourceMgr->OnWPDepleted.RemoveDynamic(this, &ABlackholePlayerCharacter::OnWPDepleted);
 	}
 	
 	if (UWorld* World = GetWorld())
@@ -956,5 +960,60 @@ void ABlackholePlayerCharacter::OnThresholdDeath()
 {
 	UE_LOG(LogTemp, Error, TEXT("Player death triggered by ThresholdManager!"));
 	Die();
+}
+
+void ABlackholePlayerCharacter::OnWPDepleted()
+{
+	UE_LOG(LogTemp, Warning, TEXT("Player: WP reached 0 - Starting critical timer!"));
+	
+	// Start critical timer and activate ultimate mode
+	if (UWorld* World = GetWorld())
+	{
+		if (UThresholdManager* ThresholdMgr = World->GetSubsystem<UThresholdManager>())
+		{
+			// Activate ultimate mode first
+			ThresholdMgr->ActivateUltimateMode();
+			// Then start the critical timer
+			ThresholdMgr->StartCriticalTimer();
+		}
+	}
+}
+
+float ABlackholePlayerCharacter::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, 
+	class AController* EventInstigator, AActor* DamageCauser)
+{
+	// Check if critical timer is active or WP is at 0 - player is immune during this time
+	if (UResourceManager* ResourceMgr = GetGameInstance()->GetSubsystem<UResourceManager>())
+	{
+		// If WP is at 0 (critical state), no damage
+		if (ResourceMgr->GetCurrentWillPower() <= 0.0f)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Player immune to damage - WP at 0 (critical state)!"));
+			return 0.0f;
+		}
+		
+		// Also check critical timer for safety
+		if (UWorld* World = GetWorld())
+		{
+			if (UThresholdManager* ThresholdMgr = World->GetSubsystem<UThresholdManager>())
+			{
+				if (ThresholdMgr->IsCriticalTimerActive())
+				{
+					UE_LOG(LogTemp, Warning, TEXT("Player immune to damage during critical timer!"));
+					return 0.0f;
+				}
+			}
+		}
+		
+		// Route damage to WP
+		ResourceMgr->TakeDamage(DamageAmount);
+		
+		UE_LOG(LogTemp, Warning, TEXT("Player took %.1f damage, WP reduced"), DamageAmount);
+		
+		// Return the actual damage dealt
+		return DamageAmount;
+	}
+	
+	return 0.0f;
 }
 

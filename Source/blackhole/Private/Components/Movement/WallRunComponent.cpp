@@ -11,6 +11,7 @@
 #include "Components/AudioComponent.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "TimerManager.h"
+#include "Systems/ResourceManager.h"
 
 UWallRunComponent::UWallRunComponent()
 {
@@ -503,7 +504,19 @@ void UWallRunComponent::StartWallRunInternal(const FVector& WallNormal, EWallSid
         // Player is dashing or moving fast - preserve full speed
         CurrentWallRunSpeed = CurrentSpeed;
         
-        // Debug message removed - dash wall run speed bonus
+        // Dash + Wall Run combo detected - reward WP
+        if (CurrentSpeed > 2500.0f) // Likely from dash (dash speed is 3000)
+        {
+            if (UGameInstance* GameInstance = GetWorld()->GetGameInstance())
+            {
+                if (UResourceManager* ResourceMgr = GameInstance->GetSubsystem<UResourceManager>())
+                {
+                    float WPReward = 10.0f; // Wall run combo reward
+                    ResourceMgr->AddWillPower(WPReward);
+                    UE_LOG(LogTemp, Warning, TEXT("Dash + Wall Run combo: Player gained +%.1f WP"), WPReward);
+                }
+            }
+        }
     }
     else
     {

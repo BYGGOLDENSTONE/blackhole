@@ -2,7 +2,7 @@
 **Version**: 4.1  
 **Engine**: Unreal Engine 5.5  
 **Language**: C++ with Blueprint integration  
-**Date**: 2025-07-12
+**Date**: 2025-07-15
 
 > **📚 Note**: For detailed ability information, see [ABILITIES_DOCUMENTATION.md](ABILITIES_DOCUMENTATION.md)
 > 
@@ -24,18 +24,27 @@ A high-intensity action game where players embody a digital warrior navigating c
 
 ## ⚡ Resource System
 
-### Primary Resources
+### Energy System Design
+**REVOLUTIONARY CHANGE**: WP is now an energy/mana system with unique ultimate mechanics
+
 | Resource | Start | Max | Mechanic |
 |----------|-------|-----|----------|
-| **Stamina** | 100 | 100 | Universal resource for abilities, 10/sec regen |
-| **Willpower (WP)** | 0% | 100% | Corruption that increases with ability use |
-| **Integrity** | 100 | 100 | Health points, no regeneration |
+| **Willpower (WP)** | 100 | 100 | Energy for abilities and health |
+| **Stamina** | - | - | Removed from the game |
+
+### WP Mechanics
+- **Taking Damage**: Reduces WP (drains energy)
+- **Using Abilities**: Consumes WP (energy cost)
+- **Killing Enemies**: Restores WP based on enemy type
+- **Combos**: Restore WP (Dash+Slash: +15, Jump+Slash: +15, Dash+WallRun: +10)
+- **At 0 WP**: Ultimate mode activates (no death)
+- **Ultimate Reset**: Using ultimate ability resets WP to 100 (full energy)
 
 ### Resource Interactions
-- **Abilities**: Cost Stamina + ADD WP corruption
-- **Basic Abilities**: Always available regardless of WP level
-- **Enemy Mindmeld**: Adds 1.0 WP/sec while maintaining line of sight
-- **Combo Rewards**: 25-50% resource discount on successful combos
+- **Abilities**: Consume WP as energy cost
+- **Basic Abilities**: Always available (still cost WP)
+- **Enemy Mindmeld**: Drains 1.0 WP/sec while maintaining line of sight
+- **Combo Rewards**: Restore WP on successful execution
 
 ## 🎯 Hacker Path Mechanics
 
@@ -45,21 +54,22 @@ A high-intensity action game where players embody a digital warrior navigating c
 - **Audio**: Electronic, synthetic, cyberpunk soundscape
 - **Playstyle**: Hit-and-run tactics, ability combos, environmental manipulation
 
-### Willpower (WP) System
+### Willpower (WP) Thresholds
 | WP Range | State | Effects |
 |----------|-------|---------|
-| 0-50% | Normal | All abilities available at base power |
-| 50-99% | Buffed | +20% damage, -15% cooldowns, +25% attack speed |
-| 100% | Ultimate | Abilities transform into ultimate versions |
+| 0% | Ultimate Mode | Critical timer (5s) + All abilities become ultimates |
+| 1-20% | Critical Low | Low energy warning |
+| 20-50% | Warning | Reduced buffs |
+| 50-100% | Healthy | +20% damage, -15% cooldowns, +25% attack speed |
 
 ## ⚔️ Combat System
 
 ### Basic Abilities (Always Available)
-| Ability | Key | Stamina | WP | Effect |
-|---------|-----|---------|-----|---------|
-| **Katana Slash** | LMB | - | +2 | Quick 3-hit combo, 20 base damage |
-| **Hacker Dash** | Shift | - | 0 | Movement input directional dash with i-frames |
-| **Hacker Jump** | Space | - | 0 | Double jump with 0.5s cooldown |
+| Ability | Key | WP Cost | Effect |
+|---------|-----|---------|--------|
+| **Katana Slash** | LMB | 0 | Quick 3-hit combo, 20 base damage |
+| **Hacker Dash** | Shift | 0 | Movement input directional dash with i-frames |
+| **Hacker Jump** | Space | 0 | Double jump with 0.5s cooldown |
 
 ### Advanced Movement System
 
@@ -97,13 +107,13 @@ The wall run system enables fluid cyberpunk traversal through vertical environme
 - Debug visualization available for level designers
 
 ### Combat Abilities
-| Ability | Key | Stamina | WP | Cooldown | Effect |
-|---------|-----|---------|-----|----------|---------|
-| **Firewall Breach** | RMB | - | +15 | 4s | Mark enemy for +30% damage |
-| **Pulse Hack** | Q | - | +20 | 6s | AoE slow (50%) for 3s |
-| **Gravity Pull** | E | - | +15 | 5s | Pull enemies (1000 range) |
-| **Data Spike** | R | - | +25 | 4s | High damage projectile |
-| **System Override** | F | - | +30 | 90s | AoE stun ultimate |
+| Ability | Key | WP Cost | Cooldown | Effect |
+|---------|-----|---------|----------|---------|
+| **Firewall Breach** | RMB | 15 | 4s | Mark enemy for +30% damage |
+| **Pulse Hack** | Q | 20 | 6s | AoE slow (50%) for 3s |
+| **Gravity Pull** | E | 15 | 5s | Pull enemies (1000 range) |
+| **Data Spike** | R | 25 | 4s | High damage projectile |
+| **System Override** | F | 30 | 90s | AoE stun |
 
 ### Combo System
 | Combo | Input | Window | Effect |
@@ -113,20 +123,21 @@ The wall run system enables fluid cyberpunk traversal through vertical environme
 
 > **Note**: Additional combos (Tempest Blade, Blade Dance) planned for future updates
 
-## 💀 Death & Ultimate System
+## 💀 Ultimate System
 
-### Ultimate Mode (100% WP)
-When WP reaches 100%, the player enters Ultimate Mode:
-1. All non-basic abilities become ultimate versions
-2. Player can use ONE ultimate ability
-3. The used ability is permanently disabled
-4. WP resets to 0% after use
-5. Process repeats until death conditions met
+### Ultimate Mode (0% WP)
+When WP reaches 0%, the player enters Ultimate Mode:
+1. **Critical Timer Starts**: 5 seconds to act
+2. All non-basic abilities become ultimate versions
+3. Player must use ONE ultimate ability before timer expires
+4. The used ability is permanently disabled
+5. WP resets to 100% after use (full energy)
+6. If timer expires: Death
+7. Process repeats - each energy depletion trades power for sacrifice
 
 ### Death Conditions
-1. **Integrity = 0**: Standard combat death
-2. **3 Abilities Lost + 100% WP**: Instant death
-3. **4th time reaching 100% WP**: Death regardless of abilities
+1. **All Abilities Disabled**: Death when no abilities remain (implementation pending)
+2. **Enemy Pressure**: Mindmeld continuously drains WP
 
 ### Strategic Choices
 - Which abilities to sacrifice?

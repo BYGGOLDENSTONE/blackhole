@@ -1,7 +1,7 @@
 #include "Components/Abilities/Player/Basic/KillAbilityComponent.h"
 #include "Systems/ResourceManager.h"
-#include "Components/Attributes/IntegrityComponent.h"
 #include "GameFramework/Actor.h"
+#include "Engine/DamageEvents.h"
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
 #include "Enemy/BaseEnemy.h"
@@ -82,18 +82,13 @@ void UKillAbilityComponent::Execute()
 				// Check if the target is an enemy (has tag "Enemy" or is ABaseEnemy)
 				if (HitActor->ActorHasTag("Enemy") || HitActor->IsA<ABaseEnemy>())
 				{
-					if (UIntegrityComponent* TargetIntegrity = HitActor->FindComponentByClass<UIntegrityComponent>())
-					{
-						// Test damage with buffs
-						float BaseDamage = 100.0f;
-						float FinalDamage = BaseDamage * GetDamageMultiplier();
-						
-						// Show damage value on screen
-						// Debug message removed - damage text
-						
-						// Instant kill for now
-						TargetIntegrity->SetCurrentValue(0.0f);
-					}
+					// Instant kill - deal massive damage
+					float KillDamage = 99999.0f;
+					
+					// Use actor's TakeDamage (routes to WP)
+					FVector ImpactDirection = (HitActor->GetActorLocation() - Start).GetSafeNormal();
+					FPointDamageEvent DamageEvent(KillDamage, HitResult, ImpactDirection, nullptr);
+					HitActor->TakeDamage(KillDamage, DamageEvent, nullptr, Owner);
 				}
 			}
 		}
@@ -144,11 +139,15 @@ void UKillAbilityComponent::ExecuteUltimate()
 			{
 				if (Target->ActorHasTag("Enemy") || Target->IsA<ABaseEnemy>())
 				{
-					if (UIntegrityComponent* TargetIntegrity = Target->FindComponentByClass<UIntegrityComponent>())
-					{
-						TargetIntegrity->SetCurrentValue(0.0f);
-						KillCount++;
-					}
+					// Instant kill - deal massive damage
+					float KillDamage = 99999.0f;
+					
+					// Use actor's TakeDamage (routes to WP)
+					FVector ImpactDirection = (Target->GetActorLocation() - Location).GetSafeNormal();
+					FPointDamageEvent DamageEvent(KillDamage, FHitResult(), ImpactDirection, nullptr);
+					Target->TakeDamage(KillDamage, DamageEvent, nullptr, Owner);
+					
+					KillCount++;
 				}
 			}
 		}

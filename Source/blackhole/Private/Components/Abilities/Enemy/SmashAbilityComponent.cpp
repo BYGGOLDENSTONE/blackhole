@@ -1,5 +1,4 @@
 #include "Components/Abilities/Enemy/SmashAbilityComponent.h"
-#include "Components/Attributes/IntegrityComponent.h"
 #include "GameFramework/Actor.h"
 #include "Engine/World.h"
 #include "Engine/EngineTypes.h"
@@ -64,11 +63,10 @@ void USmashAbilityComponent::PerformSingleTargetDamage(AActor* Owner)
 	{
 		if (AActor* HitActor = HitResult.GetActor())
 		{
-			if (UIntegrityComponent* TargetIntegrity = HitActor->FindComponentByClass<UIntegrityComponent>())
-			{
-				TargetIntegrity->TakeDamage(Damage);
-				UE_LOG(LogTemp, Warning, TEXT("SmashAbility: Dealt %f damage to %s"), Damage, *HitActor->GetName());
-			}
+			// Apply damage using actor's TakeDamage method (routes to WP)
+			FPointDamageEvent DamageEvent(Damage, HitResult, Owner->GetActorForwardVector(), nullptr);
+			HitActor->TakeDamage(Damage, DamageEvent, nullptr, Owner);
+			UE_LOG(LogTemp, Warning, TEXT("SmashAbility: Dealt %f damage to %s"), Damage, *HitActor->GetName());
 		}
 	}
 	
@@ -94,39 +92,39 @@ void USmashAbilityComponent::PerformAreaDamage(AActor* Owner)
 		{
 			if (AActor* HitActor = Result.GetActor())
 			{
-				if (UIntegrityComponent* TargetIntegrity = HitActor->FindComponentByClass<UIntegrityComponent>())
+				// Skip damaging self
+				if (HitActor == Owner) continue;
+				
+				// Damage falloff based on distance
+				float Distance = FVector::Dist(Center, HitActor->GetActorLocation());
+				float DamageFalloff = FMath::Clamp(1.0f - (Distance / AreaRadius), 0.3f, 1.0f);
+				float FinalDamage = Damage * DamageFalloff;
+				
+				// Apply damage using actor's TakeDamage method (routes to WP)
+				FVector ImpactDirection = (HitActor->GetActorLocation() - Center).GetSafeNormal();
+				FPointDamageEvent DamageEvent(FinalDamage, FHitResult(), ImpactDirection, nullptr);
+				HitActor->TakeDamage(FinalDamage, DamageEvent, nullptr, Owner);
+				
+				// Apply knockback to all characters (players and enemies)
+				if (ACharacter* TargetCharacter = Cast<ACharacter>(HitActor))
 				{
-					// Skip damaging self
-					if (HitActor == Owner) continue;
+					// Calculate knockback direction
+					FVector KnockbackDirection = (HitActor->GetActorLocation() - Center).GetSafeNormal();
+					KnockbackDirection.Z = 0.3f; // Add slight upward force
+					KnockbackDirection.Normalize();
 					
-					// Damage falloff based on distance
-					float Distance = FVector::Dist(Center, HitActor->GetActorLocation());
-					float DamageFalloff = FMath::Clamp(1.0f - (Distance / AreaRadius), 0.3f, 1.0f);
-					float FinalDamage = Damage * DamageFalloff;
+					// Calculate knockback force based on distance (closer = stronger)
+					float ActualKnockbackForce = KnockbackForce * DamageFalloff;
 					
-					TargetIntegrity->TakeDamage(FinalDamage);
-					
-					// Apply knockback to all characters (players and enemies)
-					if (ACharacter* TargetCharacter = Cast<ACharacter>(HitActor))
+					if (UCharacterMovementComponent* CharMovement = TargetCharacter->GetCharacterMovement())
 					{
-						// Calculate knockback direction
-						FVector KnockbackDirection = (HitActor->GetActorLocation() - Center).GetSafeNormal();
-						KnockbackDirection.Z = 0.3f; // Add slight upward force
-						KnockbackDirection.Normalize();
-						
-						// Calculate knockback force based on distance (closer = stronger)
-						float ActualKnockbackForce = KnockbackForce * DamageFalloff;
-						
-						if (UCharacterMovementComponent* CharMovement = TargetCharacter->GetCharacterMovement())
-						{
-							// Launch the character
-							CharMovement->Launch(KnockbackDirection * ActualKnockbackForce);
-							UE_LOG(LogTemp, Warning, TEXT("SmashAbility Area: Applied knockback force %f to %s"), ActualKnockbackForce, *HitActor->GetName());
-						}
+						// Launch the character
+						CharMovement->Launch(KnockbackDirection * ActualKnockbackForce);
+						UE_LOG(LogTemp, Warning, TEXT("SmashAbility Area: Applied knockback force %f to %s"), ActualKnockbackForce, *HitActor->GetName());
 					}
-					
-					UE_LOG(LogTemp, Warning, TEXT("SmashAbility Area: Dealt %f damage to %s"), FinalDamage, *HitActor->GetName());
 				}
+				
+				UE_LOG(LogTemp, Warning, TEXT("SmashAbility Area: Dealt %f damage to %s"), FinalDamage, *HitActor->GetName());
 			}
 		}
 	}
