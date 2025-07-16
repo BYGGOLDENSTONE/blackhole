@@ -199,7 +199,7 @@ void UWallRunComponent::UpdateCoyoteTime(float DeltaTime)
             float CurrentTime = GetWorld()->GetTimeSeconds();
             float RestartCooldownRemaining = (LastWallRunEndTime + Settings.WallRunRestartCooldown) - CurrentTime;
             
-            if (RestartCooldownRemaining <= 0.0f)
+            if (RestartCooldownRemaining <= 0.0f && IsLookingAtWall(WallNormal, WallSide))
             {
                 // Debug message removed - wall run ready
             }
@@ -380,6 +380,38 @@ bool UWallRunComponent::CheckWallHeight(const FVector& WallLocation, const FVect
     return !bHit; // No hit means wall is tall enough
 }
 
+bool UWallRunComponent::IsLookingAtWall(const FVector& WallNormal, EWallSide WallSide) const
+{
+    if (!OwnerCharacter || !CameraComponent)
+    {
+        return false;
+    }
+    
+    // Get camera forward direction
+    FVector CameraForward = CameraComponent->GetForwardVector();
+    
+    // Get direction to wall (opposite of wall normal)
+    FVector ToWall = -WallNormal;
+    
+    // Calculate dot product to see if camera is facing the wall
+    float DotProduct = FVector::DotProduct(CameraForward, ToWall);
+    
+    // Debug visualization
+    if (bShowDebugVisuals && GetWorld())
+    {
+        FVector PlayerLocation = OwnerCharacter->GetActorLocation();
+        DrawDebugLine(GetWorld(), PlayerLocation, PlayerLocation + CameraForward * 200.0f, 
+            FColor::Green, false, 0.1f, 0, 2.0f);
+        DrawDebugLine(GetWorld(), PlayerLocation, PlayerLocation + ToWall * 200.0f, 
+            FColor::Blue, false, 0.1f, 0, 2.0f);
+        DrawDebugString(GetWorld(), PlayerLocation + FVector(0, 0, 120), 
+            FString::Printf(TEXT("Look Dot: %.2f (need %.2f)"), DotProduct, Settings.MinLookAtDotProduct), 
+            nullptr, DotProduct >= Settings.MinLookAtDotProduct ? FColor::Green : FColor::Red, 0.1f);
+    }
+    
+    return DotProduct >= Settings.MinLookAtDotProduct;
+}
+
 FVector UWallRunComponent::CalculateWallRunDirection(const FVector& WallNormal, EWallSide WallSide) const
 {
     if (!OwnerCharacter)
@@ -435,7 +467,8 @@ bool UWallRunComponent::CanStartWallRun() const
             EWallSide WallSide;
             if (DetectWall(WallNormal, WallSide))
             {
-                // Debug message removed - jump first to wall run
+                GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Yellow, 
+                    TEXT("Jump first to wall run!"));
             }
         }
         return false; // Can't start wall run while on ground
@@ -536,6 +569,23 @@ bool UWallRunComponent::CanStartWallRun() const
     {
         // Removed speed requirement message - shown too frequently
         return false;
+    }
+    
+    // Check if player is looking at the wall
+    FVector WallNormal;
+    EWallSide WallSide;
+    if (DetectWall(WallNormal, WallSide))
+    {
+        if (!IsLookingAtWall(WallNormal, WallSide))
+        {
+            // Show feedback when player is not looking at the wall
+            if (HasForwardInput() && GEngine)
+            {
+                GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Yellow, 
+                    TEXT("Look at the wall to start wall run!"));
+            }
+            return false;
+        }
     }
     
     return true;

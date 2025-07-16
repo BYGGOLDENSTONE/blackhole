@@ -51,6 +51,9 @@ struct FWallRunSettings
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Detection", meta = (ClampMin = "100", ClampMax = "1000", DisplayName = "Min Height From Ground"))
     float MinHeightFromGround = 150.0f;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Detection", meta = (ClampMin = "0.1", ClampMax = "0.9", DisplayName = "Min Look At Dot Product"))
+    float MinLookAtDotProduct = 0.4f;  // Require player to look at least 40% toward the wall
+
     // Movement settings
     // Timer removed - wall run continues as long as speed is maintained
     // UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (ClampMin = "1.0", ClampMax = "10.0"))
@@ -243,6 +246,7 @@ protected:
     bool DetectWall(FVector& OutWallNormal, EWallSide& OutWallSide) const;
     bool IsValidWallSurface(const FHitResult& Hit) const;
     bool CheckWallHeight(const FVector& WallLocation, const FVector& WallNormal) const;
+    bool IsLookingAtWall(const FVector& WallNormal, EWallSide WallSide) const;
     FVector CalculateWallRunDirection(const FVector& WallNormal, EWallSide WallSide) const;
 
     // Movement functions

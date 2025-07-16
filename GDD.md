@@ -89,6 +89,7 @@ The wall run system enables fluid cyberpunk traversal through vertical environme
 - Wall must be within 45 units and roughly vertical (70-110° angle)
 - Minimum wall height of 200 units
 - Minimum height from ground: 150 units (prevents accidental wall runs)
+- Player must be **looking at the wall** (40% dot product minimum) for intentional activation
 
 **Mechanics:**
 - **Speed Cap**: Dash speed (3000 units) capped at 1000 units/s during wall run
