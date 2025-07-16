@@ -35,6 +35,25 @@ public:
 	
 	// Called when the menu toggle key is pressed
 	void OnMenuTogglePressed();
+	
+	// Notification System - Public methods for external access
+	UFUNCTION()
+	void OnPsiDisruptorBuildStarted(const FVector& BuildLocation);
+	
+	UFUNCTION()
+	void OnPsiDisruptorBuildComplete();
+	
+	UFUNCTION()
+	void OnMindmeldStarted(float CastTime, AActor* Caster = nullptr);
+	
+	UFUNCTION()
+	void OnMindmeldComplete();
+	
+	UFUNCTION()
+	void OnMindmeldInterrupted();
+	
+	// General notification system
+	void AddNotification(const FString& Message, const FColor& Color, float Duration = 5.0f);
 
 protected:
 	virtual void BeginPlay() override;
@@ -193,24 +212,6 @@ protected:
 	UFUNCTION()
 	void OnCriticalTimerExpired();
 	
-	// Notification System
-	UFUNCTION()
-	void OnPsiDisruptorBuildStarted(const FVector& BuildLocation);
-	
-	UFUNCTION()
-	void OnPsiDisruptorBuildComplete();
-	
-	UFUNCTION()
-	void OnMindmeldStarted(float CastTime, AActor* Caster = nullptr);
-	
-	UFUNCTION()
-	void OnMindmeldComplete();
-	
-	UFUNCTION()
-	void OnMindmeldInterrupted();
-	
-	// General notification system
-	void AddNotification(const FString& Message, const FColor& Color, float Duration = 5.0f);
 
 private:
 	AActor* GetTargetedActor() const;
