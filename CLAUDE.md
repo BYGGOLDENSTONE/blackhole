@@ -55,6 +55,9 @@ Enemy_SM:Tank/Agile/Combat/Hacker|DT_EnemyStats:CSV_config
 - ✅Wall_run_height:150_units_required(trace_from_feet)|Early_check|Debug_viz
 - ✅Wall_run_look_requirement:Player_must_look_at_wall(40%_dot_product)|Intentional_execution
 - ✅Wall_run_free_camera:Movement_decoupled_from_look|W_key_continues|Aim_while_running
+- ✅Agile_enemy_chase_fix:Only_dash_when_in_range(500)|Normal_chase_when_far
+- ✅Player_stagger:1.5s_on_backstab|Input_disabled|Anim_slowed
+- ✅Agile_configurable_stats:Stagger_duration|Distances|Damage_mult|Retreat_time
 
 ## MOVEMENT_SETTINGS
 Friction:4.0|Braking:800|MaxAccel:1200|BrakingFriction:0.5|No_air_friction
@@ -82,7 +85,7 @@ Menu_input|Memory_UPROPERTY|GameMode_TSubclassOf|Include_paths|Enemy_duplication
 HUD_cache|WP_sync|Slash_free|Critical_timer|WP_protection|Cheat_removed|Cost_field_unified
 Combo_classification|Enemy_ability_filtering|Timer_conflicts|Wall_run|State_machines|Combat_enhanced
 Debug_cleanup|Multi_height_detection|WP_energy_transform|Jump_state_preserve|Velocity_HUD
-Wall_run_200|Critical_limit_system|Slash_dual_detection
+Wall_run_200|Critical_limit_system|Slash_dual_detection|Agile_chase_spam|Player_stagger_system|Enemy_config_stats
 
 ## BUG_PREVENTION_SUMMARY
 Check_methods|Check_members|No_duplicates|Memory_mgmt|Cast_safety|Data_sync|Timer_mgmt
