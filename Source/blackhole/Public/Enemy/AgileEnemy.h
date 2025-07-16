@@ -4,7 +4,8 @@
 #include "Enemy/BaseEnemy.h"
 #include "AgileEnemy.generated.h"
 
-class USmashAbilityComponent;
+class UStabAttackComponent;
+class UAssassinApproachComponent;
 class UDodgeComponent;
 
 UCLASS()
@@ -23,54 +24,40 @@ protected:
 	virtual bool CanBlock() const override { return false; }
 	virtual bool CanDodge() const override { return true; }
 
-	// This enemy can attack and dodge, but CANNOT block
+	// Combat abilities
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
-	USmashAbilityComponent* SmashAbility;
+	UStabAttackComponent* StabAttack;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
+	UAssassinApproachComponent* AssassinApproach;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	UDodgeComponent* DodgeAbility;
 
 public:
-	// Combat stats - public for data table access
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
-	float ChaseRange;
+	// AI Behavior Stats
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Behavior", meta = (DisplayName = "Chase Range"))
+	float ChaseRange = 1200.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Behavior", meta = (DisplayName = "Attack Range"))
+	float AttackRange = 150.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Behavior", meta = (DisplayName = "Maintain Distance Min", ClampMin = "300.0", ClampMax = "1000.0"))
+	float MaintainDistanceMin = 450.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Behavior", meta = (DisplayName = "Maintain Distance Max", ClampMin = "400.0", ClampMax = "1200.0"))
+	float MaintainDistanceMax = 550.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
-	float DodgeChance;
-
-protected:
-
-public:
-	// Attack range - public for state machine access
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
-	float AttackRange;
-	// Movement and combat stats - public for state machine access
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Movement Speed"))
-	float MovementSpeed;
+	// Movement Stats
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (DisplayName = "Movement Speed"))
+	float MovementSpeed = 600.0f;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Attack Speed Multiplier", ClampMin = "0.1", ClampMax = "3.0"))
-	float AttackSpeedMultiplier;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (DisplayName = "Retreat Duration", ClampMin = "1.0", ClampMax = "5.0"))
+	float RetreatDuration = 3.0f;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Dash Cooldown", ClampMin = "0.5"))
-	float DashCooldown;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Dash Behind Distance"))
-	float DashBehindDistance;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Backstab Stagger Duration", ClampMin = "0.1", ClampMax = "3.0"))
-	float BackstabStaggerDuration;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Maintain Distance Min", ClampMin = "300.0", ClampMax = "1000.0"))
-	float MaintainDistanceMin;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Maintain Distance Max", ClampMin = "400.0", ClampMax = "1200.0"))
-	float MaintainDistanceMax;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Backstab Damage Multiplier", ClampMin = "1.0", ClampMax = "5.0"))
-	float BackstabDamageMultiplier;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Retreat Duration", ClampMin = "1.0", ClampMax = "5.0"))
-	float RetreatDuration;
+	// Combat Stats
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Dodge Chance", ClampMin = "0.0", ClampMax = "1.0"))
+	float DodgeChance = 0.4f;
 
 private:
 	void MoveTowardsTarget(float DeltaTime);

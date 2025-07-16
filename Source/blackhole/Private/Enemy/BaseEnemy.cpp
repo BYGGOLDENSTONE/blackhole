@@ -1,6 +1,7 @@
 #include "Enemy/BaseEnemy.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/StatusEffectComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Systems/ThresholdManager.h"
 #include "Systems/ResourceManager.h"
@@ -23,6 +24,9 @@ ABaseEnemy::ABaseEnemy()
 	CurrentWP = MaxWP;
 	
 	// Don't create state machine here - derived classes create their own specific types
+	
+	// Create status effect component
+	StatusEffectComponent = CreateDefaultSubobject<UStatusEffectComponent>(TEXT("StatusEffectComponent"));
 	
 	// Tag all enemies so hack abilities can identify them
 	Tags.Add(FName("Enemy"));
@@ -340,39 +344,20 @@ void ABaseEnemy::ApplyMovementSpeedModifier(float Multiplier, float Duration)
 
 void ABaseEnemy::ApplyStagger(float Duration)
 {
-	if (!GetCharacterMovement() || !GetWorld() || bIsStaggered) return;
-	
-	// Clear any existing stagger timer
-	GetWorld()->GetTimerManager().ClearTimer(StaggerTimerHandle);
-	
-	// Mark as staggered
-	bIsStaggered = true;
-	
-	// Store current speed and set to 0 for stagger
-	float OriginalSpeed = GetCharacterMovement()->MaxWalkSpeed;
-	GetCharacterMovement()->MaxWalkSpeed = 0.0f;
-	
-	// Optional: Disable ability usage during stagger
-	// This could be expanded to disable specific abilities or all abilities
-	
-	// Reset after duration
-	if (Duration > 0.0f)
+	// Use StatusEffectComponent instead
+	if (StatusEffectComponent)
 	{
-		// Use weak pointer to prevent crashes if enemy is destroyed
-		TWeakObjectPtr<ABaseEnemy> WeakThis = this;
-		
-		GetWorld()->GetTimerManager().SetTimer(StaggerTimerHandle, [WeakThis, OriginalSpeed]()
-		{
-			if (WeakThis.IsValid())
-			{
-				WeakThis->bIsStaggered = false;
-				if (WeakThis->GetCharacterMovement())
-				{
-					WeakThis->GetCharacterMovement()->MaxWalkSpeed = OriginalSpeed;
-				}
-			}
-		}, Duration, false);
+		StatusEffectComponent->ApplyStatusEffect(EStatusEffectType::Stagger, Duration);
 	}
+}
+
+bool ABaseEnemy::IsStaggered() const
+{
+	if (StatusEffectComponent)
+	{
+		return StatusEffectComponent->IsStaggered();
+	}
+	return false;
 }
 
 void ABaseEnemy::LoadStatsFromDataTable()

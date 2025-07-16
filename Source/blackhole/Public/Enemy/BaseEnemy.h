@@ -7,6 +7,7 @@
 class UStaticMeshComponent;
 class ABlackholePlayerCharacter;
 class UEnemyStateMachine;
+class UStatusEffectComponent;
 
 UCLASS()
 class BLACKHOLE_API ABaseEnemy : public ACharacter
@@ -22,6 +23,10 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+
+	// Status effect component for managing states
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
+	UStatusEffectComponent* StatusEffectComponent;
 
 	// Enemy health is now tracked as WP (same as player)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
@@ -140,12 +145,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Enemy")
 	void ApplyMovementSpeedModifier(float Multiplier, float Duration);
 	
-	// Stagger system
-	UFUNCTION(BlueprintCallable, Category = "Enemy|Combat")
+	// Stagger system (legacy - use StatusEffectComponent instead)
+	UFUNCTION(BlueprintCallable, Category = "Enemy|Combat", meta = (DeprecatedFunction, DeprecationMessage = "Use StatusEffectComponent->ApplyStatusEffect instead"))
 	void ApplyStagger(float Duration);
 	
-	UFUNCTION(BlueprintPure, Category = "Enemy|Combat")
-	bool IsStaggered() const { return bIsStaggered; }
+	UFUNCTION(BlueprintPure, Category = "Enemy|Combat", meta = (DeprecatedFunction, DeprecationMessage = "Use StatusEffectComponent->IsStaggered instead"))
+	bool IsStaggered() const;
 	
 	// Combat abilities
 	UFUNCTION(BlueprintPure, Category = "Enemy")
@@ -163,6 +168,4 @@ public:
 	
 private:
 	FTimerHandle SpeedResetTimerHandle;
-	FTimerHandle StaggerTimerHandle;
-	bool bIsStaggered = false;
 };

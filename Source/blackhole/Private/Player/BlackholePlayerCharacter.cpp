@@ -32,6 +32,7 @@
 #include "Components/Abilities/Combos/DashWallRunCombo.h"
 #include "Components/Abilities/AbilityComponent.h"
 #include "Components/Movement/WallRunComponent.h"
+#include "Components/StatusEffectComponent.h"
 #include "Config/GameplayConfig.h"
 #include "Engine/World.h"
 
@@ -87,6 +88,7 @@ ABlackholePlayerCharacter::ABlackholePlayerCharacter()
 	CameraComponent->SetFieldOfView(CameraFOV);
 
 	WillPowerComponent = CreateDefaultSubobject<UWillPowerComponent>(TEXT("WillPower"));
+	StatusEffectComponent = CreateDefaultSubobject<UStatusEffectComponent>(TEXT("StatusEffectComponent"));
 
 	// Create movement components
 	WallRunComponent = CreateDefaultSubobject<UWallRunComponent>(TEXT("WallRunComponent"));
@@ -1078,38 +1080,19 @@ float ABlackholePlayerCharacter::TakeDamage(float DamageAmount, struct FDamageEv
 
 void ABlackholePlayerCharacter::ApplyStagger(float Duration)
 {
-	if (!GetCharacterMovement() || !GetWorld() || bIsStaggered) return;
-	
-	// Clear any existing stagger timer
-	GetWorld()->GetTimerManager().ClearTimer(StaggerTimerHandle);
-	
-	// Apply stagger effect
-	bIsStaggered = true;
-	
-	// Disable movement and input
-	GetCharacterMovement()->DisableMovement();
-	DisableInput(Cast<APlayerController>(GetController()));
-	
-	// Apply visual feedback - slow animation rate
-	GetMesh()->GlobalAnimRateScale = 0.3f;
-	
-	UE_LOG(LogTemp, Warning, TEXT("Player staggered for %.1f seconds!"), Duration);
-	
-	// Use weak pointer to avoid crashes if player is destroyed
-	TWeakObjectPtr<ABlackholePlayerCharacter> WeakThis = this;
-	
-	// Set timer to end stagger
-	GetWorld()->GetTimerManager().SetTimer(StaggerTimerHandle, [WeakThis]()
+	// Use StatusEffectComponent instead
+	if (StatusEffectComponent)
 	{
-		if (WeakThis.IsValid() && WeakThis->GetCharacterMovement())
-		{
-			WeakThis->bIsStaggered = false;
-			WeakThis->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
-			WeakThis->EnableInput(Cast<APlayerController>(WeakThis->GetController()));
-			WeakThis->GetMesh()->GlobalAnimRateScale = 1.0f;
-			
-			UE_LOG(LogTemp, Warning, TEXT("Player stagger ended"));
-		}
-	}, Duration, false);
+		StatusEffectComponent->ApplyStatusEffect(EStatusEffectType::Stagger, Duration);
+	}
+}
+
+bool ABlackholePlayerCharacter::IsStaggered() const
+{
+	if (StatusEffectComponent)
+	{
+		return StatusEffectComponent->IsStaggered();
+	}
+	return false;
 }
 

@@ -27,6 +27,7 @@ class UInputMappingContext;
 class UInputAction;
 class UStaticMeshComponent;
 class UWallRunComponent;
+class UStatusEffectComponent;
 
 UCLASS()
 class BLACKHOLE_API ABlackholePlayerCharacter : public ACharacter, public IResourceConsumer
@@ -64,12 +65,12 @@ public:
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, 
 		class AController* EventInstigator, AActor* DamageCauser) override;
 
-	// Stagger system
-	UFUNCTION(BlueprintCallable, Category = "Combat")
+	// Stagger system (legacy - use StatusEffectComponent instead)
+	UFUNCTION(BlueprintCallable, Category = "Combat", meta = (DeprecatedFunction, DeprecationMessage = "Use StatusEffectComponent->ApplyStatusEffect instead"))
 	void ApplyStagger(float Duration);
 	
-	UFUNCTION(BlueprintPure, Category = "Combat")
-	bool IsStaggered() const { return bIsStaggered; }
+	UFUNCTION(BlueprintPure, Category = "Combat", meta = (DeprecatedFunction, DeprecationMessage = "Use StatusEffectComponent->IsStaggered instead"))
+	bool IsStaggered() const;
 
 protected:
 	virtual void BeginPlay() override;
@@ -119,6 +120,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
 	UWillPowerComponent* WillPowerComponent;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
+	UStatusEffectComponent* StatusEffectComponent;
 
 	// Movement Components
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
@@ -275,10 +279,6 @@ private:
 	
 	// Death state
 	bool bIsDead = false;
-	
-	// Stagger state
-	bool bIsStaggered = false;
-	FTimerHandle StaggerTimerHandle;
 	
 	// Combo tracking (legacy - will be replaced by ComboDetectionSubsystem)
 	enum class ELastAbilityUsed : uint8
