@@ -99,6 +99,12 @@ void UEnemyStateMachine::TickComponent(float DeltaTime, ELevelTick TickType, FAc
         }
         if (!CurrentStateObject)
         {
+            // If we're in Dead state, this is expected - just return quietly
+            if (CurrentState == EEnemyState::Dead)
+            {
+                return;
+            }
+            
             UE_LOG(LogTemp, Error, TEXT("StateMachine: No current state object in tick! Initialized: %s"),
                 bIsInitialized ? TEXT("Yes") : TEXT("No"));
             
@@ -257,7 +263,18 @@ void UEnemyStateMachine::ChangeState(EEnemyState NewState)
     PreviousState = CurrentState;
     CurrentState = NewState;
     TimeInCurrentState = 0.0f;
-    EnterState(NewState);
+    
+    // Special handling for Dead state - disable tick to prevent error spam
+    if (NewState == EEnemyState::Dead)
+    {
+        SetComponentTickEnabled(false);
+        CurrentStateObject = nullptr;
+        UE_LOG(LogTemp, Warning, TEXT("%s: Entered Dead state - tick disabled"), *OwnerEnemy->GetName());
+    }
+    else
+    {
+        EnterState(NewState);
+    }
     
     OnStateChanged.Broadcast(PreviousState, CurrentState);
 }
