@@ -7,6 +7,7 @@
 #include "Enemy/AI/EnemyStateMachine.h"
 #include "Enemy/AI/EnemyStates.h"
 #include "Components/Abilities/Enemy/SmashAbilityComponent.h"
+#include "Components/Abilities/Enemy/AreaDamageAbilityComponent.h"
 #include "Components/Abilities/Enemy/BlockComponent.h"
 #include "Components/Abilities/Enemy/DodgeComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -111,9 +112,14 @@ void UEnemyStatsManager::ApplyStatsToEnemy(ABaseEnemy* Enemy, const FEnemyStatsD
 	// Apply enemy-specific stats
 	if (ATankEnemy* Tank = Cast<ATankEnemy>(Enemy))
 	{
-		Tank->GroundSlamRadius = Stats.GroundSlamRadius;
-		Tank->GroundSlamDamageMultiplier = Stats.GroundSlamDamageMultiplier;
-		Tank->GroundSlamKnockbackForce = Stats.GroundSlamKnockbackForce;
+		// Configure AreaDamageAbilityComponent from data table
+		if (UAreaDamageAbilityComponent* AreaDamageAbility = Tank->GetAreaDamageAbility())
+		{
+			AreaDamageAbility->DamageRadius = Stats.GroundSlamRadius;
+			AreaDamageAbility->BaseDamage = Stats.SmashDamage * Stats.GroundSlamDamageMultiplier;
+			AreaDamageAbility->KnockbackForce = Stats.GroundSlamKnockbackForce;
+			AreaDamageAbility->SetCooldown(Stats.GroundSlamCooldown);
+		}
 		Tank->AttackRange = Stats.AttackRange;
 		Tank->ChaseRange = Stats.ChaseRange;
 		Tank->BlockChance = Stats.BlockChance;

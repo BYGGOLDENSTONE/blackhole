@@ -140,6 +140,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Enemy")
 	void ApplyMovementSpeedModifier(float Multiplier, float Duration);
 	
+	// Stagger system
+	UFUNCTION(BlueprintCallable, Category = "Enemy|Combat")
+	void ApplyStagger(float Duration);
+	
+	UFUNCTION(BlueprintPure, Category = "Enemy|Combat")
+	bool IsStaggered() const { return bIsStaggered; }
+	
 	// Combat abilities
 	UFUNCTION(BlueprintPure, Category = "Enemy")
 	virtual bool CanBlock() const { return false; }
@@ -156,4 +163,6 @@ public:
 	
 private:
 	FTimerHandle SpeedResetTimerHandle;
+	FTimerHandle StaggerTimerHandle;
+	bool bIsStaggered = false;
 };

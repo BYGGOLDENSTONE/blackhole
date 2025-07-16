@@ -1,8 +1,8 @@
 # Blackhole - Game Design Document
-**Version**: 4.1  
+**Version**: 4.2  
 **Engine**: Unreal Engine 5.5  
 **Language**: C++ with Blueprint integration  
-**Date**: 2025-07-15
+**Date**: 2025-07-16
 
 > **📚 Note**: For detailed ability information, see [ABILITIES_DOCUMENTATION.md](ABILITIES_DOCUMENTATION.md)
 > 
@@ -20,7 +20,7 @@ A high-intensity action game where players embody a digital warrior navigating c
 2. **Dynamic Difficulty**: Ability loss creates escalating challenge with compensatory buffs
 3. **Precision Gameplay**: Combo system rewards timing and skill
 4. **Strategic Sacrifice**: Choose which abilities to lose when pushed to the limit
-5. **Fluid Movement**: Wall running and momentum preservation enable cyberpunk traversal
+5. **Fluid Movement**: Wall running and advanced traversal enable cyberpunk mobility
 
 ## ⚡ Resource System
 
@@ -62,12 +62,20 @@ A high-intensity action game where players embody a digital warrior navigating c
 | 20-50% | Warning | Reduced buffs |
 | 50-100% | Healthy | +20% damage, -15% cooldowns, +25% attack speed |
 
+### Critical State System
+- **Entries**: Players have 3 critical state entries by default
+- **Usage**: Each 0% WP consumes one entry
+- **Timer Expires**: 
+  - With entries: WP restored to 100%
+  - No entries: Instant death
+- **Future**: Collectibles can increase entry limit
+
 ## ⚔️ Combat System
 
 ### Basic Abilities (Always Available)
 | Ability | Key | WP Cost | Effect |
 |---------|-----|---------|--------|
-| **Katana Slash** | LMB | 0 | Quick 3-hit combo, 20 base damage |
+| **Katana Slash** | LMB | 0 | Quick 3-hit combo, 20 base damage, dual detection (trace + sphere) |
 | **Hacker Dash** | Shift | 0 | Movement input directional dash with i-frames |
 | **Hacker Jump** | Space | 0 | Double jump with 0.5s cooldown |
 
@@ -80,9 +88,10 @@ The wall run system enables fluid cyberpunk traversal through vertical environme
 - Player must be **airborne** (jumping, falling, or dashing)
 - Wall must be within 45 units and roughly vertical (70-110° angle)
 - Minimum wall height of 200 units
+- Minimum height from ground: 150 units (prevents accidental wall runs)
 
 **Mechanics:**
-- **Speed Preservation**: Dash momentum (3000 units) is fully preserved during wall run
+- **Speed Cap**: Dash speed (3000 units) capped at 1000 units/s during wall run
 - **Height Maintenance**: Player runs at consistent height along wall surface  
 - **Input Control**: W key required to continue wall running
 - **Duration**: Unlimited as long as W is held and wall exists
@@ -247,6 +256,57 @@ Buff Scaling:
 - Per ability lost: +10% damage
 ```
 
+## 🔮 Upcoming Feature Implementations
+
+### 1. Wall Run Improvements
+**Camera Freedom**
+- Players can freely look around while wall running without interrupting the movement
+- Camera rotation is decoupled from wall run state
+- Maintains cinematic feel while providing player control
+
+**Height Requirement Adjustment**
+- Minimum height from ground: 150 units (implemented)
+- Prevents accidental wall runs from simple jumps
+- Requires intentional high jumps or dashes to access
+- Traces from player's feet for accurate height detection
+
+### 2. Critical State Limit System
+**Lives/Retry Mechanic**
+- Players have limited "critical state entries" (default: 3 per level)
+- Each time WP reaches 0%, one entry is consumed
+- If timer expires without ultimate use:
+  - Entries remaining: WP restored to 100% (full energy)
+  - No entries left: Instant death
+- When entries exceed limit, 0% WP = instant death (no timer)
+
+**Progression Integration**
+- Collectible items increase critical state limit
+- Equipment upgrades grant additional entries
+- Creates strategic resource management layer
+- Encourages exploration and careful play
+
+### 3. Slash Ability Targeting Enhancement
+**Current Issue**: Trace from camera to crosshair often misses enemies positioned below/above crosshair
+
+**New Implementation**:
+1. **Extended Trace**: Camera ray extends 2x beyond crosshair distance
+2. **Sphere Check**: 300-unit radius sphere around player for melee range
+3. **Dual Validation**: Enemy must be hit by BOTH trace AND sphere
+4. **Result**: More forgiving targeting while maintaining skill requirement
+
+### 4. Enemy System Expansion
+**New Enemy Types** (Planned):
+- **Virus**: Spreads corruption, area denial
+- **Firewall**: Tank variant with shields
+- **Script Kiddie**: Summons minions
+- **Data Miner**: Resource stealing mechanics
+
+**Enemy Ability Framework**:
+- Modular ability components for enemies
+- Data-driven ability assignment
+- Cooldown and resource management
+- Visual telegraphs for player reaction
+
 ## 🚀 Development Status
 
 ### Completed Features ✅
@@ -266,6 +326,10 @@ Buff Scaling:
 - Advanced enemy types
 - VFX/SFX polish
 - UI implementation
+- Wall run camera improvements
+- Critical state limit system
+- Slash ability targeting fix
+- Additional enemy abilities
 
 ### Future Plans 📋
 - Forge path (see separate doc)
@@ -304,7 +368,21 @@ Buff Scaling:
 
 ## 📝 Version History
 
-### v4.0 (2025-07-11) - Current
+### v4.2 (2025-07-16) - Current
+- Velocity indicator improvements (smaller, no direction, Y-150) → Removed completely
+- Critical state WP restoration to 100% when entries remain
+- Reverted momentum system per user feedback
+- Wall run speed capped at 1000 when entering from dash
+- Wall run height requirement implemented (150 units, trace from feet)
+- Updated movement settings documentation
+
+### v4.1 (2025-07-15)
+- Complete WP energy system transformation
+- Added critical state limit system (3 entries default)
+- Implemented dual detection for slash ability
+- Wall run minimum height requirement planned
+
+### v4.0 (2025-07-11)
 - Separated Forge path to future implementation doc
 - Added architectural improvements from code audit
 - Updated with current implementation status

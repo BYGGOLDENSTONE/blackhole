@@ -4,6 +4,7 @@
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/Abilities/AbilityComponent.h"
+#include "Components/Abilities/Player/Utility/HackerJumpAbility.h"
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
 #include "Kismet/GameplayStatics.h"
@@ -12,6 +13,8 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "TimerManager.h"
 #include "Systems/ResourceManager.h"
+#include "Systems/ComboDetectionSubsystem.h"
+#include "Engine/Engine.h"
 
 UWallRunComponent::UWallRunComponent()
 {
@@ -100,14 +103,33 @@ void UWallRunComponent::UpdateStateMachine(float DeltaTime)
         case EWallRunState::None:
         {
             // Check if we can start wall running
-            // Wall run requires player to be airborne (after jumping)
+            // Wall run requires player to be airborne (after jumping) AND high enough
             if (HasForwardInput() && !MovementComponent->IsMovingOnGround())
             {
-                if (CanStartWallRun() && TryStartWallRun())
+                // Quick height check before attempting wall run
+                bool bIsHighEnough = true;
+                if (Settings.MinHeightFromGround > 0.0f)
+                {
+                    FVector PlayerLocation = OwnerCharacter->GetActorLocation();
+                    float CapsuleHalfHeight = OwnerCharacter->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+                    FVector TraceStart = PlayerLocation - FVector(0, 0, CapsuleHalfHeight);
+                    FVector TraceEnd = TraceStart - FVector(0, 0, Settings.MinHeightFromGround);
+                    
+                    FHitResult QuickGroundCheck;
+                    FCollisionQueryParams QueryParams;
+                    QueryParams.AddIgnoredActor(OwnerCharacter);
+                    
+                    if (GetWorld()->LineTraceSingleByChannel(QuickGroundCheck, TraceStart, TraceEnd, ECC_WorldStatic, QueryParams))
+                    {
+                        bIsHighEnough = false; // Too close to ground
+                    }
+                }
+                
+                if (bIsHighEnough && CanStartWallRun() && TryStartWallRun())
                 {
                     // State already changed in StartWallRunInternal
                 }
-                else if (!MovementComponent->IsMovingOnGround())
+                else if (bIsHighEnough && !MovementComponent->IsMovingOnGround())
                 {
                     // Start coyote time if we're still airborne but couldn't start wall run
                     ChangeState(EWallRunState::CoyoteTime);
@@ -419,6 +441,63 @@ bool UWallRunComponent::CanStartWallRun() const
         return false; // Can't start wall run while on ground
     }
     
+    // Check minimum height from ground requirement - CRITICAL for intentional wall runs
+    if (Settings.MinHeightFromGround > 0.0f)
+    {
+        FVector PlayerLocation = OwnerCharacter->GetActorLocation();
+        // Start trace from player's feet, not center
+        float CapsuleHalfHeight = OwnerCharacter->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+        FVector TraceStart = PlayerLocation - FVector(0, 0, CapsuleHalfHeight);
+        FVector TraceEnd = TraceStart - FVector(0, 0, Settings.MinHeightFromGround * 2.0f); // Trace down further
+        
+        FHitResult GroundHit;
+        FCollisionQueryParams QueryParams;
+        QueryParams.AddIgnoredActor(OwnerCharacter);
+        
+        // Draw debug line to visualize height check
+        #if WITH_EDITOR
+        if (bShowDebugVisuals)
+        {
+            DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::Yellow, false, 0.1f, 0, 2.0f);
+        }
+        #endif
+        
+        if (GetWorld()->LineTraceSingleByChannel(GroundHit, TraceStart, TraceEnd, ECC_WorldStatic, QueryParams))
+        {
+            float HeightFromGround = (TraceStart - GroundHit.Location).Z;
+            
+            #if WITH_EDITOR
+            if (bShowDebugVisuals)
+            {
+                DrawDebugString(GetWorld(), GroundHit.Location, FString::Printf(TEXT("Height: %.1f"), HeightFromGround), 
+                    nullptr, HeightFromGround >= Settings.MinHeightFromGround ? FColor::Green : FColor::Red, 0.1f);
+            }
+            #endif
+            
+            if (HeightFromGround < Settings.MinHeightFromGround)
+            {
+                // Show feedback to player when too low
+                if (GEngine && HasForwardInput())
+                {
+                    FVector WallNormal;
+                    EWallSide WallSide;
+                    if (DetectWall(WallNormal, WallSide))
+                    {
+                        GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Yellow, 
+                            FString::Printf(TEXT("Too low for wall run! Need %.0f height (currently %.0f)"), 
+                            Settings.MinHeightFromGround, HeightFromGround));
+                    }
+                }
+                return false;
+            }
+        }
+        else
+        {
+            // No ground found within trace distance - player is high enough
+            UE_LOG(LogTemp, VeryVerbose, TEXT("WallRun: No ground found - height check passed"));
+        }
+    }
+    
     float CurrentTime = GetWorld()->GetTimeSeconds();
     
     // Check wall run restart cooldown (prevents immediate re-attachment after wall jump)
@@ -498,11 +577,11 @@ void UWallRunComponent::StartWallRunInternal(const FVector& WallNormal, EWallSid
     // Calculate initial speed with momentum preservation
     float CurrentSpeed = MovementComponent->Velocity.Size2D();
     
-    // If player has high speed (from dash), preserve it completely
+    // If player has high speed (from dash), limit to 1000
     if (CurrentSpeed > Settings.WallRunSpeed)
     {
-        // Player is dashing or moving fast - preserve full speed
-        CurrentWallRunSpeed = CurrentSpeed;
+        // Player is dashing or moving fast - cap speed at 1000
+        CurrentWallRunSpeed = FMath::Min(CurrentSpeed, 1000.0f);
         
         // Dash + Wall Run combo detected - reward WP
         if (CurrentSpeed > 2500.0f) // Likely from dash (dash speed is 3000)
@@ -513,7 +592,7 @@ void UWallRunComponent::StartWallRunInternal(const FVector& WallNormal, EWallSid
                 {
                     float WPReward = 10.0f; // Wall run combo reward
                     ResourceMgr->AddWillPower(WPReward);
-                    UE_LOG(LogTemp, Warning, TEXT("Dash + Wall Run combo: Player gained +%.1f WP"), WPReward);
+                    UE_LOG(LogTemp, Warning, TEXT("Dash + Wall Run combo: Player gained +%.1f WP, Speed capped at 1000"), WPReward);
                 }
             }
         }
@@ -522,6 +601,12 @@ void UWallRunComponent::StartWallRunInternal(const FVector& WallNormal, EWallSid
     {
         // Normal speed wall run
         CurrentWallRunSpeed = Settings.WallRunSpeed;
+    }
+    
+    // Register wall run input with combo system
+    if (UComboDetectionSubsystem* ComboSystem = GetWorld()->GetSubsystem<UComboDetectionSubsystem>())
+    {
+        ComboSystem->RegisterInput(OwnerCharacter, EComboInput::WallRun, OwnerCharacter->GetActorLocation());
     }
     
     // Apply wall run physics
@@ -1044,6 +1129,16 @@ void UWallRunComponent::ChangeState(EWallRunState NewState)
     }
     
     OnWallRunStateChanged.Broadcast(NewState);
+    
+    // Notify jump ability about wall run state change
+    if (OwnerCharacter)
+    {
+        if (UHackerJumpAbility* JumpAbility = OwnerCharacter->FindComponentByClass<UHackerJumpAbility>())
+        {
+            bool bIsWallRunning = (NewState == EWallRunState::WallRunning);
+            JumpAbility->OnWallRunStateChanged(bIsWallRunning);
+        }
+    }
 }
 
 bool UWallRunComponent::HasForwardInput() const
@@ -1053,12 +1148,20 @@ bool UWallRunComponent::HasForwardInput() const
         return false;
     }
     
-    // Check if player is pressing W key (forward input) for walking animation
+    // Check if player has any movement input (not just forward)
+    // During wall run, any input keeps the run going regardless of camera direction
     FVector InputVector = OwnerCharacter->GetLastMovementInputVector();
-    FVector ForwardVector = OwnerCharacter->GetActorForwardVector();
     
+    // If we're already wall running, check for any input magnitude
+    if (CurrentState == EWallRunState::WallRunning)
+    {
+        return InputVector.Size() > 0.1f; // Any movement input continues wall run
+    }
+    
+    // For starting wall run, check if input is somewhat forward-facing
+    FVector ForwardVector = OwnerCharacter->GetActorForwardVector();
     float ForwardInput = FVector::DotProduct(InputVector, ForwardVector);
-    return ForwardInput > 0.1f; // Player must hold W to continue wall running
+    return ForwardInput > 0.1f; // Need forward input to start wall run
 }
 
 bool UWallRunComponent::HasJumpInput() const

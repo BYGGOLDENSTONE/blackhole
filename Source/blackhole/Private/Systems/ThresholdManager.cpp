@@ -668,6 +668,24 @@ void UThresholdManager::StartCriticalTimer()
 		return;
 	}
 	
+	// Increment critical state entries used
+	CriticalStateEntriesUsed++;
+	int32 EntriesRemaining = FMath::Max(0, CriticalStateLimit - CriticalStateEntriesUsed);
+	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Critical state entry used (%d/%d)"), 
+		CriticalStateEntriesUsed, CriticalStateLimit);
+	
+	// Broadcast event for HUD
+	OnCriticalStateEntryUsed.Broadcast(CriticalStateEntriesUsed, EntriesRemaining);
+	
+	// Check if player has exceeded critical state limit
+	if (CriticalStateEntriesUsed > CriticalStateLimit)
+	{
+		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: Critical state limit exceeded - INSTANT DEATH!"));
+		// Trigger instant death
+		OnPlayerDeath.Broadcast();
+		return;
+	}
+	
 	// Ensure combat is started before critical timer
 	if (!bIsInCombat)
 	{
@@ -759,8 +777,29 @@ void UThresholdManager::OnCriticalTimerExpiredInternal()
 	// End combat first to clean up properly
 	EndCombat();
 	
-	// Trigger player death
-	OnPlayerDeath.Broadcast();
+	// Check if player has critical state entries remaining
+	if (CriticalStateEntriesUsed >= CriticalStateLimit)
+	{
+		// No more critical state entries - trigger death
+		UE_LOG(LogTemp, Error, TEXT("ThresholdManager: No critical state entries remaining - DEATH!"));
+		OnPlayerDeath.Broadcast();
+	}
+	else
+	{
+		// Player survived critical state but failed to use ultimate
+		// They can continue playing but with consequences
+		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Player survived critical state (%d/%d entries used)"), 
+			CriticalStateEntriesUsed, CriticalStateLimit);
+		
+		// Reset WP to full (100%) to give player another chance
+		if (IsValid(ResourceManager))
+		{
+			float MaxWP = ResourceManager->GetMaxWillPower();
+			// Player is at 0 WP, so add full amount to reach 100%
+			ResourceManager->AddWillPower(MaxWP);
+			UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Restored WP to 100%% (full energy)"));
+		}
+	}
 }
 
 void UThresholdManager::UpdateCriticalTimer()
@@ -781,4 +820,23 @@ void UThresholdManager::UpdateCriticalTimer()
 			GetWorld()->GetTimerManager().ClearTimer(CriticalUpdateTimerHandle);
 		}
 	}
+}
+
+// Critical State Limit Functions
+void UThresholdManager::SetCriticalStateLimit(int32 NewLimit)
+{
+	CriticalStateLimit = FMath::Max(0, NewLimit);
+	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Critical state limit set to %d"), CriticalStateLimit);
+}
+
+void UThresholdManager::IncreaseCriticalStateLimit(int32 Amount)
+{
+	CriticalStateLimit = FMath::Max(0, CriticalStateLimit + Amount);
+	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Critical state limit increased to %d"), CriticalStateLimit);
+}
+
+void UThresholdManager::ResetCriticalStateEntries()
+{
+	CriticalStateEntriesUsed = 0;
+	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Critical state entries reset to 0"));
 }

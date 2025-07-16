@@ -2,7 +2,7 @@
 #include "Enemy/TankEnemy.h"
 #include "Enemy/AI/EnemyStateMachine.h"
 #include "Components/Abilities/Enemy/BlockComponent.h"
-#include "Components/Abilities/Enemy/SmashAbilityComponent.h"
+#include "Components/Abilities/Enemy/AreaDamageAbilityComponent.h"
 
 void UTankCombatState::InitializeCombatActions(ABaseEnemy* Enemy)
 {
@@ -38,9 +38,19 @@ void UTankCombatState::ExecuteCombatAction(ABaseEnemy* Enemy, UEnemyStateMachine
 
 void UTankCombatState::ExecuteSmashAttack(ABaseEnemy* Enemy)
 {
-    if (USmashAbilityComponent* SmashAbility = Enemy->FindComponentByClass<USmashAbilityComponent>())
+    ATankEnemy* Tank = Cast<ATankEnemy>(Enemy);
+    if (!Tank) return;
+    
+    if (UAreaDamageAbilityComponent* AreaDamageAbility = Tank->GetAreaDamageAbility())
     {
-        SmashAbility->Execute();
+        // Configure for normal smash attack (smaller radius)
+        float OriginalRadius = AreaDamageAbility->DamageRadius;
+        AreaDamageAbility->DamageRadius = 200.0f;  // Smaller radius for normal attack
+        
+        AreaDamageAbility->Execute();
+        
+        // Restore original radius
+        AreaDamageAbility->DamageRadius = OriginalRadius;
         
         // Tank specific: Slow movement after heavy attack
         Enemy->ApplyMovementSpeedModifier(0.5f, 0.5f);
@@ -64,29 +74,11 @@ void UTankCombatState::ExecuteGroundSlam(ABaseEnemy* Enemy)
     ATankEnemy* Tank = Cast<ATankEnemy>(Enemy);
     if (!Tank) return;
     
-    if (USmashAbilityComponent* SmashAbility = Enemy->FindComponentByClass<USmashAbilityComponent>())
+    if (UAreaDamageAbilityComponent* AreaDamageAbility = Tank->GetAreaDamageAbility())
     {
-        // Store original values
-        float OriginalDamage = SmashAbility->GetDamage();
-        bool OriginalAreaDamage = SmashAbility->bIsAreaDamage;
-        float OriginalRadius = SmashAbility->GetAreaRadius();
-        float OriginalKnockback = SmashAbility->GetKnockbackForce();
-        
-        // Apply tank's ground slam configuration
-        SmashAbility->SetDamage(OriginalDamage * Tank->GroundSlamDamageMultiplier);
-        SmashAbility->SetAreaDamage(true);  // Enable area damage for ground slam
-        SmashAbility->SetAreaRadius(Tank->GroundSlamRadius);
-        SmashAbility->SetKnockbackForce(Tank->GroundSlamKnockbackForce);
-        SmashAbility->Execute();
-        
-        // Reset to original values
-        SmashAbility->SetDamage(OriginalDamage);
-        SmashAbility->SetAreaDamage(OriginalAreaDamage);
-        SmashAbility->SetAreaRadius(OriginalRadius);
-        SmashAbility->SetKnockbackForce(OriginalKnockback);
-        
-        // Longer recovery for powerful attack - tank staggers after ground slam
-        Enemy->ApplyMovementSpeedModifier(0.0f, 1.5f);  // Complete stop for 1.5 seconds
+        // The area damage ability is already configured for ground slam in TankEnemy constructor
+        // Just execute it - it will handle knockback, damage, and self-stagger automatically
+        AreaDamageAbility->Execute();
         
         // Additional stagger effect - prevent all actions during recovery
         StartAbilityCooldown(Enemy, TEXT("Smash"), 2.0f);  // Block other attacks during stagger

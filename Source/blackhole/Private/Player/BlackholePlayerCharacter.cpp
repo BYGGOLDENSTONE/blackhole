@@ -26,8 +26,10 @@
 #include "Components/Abilities/Player/Hacker/FirewallBreachAbility.h"
 #include "Components/Abilities/Player/Hacker/DataSpikeAbility.h"
 #include "Components/Abilities/Player/Hacker/SystemOverrideAbility.h"
+#include "Components/Abilities/ComboAbilityComponent.h"
 #include "Components/Abilities/Combos/DashSlashCombo.h"
 #include "Components/Abilities/Combos/JumpSlashCombo.h"
+#include "Components/Abilities/Combos/DashWallRunCombo.h"
 #include "Components/Abilities/AbilityComponent.h"
 #include "Components/Movement/WallRunComponent.h"
 #include "Config/GameplayConfig.h"
@@ -47,6 +49,20 @@ ABlackholePlayerCharacter::ABlackholePlayerCharacter()
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, GameplayConfig::Movement::ROTATION_RATE, 0.0f);
 	GetCharacterMovement()->JumpZVelocity = GameplayConfig::Movement::BASE_JUMP_VELOCITY; // Base jump velocity for movement component
 	GetCharacterMovement()->AirControl = GameplayConfig::Movement::AIR_CONTROL;
+	
+	// Momentum preservation settings
+	GetCharacterMovement()->GroundFriction = GroundFriction; // Use editable property
+	GetCharacterMovement()->BrakingDecelerationWalking = BrakingDeceleration; // Use editable property
+	GetCharacterMovement()->BrakingDecelerationFalling = 0.0f; // No air deceleration for momentum preservation
+	GetCharacterMovement()->BrakingDecelerationFlying = 0.0f;
+	GetCharacterMovement()->BrakingDecelerationSwimming = 0.0f;
+	GetCharacterMovement()->BrakingFrictionFactor = 0.5f; // Reduced from default 2.0f
+	GetCharacterMovement()->bUseSeparateBrakingFriction = false; // Use same friction for all states
+	GetCharacterMovement()->MaxWalkSpeed = MaxWalkSpeed; // Use editable property
+	
+	// Additional momentum settings
+	GetCharacterMovement()->MaxAcceleration = 1200.0f; // Reduced from default 2048.0f for smoother acceleration
+	GetCharacterMovement()->MinAnalogWalkSpeed = 20.0f; // Lower threshold for analog movement
 
 	SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArmComponent->SetupAttachment(RootComponent);
@@ -93,6 +109,7 @@ ABlackholePlayerCharacter::ABlackholePlayerCharacter()
 	// Create combo ability components
 	DashSlashCombo = CreateDefaultSubobject<UDashSlashCombo>(TEXT("DashSlashCombo"));
 	JumpSlashCombo = CreateDefaultSubobject<UJumpSlashCombo>(TEXT("JumpSlashCombo"));
+	DashWallRunCombo = CreateDefaultSubobject<UDashWallRunCombo>(TEXT("DashWallRunCombo"));
 
 	bIsFirstPerson = false;
 	FirstPersonCameraOffset = GameplayConfig::Movement::FIRST_PERSON_OFFSET;
@@ -601,10 +618,27 @@ void ABlackholePlayerCharacter::UseUtilityJump()
 		
 		if (bIsWallRunning)
 		{
-			// Jump during wall run - call wall jump
-			UE_LOG(LogTemp, Warning, TEXT("UseUtilityJump: Calling WallRunComponent->OnJumpPressed()"));
-			WallRunComponent->OnJumpPressed();
-			return;
+			// During wall run, use hacker jump ability with directional input
+			// Get player input for direction
+			FVector InputVector = GetLastMovementInputVector();
+			FVector RightVector = GetActorRightVector();
+			float RightInput = FVector::DotProduct(InputVector, RightVector);
+			
+			// End wall run
+			WallRunComponent->EndWallRun(true); // End with jump flag
+			
+			// Apply additional directional velocity based on A-D input
+			if (FMath::Abs(RightInput) > 0.1f)
+			{
+				// Add horizontal velocity based on input direction
+				if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+				{
+					FVector AdditionalVelocity = RightVector * RightInput * 500.0f;
+					Movement->AddImpulse(AdditionalVelocity, true);
+				}
+			}
+			
+			// Don't return - let the hacker jump ability execute below
 		}
 	}
 	else
@@ -794,6 +828,28 @@ void ABlackholePlayerCharacter::UpdateCameraSettings()
 	if (IsValid(CameraComponent))
 	{
 		CameraComponent->SetFieldOfView(CameraFOV);
+	}
+}
+
+void ABlackholePlayerCharacter::UpdateMovementSettings()
+{
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->GroundFriction = GroundFriction;
+		Movement->BrakingDecelerationWalking = BrakingDeceleration;
+		Movement->MaxWalkSpeed = MaxWalkSpeed;
+		
+		// Apply momentum preservation settings
+		Movement->BrakingDecelerationFalling = 0.0f;
+		Movement->BrakingDecelerationFlying = 0.0f;
+		Movement->BrakingDecelerationSwimming = 0.0f;
+		Movement->BrakingFrictionFactor = 0.5f;
+		Movement->bUseSeparateBrakingFriction = false;
+		Movement->MaxAcceleration = 1200.0f;
+		Movement->MinAnalogWalkSpeed = 20.0f;
+		
+		UE_LOG(LogTemp, Warning, TEXT("Movement settings updated - Friction: %.2f, Deceleration: %.2f, MaxSpeed: %.2f"), 
+			GroundFriction, BrakingDeceleration, MaxWalkSpeed);
 	}
 }
 

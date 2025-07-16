@@ -61,4 +61,8 @@ private:
 	
 	// Override tick to track jump cooldown
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
+public:
+	// Called when entering/exiting wall run to preserve jump state
+	void OnWallRunStateChanged(bool bIsWallRunning);
 };

@@ -4,7 +4,7 @@
 #include "Enemy/BaseEnemy.h"
 #include "TankEnemy.generated.h"
 
-class USmashAbilityComponent;
+class UAreaDamageAbilityComponent;
 class UBlockComponent;
 class UStaticMeshComponent;
 
@@ -26,7 +26,7 @@ protected:
 
 	// This enemy can attack and block, but CANNOT dodge
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
-	USmashAbilityComponent* SmashAbility;
+	UAreaDamageAbilityComponent* AreaDamageAbility;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	UBlockComponent* BlockAbility;
@@ -49,24 +49,14 @@ protected:
 	UStaticMeshComponent* ShieldMesh;
 
 public:
-	// Area damage configuration - public for state machine access
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Ground Slam Radius"))
-	float GroundSlamRadius;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Ground Slam Damage Multiplier", ClampMin = "1.0", ClampMax = "5.0"))
-	float GroundSlamDamageMultiplier;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Ground Slam Knockback Force"))
-	float GroundSlamKnockbackForce;
+	// The area damage configuration is now handled by AreaDamageAbilityComponent
 	// Public methods for state machine access
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void SetShieldVisible(bool bVisible);
 	
+	// Get the area damage ability for state machine access
 	UFUNCTION(BlueprintPure, Category = "Combat")
-	float GetDamage() const;
-	
-	UFUNCTION(BlueprintCallable, Category = "Combat")
-	void SetDamage(float NewDamage);
+	UAreaDamageAbilityComponent* GetAreaDamageAbility() const { return AreaDamageAbility; }
 
 private:
 	void MoveTowardsTarget(float DeltaTime);

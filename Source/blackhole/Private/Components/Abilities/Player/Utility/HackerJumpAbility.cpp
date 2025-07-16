@@ -5,6 +5,7 @@
 #include "DrawDebugHelpers.h"
 #include "Player/BlackholePlayerCharacter.h"
 #include "Systems/ComboSystem.h"
+#include "Components/Movement/WallRunComponent.h"
 
 UHackerJumpAbility::UHackerJumpAbility()
 {
@@ -149,7 +150,21 @@ void UHackerJumpAbility::ApplyMovement(ACharacter* Character)
 
 void UHackerJumpAbility::OnLanded(const FHitResult& Hit)
 {
-	// Reset jump count and timer when landing
+	// Check if we're wall running - if so, don't reset jump count
+	if (ABlackholePlayerCharacter* PlayerChar = Cast<ABlackholePlayerCharacter>(GetCharacterOwner()))
+	{
+		if (UWallRunComponent* WallRunComp = PlayerChar->GetWallRunComponent())
+		{
+			if (WallRunComp->IsWallRunning())
+			{
+				// Don't reset jump count during wall run
+				UE_LOG(LogTemp, Log, TEXT("HackerJump: Landed during wall run - preserving jump count (%d)"), CurrentJumpCount);
+				return;
+			}
+		}
+	}
+	
+	// Reset jump count and timer when landing normally
 	CurrentJumpCount = 0;
 	TimeSinceLastJump = 0.0f;
 	
@@ -203,5 +218,22 @@ void UHackerJumpAbility::TickComponent(float DeltaTime, ELevelTick TickType, FAc
 		TimeSinceLastJump += DeltaTime;
 		
 		// Debug tick logging removed - too verbose
+	}
+}
+
+void UHackerJumpAbility::OnWallRunStateChanged(bool bIsWallRunning)
+{
+	if (bIsWallRunning)
+	{
+		// Entering wall run - preserve current jump state
+		UE_LOG(LogTemp, Log, TEXT("HackerJump: Entering wall run - preserving jump count (%d/%d)"), CurrentJumpCount, MaxJumpCount);
+	}
+	else
+	{
+		// Exiting wall run - don't reset jump count, let player continue their jump sequence
+		UE_LOG(LogTemp, Log, TEXT("HackerJump: Exiting wall run - maintaining jump count (%d/%d)"), CurrentJumpCount, MaxJumpCount);
+		
+		// Reset the jump timer to allow immediate jump after wall run
+		TimeSinceLastJump = JumpCooldown; // Set to cooldown value so player can jump immediately
 	}
 }

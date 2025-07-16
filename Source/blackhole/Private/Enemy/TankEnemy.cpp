@@ -1,5 +1,5 @@
 #include "Enemy/TankEnemy.h"
-#include "Components/Abilities/Enemy/SmashAbilityComponent.h"
+#include "Components/Abilities/Enemy/AreaDamageAbilityComponent.h"
 #include "Components/Abilities/Enemy/BlockComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -14,7 +14,7 @@ ATankEnemy::ATankEnemy()
 	StateMachine = CreateDefaultSubobject<UTankEnemyStateMachine>(TEXT("TankStateMachine"));
 	
 	// Only create the abilities this enemy type should have
-	SmashAbility = CreateDefaultSubobject<USmashAbilityComponent>(TEXT("SmashAbility"));
+	AreaDamageAbility = CreateDefaultSubobject<UAreaDamageAbilityComponent>(TEXT("AreaDamageAbility"));
 	BlockAbility = CreateDefaultSubobject<UBlockComponent>(TEXT("BlockAbility"));
 	// NO DodgeAbility - this enemy cannot dodge!
 
@@ -22,10 +22,21 @@ ATankEnemy::ATankEnemy()
 	ChaseRange = 1500.0f; // More persistent
 	BlockChance = 0.5f; // 50% chance to block when player is attacking
 	
-	// Ground slam configuration
-	GroundSlamRadius = 1500.0f; // Very large area effect
-	GroundSlamDamageMultiplier = 3.0f; // Triple damage for ground slam
-	GroundSlamKnockbackForce = 1500.0f; // Very strong knockback
+	// Configure area damage ability for ground slam
+	if (AreaDamageAbility)
+	{
+		// Set default ground slam configuration
+		AreaDamageAbility->DamagePattern = EAreaDamagePattern::Circular;
+		AreaDamageAbility->DamageRadius = 800.0f;
+		AreaDamageAbility->BaseDamage = 30.0f;
+		AreaDamageAbility->bApplyKnockback = true;
+		AreaDamageAbility->KnockbackForce = 750.0f;
+		AreaDamageAbility->bApplyStagger = true;
+		AreaDamageAbility->StaggerDuration = 1.5f;
+		AreaDamageAbility->CustomAbilityName = "Ground Slam";
+		AreaDamageAbility->SetCooldown(5.0f);
+		AreaDamageAbility->PreDamageDelay = 0.5f;
+	}
 
 	// Configure tank movement settings - heavy and slow
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
@@ -87,9 +98,9 @@ void ATankEnemy::MoveTowardsTarget(float DeltaTime)
 
 void ATankEnemy::TryAttack()
 {
-	if (SmashAbility && SmashAbility->CanExecute())
+	if (AreaDamageAbility && AreaDamageAbility->CanExecute())
 	{
-		SmashAbility->Execute();
+		AreaDamageAbility->Execute();
 	}
 }
 
@@ -120,19 +131,4 @@ void ATankEnemy::SetShieldVisible(bool bVisible)
 	}
 }
 
-float ATankEnemy::GetDamage() const
-{
-	if (SmashAbility)
-	{
-		return SmashAbility->GetDamage();
-	}
-	return 20.0f; // Default damage
-}
-
-void ATankEnemy::SetDamage(float NewDamage)
-{
-	if (SmashAbility)
-	{
-		SmashAbility->SetDamage(NewDamage);
-	}
-}
+// Removed GetDamage and SetDamage - now handled by AreaDamageAbilityComponent properties

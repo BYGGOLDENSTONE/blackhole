@@ -22,6 +22,7 @@ class UDataSpikeAbility;
 class USystemOverrideAbility;
 class UDashSlashCombo;
 class UJumpSlashCombo;
+class UDashWallRunCombo;
 class UInputMappingContext;
 class UInputAction;
 class UStaticMeshComponent;
@@ -46,6 +47,10 @@ public:
 	// Update camera settings at runtime
 	UFUNCTION(BlueprintCallable, Category = "Camera Settings")
 	void UpdateCameraSettings();
+	
+	// Update movement settings at runtime
+	UFUNCTION(BlueprintCallable, Category = "Movement Settings")
+	void UpdateMovementSettings();
 	
 	// Get what the crosshair is aiming at
 	UFUNCTION(BlueprintCallable, Category = "Aiming")
@@ -95,6 +100,16 @@ protected:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Settings", meta = (DisplayName = "Camera Rotation Lag Speed"))
 	float CameraRotationLagSpeed = 12.0f;
+	
+	// Movement momentum settings
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement Settings", meta = (DisplayName = "Ground Friction", ClampMin = "0.0", ClampMax = "8.0"))
+	float GroundFriction = 4.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement Settings", meta = (DisplayName = "Braking Deceleration", ClampMin = "0.0", ClampMax = "2048.0"))
+	float BrakingDeceleration = 800.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement Settings", meta = (DisplayName = "Max Walk Speed", ClampMin = "100.0", ClampMax = "1000.0"))
+	float MaxWalkSpeed = 600.0f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
 	UWillPowerComponent* WillPowerComponent;
@@ -144,6 +159,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combos")
 	UJumpSlashCombo* JumpSlashCombo;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combos")
+	UDashWallRunCombo* DashWallRunCombo;
 
 	// Enhanced Input
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")

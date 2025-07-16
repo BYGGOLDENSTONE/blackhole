@@ -11,6 +11,7 @@ enum class EComboInput : uint8
     Slash,
     Dash,
     Jump,
+    WallRun,
     Ability1,
     Ability2,
     Ability3,

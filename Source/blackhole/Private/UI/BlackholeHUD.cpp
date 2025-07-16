@@ -232,6 +232,21 @@ void ABlackholeHUD::DrawHUD()
 	// Path is always Hacker now
 	FString PathText = TEXT("Path: Hacker");
 	DrawText(PathText, FColor::Cyan, StartX, StartY + VerticalSpacing * resourceBarIndex, nullptr, 1.0f, false);
+	resourceBarIndex++;
+	
+	// Draw critical state entries remaining
+	if (ThresholdManager)
+	{
+		int32 EntriesRemaining = ThresholdManager->GetCriticalStateEntriesRemaining();
+		int32 TotalEntries = ThresholdManager->GetCriticalStateLimit();
+		FColor EntryColor = EntriesRemaining > 0 ? FColor::White : FColor::Red;
+		if (EntriesRemaining == 1)
+		{
+			EntryColor = FColor::Yellow; // Warning color for last entry
+		}
+		FString CriticalText = FString::Printf(TEXT("Critical Entries: %d/%d"), EntriesRemaining, TotalEntries);
+		DrawText(CriticalText, EntryColor, StartX, StartY + VerticalSpacing * resourceBarIndex, nullptr, 1.0f, false);
+	}
 
 	// Draw all abilities
 	DrawAbilityInfo();
@@ -244,6 +259,9 @@ void ABlackholeHUD::DrawHUD()
 	
 	// Draw wall run timer if active
 	DrawWallRunTimer();
+	
+	// Velocity indicator removed per user request
+	// DrawVelocityIndicator();
 
 	DrawTargetInfo();
 }
@@ -419,6 +437,26 @@ void ABlackholeHUD::UpdateCachedValues()
 			CachedCooldownPercents.Add(0.0f);
 		}
 	}
+	
+	// Update velocity values
+	if (UCharacterMovementComponent* Movement = PlayerCharacter->GetCharacterMovement())
+	{
+		CachedVelocityVector = Movement->Velocity;
+		CachedSpeed = CachedVelocityVector.Size();
+		CachedVelocity = CachedVelocityVector.Size2D(); // Horizontal velocity only
+	}
+	
+	// Update movement states
+	if (UWallRunComponent* WallRunComp = PlayerCharacter->GetWallRunComponent())
+	{
+		bIsWallRunning = WallRunComp->IsWallRunning();
+	}
+	
+	// Check if dashing - you could check if dash ability is active
+	if (CachedHackerDash)
+	{
+		bIsDashing = CachedHackerDash->IsOnCooldown() && CachedHackerDash->GetCooldownPercentage() > 0.9f;
+	}
 }
 
 
@@ -519,6 +557,91 @@ TArray<ABlackholeHUD::FAbilityDisplayInfo> ABlackholeHUD::GetCurrentAbilities() 
 	}
 	
 	return Abilities;
+}
+
+void ABlackholeHUD::DrawVelocityIndicator()
+{
+	if (!PlayerCharacter || !Canvas)
+	{
+		return;
+	}
+	
+	// Position for velocity indicator - bottom center of screen
+	float ScreenCenterX = Canvas->SizeX * 0.5f;
+	float ScreenBottomY = Canvas->SizeY - 150.0f;
+	
+	// Draw background box for velocity display
+	float BoxWidth = 200.0f;
+	float BoxHeight = 80.0f;
+	float BoxX = ScreenCenterX - BoxWidth * 0.5f;
+	float BoxY = ScreenBottomY - BoxHeight;
+	
+	// Semi-transparent background
+	DrawRect(FColor(0, 0, 0, 150), BoxX, BoxY, BoxWidth, BoxHeight);
+	
+	// Draw border for the box
+	float BorderThickness = 2.0f;
+	FColor BorderColor = FColor(100, 100, 100, 255);
+	// Top border
+	DrawRect(BorderColor, BoxX, BoxY, BoxWidth, BorderThickness);
+	// Bottom border
+	DrawRect(BorderColor, BoxX, BoxY + BoxHeight - BorderThickness, BoxWidth, BorderThickness);
+	// Left border
+	DrawRect(BorderColor, BoxX, BoxY, BorderThickness, BoxHeight);
+	// Right border
+	DrawRect(BorderColor, BoxX + BoxWidth - BorderThickness, BoxY, BorderThickness, BoxHeight);
+	
+	// Calculate speed color based on velocity
+	FColor SpeedColor = FColor::White;
+	if (CachedVelocity > 3000.0f) // Dash speed or higher
+	{
+		SpeedColor = FColor::Purple; // Ultra speed
+	}
+	else if (CachedVelocity > 1500.0f) // Wall run speed
+	{
+		SpeedColor = FColor::Cyan; // High speed
+	}
+	else if (CachedVelocity > 600.0f) // Normal run speed
+	{
+		SpeedColor = FColor::Green; // Normal speed
+	}
+	else if (CachedVelocity > 100.0f) // Walking
+	{
+		SpeedColor = FColor::Yellow; // Slow
+	}
+	else
+	{
+		SpeedColor = FColor::Red; // Stationary/very slow
+	}
+	
+	// Draw main speed value
+	FString SpeedText = FString::Printf(TEXT("%.0f"), CachedVelocity);
+	float TextScale = 1.8f;  // Smaller text
+	DrawText(SpeedText, SpeedColor, ScreenCenterX - 25.0f, BoxY + 5.0f, nullptr, TextScale, false);
+	
+	// Draw speed label
+	DrawText(TEXT("SPEED"), FColor(128, 128, 128), ScreenCenterX - 20.0f, BoxY + 30.0f, nullptr, 0.8f, false);
+	
+	// Draw velocity bar
+	float BarY = BoxY + 48.0f;
+	float BarWidth = 160.0f;  // Smaller bar
+	float BarHeight = 6.0f;
+	float BarX = BoxX + 10.0f;
+	
+	// Background bar
+	DrawRect(FColor(50, 50, 50, 255), BarX, BarY, BarWidth, BarHeight);
+	
+	// Fill bar based on speed (max out at 4000 for display)
+	float MaxDisplaySpeed = 4000.0f;
+	float SpeedPercent = FMath::Clamp(CachedVelocity / MaxDisplaySpeed, 0.0f, 1.0f);
+	float FilledWidth = BarWidth * SpeedPercent;
+	
+	// Gradient color for bar
+	FLinearColor LinearRed(FColor::Red);
+	FLinearColor LinearSpeedColor(SpeedColor);
+	FLinearColor LerpedColor = FLinearColor::LerpUsingHSV(LinearRed, LinearSpeedColor, SpeedPercent);
+	FColor BarColor = LerpedColor.ToFColor(true);
+	DrawRect(BarColor, BarX, BarY, FilledWidth, BarHeight);
 }
 
 void ABlackholeHUD::DrawAbilityInfo()
@@ -1064,6 +1187,22 @@ void ABlackholeHUD::DrawCriticalTimer()
 	// Draw warning message
 	FString WarningText = TEXT("USE ANY ULTIMATE ABILITY OR DIE!");
 	DrawText(WarningText, FColor::White, ScreenCenterX - 140.0f, ScreenCenterY + 30.0f, nullptr, 1.0f, false);
+	
+	// Draw critical state entries info
+	if (ThresholdManager)
+	{
+		int32 EntriesRemaining = ThresholdManager->GetCriticalStateEntriesRemaining();
+		FColor EntryColor = EntriesRemaining > 0 ? FColor::Yellow : FColor::Red;
+		FString EntryText = FString::Printf(TEXT("Critical Entries Remaining: %d"), EntriesRemaining);
+		DrawText(EntryText, EntryColor, ScreenCenterX - 120.0f, ScreenCenterY + 50.0f, nullptr, 1.2f, false);
+		
+		// Additional warning if this is the last entry
+		if (EntriesRemaining == 0)
+		{
+			FString LastChanceText = TEXT("LAST CHANCE - NO MORE RETRIES!");
+			DrawText(LastChanceText, FColor::Red, ScreenCenterX - 130.0f, ScreenCenterY + 70.0f, nullptr, 1.0f, false);
+		}
+	}
 	
 	// Draw flashing border effect
 	if (FlashIntensity > 0.7f)

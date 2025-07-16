@@ -338,6 +338,43 @@ void ABaseEnemy::ApplyMovementSpeedModifier(float Multiplier, float Duration)
 	}
 }
 
+void ABaseEnemy::ApplyStagger(float Duration)
+{
+	if (!GetCharacterMovement() || !GetWorld() || bIsStaggered) return;
+	
+	// Clear any existing stagger timer
+	GetWorld()->GetTimerManager().ClearTimer(StaggerTimerHandle);
+	
+	// Mark as staggered
+	bIsStaggered = true;
+	
+	// Store current speed and set to 0 for stagger
+	float OriginalSpeed = GetCharacterMovement()->MaxWalkSpeed;
+	GetCharacterMovement()->MaxWalkSpeed = 0.0f;
+	
+	// Optional: Disable ability usage during stagger
+	// This could be expanded to disable specific abilities or all abilities
+	
+	// Reset after duration
+	if (Duration > 0.0f)
+	{
+		// Use weak pointer to prevent crashes if enemy is destroyed
+		TWeakObjectPtr<ABaseEnemy> WeakThis = this;
+		
+		GetWorld()->GetTimerManager().SetTimer(StaggerTimerHandle, [WeakThis, OriginalSpeed]()
+		{
+			if (WeakThis.IsValid())
+			{
+				WeakThis->bIsStaggered = false;
+				if (WeakThis->GetCharacterMovement())
+				{
+					WeakThis->GetCharacterMovement()->MaxWalkSpeed = OriginalSpeed;
+				}
+			}
+		}, Duration, false);
+	}
+}
+
 void ABaseEnemy::LoadStatsFromDataTable()
 {
 	if (!EnemyStatsDataTable || StatsRowName.IsNone())

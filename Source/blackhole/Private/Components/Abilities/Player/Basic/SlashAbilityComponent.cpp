@@ -61,49 +61,97 @@ void USlashAbilityComponent::Execute()
 			if (ABlackholePlayerCharacter* PlayerOwner = Cast<ABlackholePlayerCharacter>(Owner))
 			{
 				if (UCameraComponent* Camera = PlayerOwner->GetCameraComponent())
-			{
-				// Step 1: Find what the crosshair is pointing at with a line trace
-				FVector CameraLocation = Camera->GetComponentLocation();
-				FVector CameraForward = Camera->GetForwardVector();
-				FVector TraceEnd = CameraLocation + (CameraForward * Range);
-				
-				FHitResult AimHit;
-				FCollisionQueryParams AimParams;
-				AimParams.AddIgnoredActor(Owner);
-				
-				// Line trace to find target
-				bool bHit = GetWorld()->LineTraceSingleByChannel(AimHit, CameraLocation, TraceEnd, ECC_Pawn, AimParams);
-				
-				if (bHit && AimHit.GetActor())
 				{
-					// We hit something - apply damage
-					// Apply damage with survivor buff multiplier
-					float FinalDamage = Damage * GetDamageMultiplier();
+					// Step 1: Extended trace from camera (2x range beyond crosshair)
+					FVector CameraLocation = Camera->GetComponentLocation();
+					FVector CameraForward = Camera->GetForwardVector();
+					float ExtendedRange = Range * 2.0f; // Extend trace to 2x distance
+					FVector TraceEnd = CameraLocation + (CameraForward * ExtendedRange);
 					
-					// Use the actor's TakeDamage method (will route to WP)
-					FPointDamageEvent DamageEvent(FinalDamage, AimHit, CameraForward, nullptr);
-					AimHit.GetActor()->TakeDamage(FinalDamage, DamageEvent, nullptr, Owner);
+					FHitResult TraceHit;
+					FCollisionQueryParams TraceParams;
+					TraceParams.AddIgnoredActor(Owner);
 					
-					// Trigger hit stop
-					if (UHitStopManager* HitStopMgr = GetWorld()->GetSubsystem<UHitStopManager>())
+					// Extended line trace
+					bool bTraceHit = GetWorld()->LineTraceSingleByChannel(TraceHit, CameraLocation, TraceEnd, ECC_Pawn, TraceParams);
+					
+					// Step 2: Sphere check around player (300 unit radius)
+					float SphereRadius = 300.0f; // Attack range around player
+					FVector PlayerLocation = Owner->GetActorLocation();
+					
+					TArray<FOverlapResult> OverlapResults;
+					FCollisionQueryParams SphereParams;
+					SphereParams.AddIgnoredActor(Owner);
+					
+					bool bSphereHit = GetWorld()->OverlapMultiByChannel(
+						OverlapResults,
+						PlayerLocation,
+						FQuat::Identity,
+						ECC_Pawn,
+						FCollisionShape::MakeSphere(SphereRadius),
+						SphereParams
+					);
+					
+					// Step 3: Check if BOTH trace and sphere hit the same target
+					AActor* ValidTarget = nullptr;
+					FHitResult ValidHit;
+					
+					if (bTraceHit && TraceHit.GetActor())
 					{
-						HitStopMgr->RequestLightHitStop();
+						// Check if traced actor is also in sphere
+						for (const FOverlapResult& Overlap : OverlapResults)
+						{
+							if (Overlap.GetActor() == TraceHit.GetActor())
+							{
+								// Both trace and sphere hit the same target!
+								ValidTarget = TraceHit.GetActor();
+								ValidHit = TraceHit;
+								break;
+							}
+						}
 					}
 					
-					#if WITH_EDITOR
-					// Show hit location
-					DrawDebugSphere(GetWorld(), AimHit.Location, 20.0f, 8, FColor::Red, false, 0.5f);
-					DrawDebugLine(GetWorld(), CameraLocation, AimHit.Location, FColor::Green, false, 0.5f, 0, 2.0f);
-					#endif
+					if (ValidTarget)
+					{
+						// We have a valid target - apply damage
+						float FinalDamage = Damage * GetDamageMultiplier();
+						
+						// Use the actor's TakeDamage method (will route to WP)
+						FPointDamageEvent DamageEvent(FinalDamage, ValidHit, CameraForward, nullptr);
+						ValidTarget->TakeDamage(FinalDamage, DamageEvent, nullptr, Owner);
+						
+						// Trigger hit stop
+						if (UHitStopManager* HitStopMgr = GetWorld()->GetSubsystem<UHitStopManager>())
+						{
+							HitStopMgr->RequestLightHitStop();
+						}
+						
+						#if WITH_EDITOR
+						// Show successful hit
+						DrawDebugSphere(GetWorld(), ValidHit.Location, 20.0f, 8, FColor::Green, false, 0.5f);
+						DrawDebugLine(GetWorld(), CameraLocation, ValidHit.Location, FColor::Green, false, 0.5f, 0, 2.0f);
+						DrawDebugSphere(GetWorld(), PlayerLocation, SphereRadius, 16, FColor::Blue, false, 0.5f);
+						#endif
+					}
+					else
+					{
+						#if WITH_EDITOR
+						// Show miss - draw debug info
+						if (bTraceHit)
+						{
+							// Trace hit but not in sphere
+							DrawDebugLine(GetWorld(), CameraLocation, TraceHit.Location, FColor::Yellow, false, 0.5f, 0, 2.0f);
+							DrawDebugSphere(GetWorld(), TraceHit.Location, 20.0f, 8, FColor::Yellow, false, 0.5f);
+						}
+						else
+						{
+							// Complete miss
+							DrawDebugLine(GetWorld(), CameraLocation, TraceEnd, FColor::Red, false, 0.5f, 0, 2.0f);
+						}
+						DrawDebugSphere(GetWorld(), PlayerLocation, SphereRadius, 16, FColor::Red, false, 0.5f);
+						#endif
+					}
 				}
-				else
-				{
-					#if WITH_EDITOR
-					// Show miss
-					DrawDebugLine(GetWorld(), CameraLocation, TraceEnd, FColor::Red, false, 0.5f, 0, 2.0f);
-					#endif
-				}
-			}
 			else
 			{
 				// Fallback for no camera - use old method

@@ -47,6 +47,9 @@ struct FWallRunSettings
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Detection", meta = (ClampMin = "100", ClampMax = "500"))
     float MinWallHeight = 200.0f;
+    
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Detection", meta = (ClampMin = "100", ClampMax = "1000", DisplayName = "Min Height From Ground"))
+    float MinHeightFromGround = 150.0f;
 
     // Movement settings
     // Timer removed - wall run continues as long as speed is maintained

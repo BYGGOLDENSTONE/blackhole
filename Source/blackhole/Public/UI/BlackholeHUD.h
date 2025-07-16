@@ -146,6 +146,13 @@ protected:
 	TArray<float> CachedCooldownPercents;
 	FString CachedDebugInfo;
 	
+	// Velocity/Speed cached values
+	float CachedVelocity = 0.0f;
+	float CachedSpeed = 0.0f;
+	FVector CachedVelocityVector = FVector::ZeroVector;
+	bool bIsWallRunning = false;
+	bool bIsDashing = false;
+	
 	// Update cached values
 	void UpdateCachedValues();
 	
@@ -154,6 +161,9 @@ protected:
 	
 	// Draw wall run timer display
 	void DrawWallRunTimer();
+	
+	// Draw velocity/speed indicator
+	void DrawVelocityIndicator();
 
 	UPROPERTY(EditDefaultsOnly, Category = "HUD")
 	FColor WillPowerColor;

@@ -54,6 +54,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPlayerDeath);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUltimateModeActivated, bool, bIsActive);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCriticalTimer, float, TimeRemaining);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCriticalTimerExpired);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnCriticalStateEntryUsed, int32, EntriesUsed, int32, EntriesRemaining);
 
 UCLASS()
 class BLACKHOLE_API UThresholdManager : public UWorldSubsystem
@@ -89,6 +90,9 @@ public:
 	
 	UPROPERTY(BlueprintAssignable, Category = "Threshold Events")
 	FOnCriticalTimerExpired OnCriticalTimerExpired;
+	
+	UPROPERTY(BlueprintAssignable, Category = "Threshold Events")
+	FOnCriticalStateEntryUsed OnCriticalStateEntryUsed;
 	
 	// Start/End combat tracking
 	UFUNCTION(BlueprintCallable, Category = "Threshold")
@@ -141,6 +145,25 @@ public:
 	UAbilityComponent* GetRandomEnabledAbility() const;
 	UAbilityComponent* GetRandomEnabledAbilityExcludingSlash() const;
 	
+	// Critical state limit functions
+	UFUNCTION(BlueprintCallable, Category = "Critical State")
+	void SetCriticalStateLimit(int32 NewLimit);
+	
+	UFUNCTION(BlueprintPure, Category = "Critical State")
+	int32 GetCriticalStateLimit() const { return CriticalStateLimit; }
+	
+	UFUNCTION(BlueprintPure, Category = "Critical State")
+	int32 GetCriticalStateEntriesUsed() const { return CriticalStateEntriesUsed; }
+	
+	UFUNCTION(BlueprintPure, Category = "Critical State")
+	int32 GetCriticalStateEntriesRemaining() const { return FMath::Max(0, CriticalStateLimit - CriticalStateEntriesUsed); }
+	
+	UFUNCTION(BlueprintCallable, Category = "Critical State")
+	void IncreaseCriticalStateLimit(int32 Amount);
+	
+	UFUNCTION(BlueprintCallable, Category = "Critical State")
+	void ResetCriticalStateEntries();
+	
 private:
 	// Clean up invalid ability references
 	void CleanupInvalidAbilities();
@@ -168,6 +191,13 @@ private:
 	float CriticalTimerDuration = 5.0f; // 5 seconds
 	float CriticalTimerStartTime = 0.0f;
 	bool bCriticalTimerActive = false;
+	
+	// Critical state limit tracking
+	UPROPERTY(EditAnywhere, Category = "Critical State", meta = (ClampMin = "0", ClampMax = "99"))
+	int32 CriticalStateLimit = 3; // Default: 3 critical state entries per level
+	
+	UPROPERTY()
+	int32 CriticalStateEntriesUsed = 0;
 	
 	// Disabled abilities
 	UPROPERTY()
