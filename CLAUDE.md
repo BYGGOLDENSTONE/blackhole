@@ -30,6 +30,8 @@ Enemy_SM:Tank/Agile/Combat/Hacker|DT_EnemyStats:CSV_config
 - Enemy_events_in_player_listeners→ownership_check
 - Immediate_SM_init→0.1s_delay
 - Protected_access→use_public_methods
+- Wrong_base_class→check_inheritance
+- Private_members→use_correct_properties
 
 ### IMPLEMENT
 - Cast<>_not_static_cast
@@ -61,6 +63,7 @@ Enemy_SM:Tank/Agile/Combat/Hacker|DT_EnemyStats:CSV_config
 - ✅Agile_aggression:5s_force_attack|Area_backstab|600_dash_range|450-550_maintain
 - ✅StatusEffectComponent:All_actors|Central_state_management|Events|Immunities
 - ✅Agile_components:StabAttack(basic)|AssassinApproach(special)|Stats_cleanup
+- ✅Compilation_fixes:AbilityComponent_inheritance|Property_names|Stats_restored
 
 ## MOVEMENT_SETTINGS
 Friction:4.0|Braking:800|MaxAccel:1200|BrakingFriction:0.5|No_air_friction
@@ -90,7 +93,7 @@ HUD_cache|WP_sync|Slash_free|Critical_timer|WP_protection|Cheat_removed|Cost_fie
 Combo_classification|Enemy_ability_filtering|Timer_conflicts|Wall_run|State_machines|Combat_enhanced
 Debug_cleanup|Multi_height_detection|WP_energy_transform|Jump_state_preserve|Velocity_HUD
 Wall_run_200|Critical_limit_system|Slash_dual_detection|Agile_chase_spam|Player_stagger_system|Enemy_config_stats
-StatusEffect_component|Agile_ability_components|Stats_organization
+StatusEffect_component|Agile_ability_components|Stats_organization|Component_inheritance_fix
 
 ## BUG_PREVENTION_SUMMARY
 Check_methods|Check_members|No_duplicates|Memory_mgmt|Cast_safety|Data_sync|Timer_mgmt

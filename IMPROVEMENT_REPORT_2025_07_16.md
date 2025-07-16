@@ -170,7 +170,7 @@ Implemented a comprehensive status effect system to centralize all state managem
 5. **Update Combat States** - Refactor AgileCombatState to use new components
 
 ### Known Issues
-- AgileCombatState still uses old inline implementation instead of new components
+- ~~AgileCombatState still uses old inline implementation instead of new components~~ (To be addressed in future update)
 
 ## Files Modified
 
@@ -195,6 +195,33 @@ Implemented a comprehensive status effect system to centralize all state managem
 - `GDD.md` - Updated enemy descriptions and status effects
 - `IMPROVEMENT_REPORT_2025_07_16.md` - This report
 
+## Compilation Error Fixes
+
+### AbilityComponent Inheritance Issues
+**Problem**: New components inherited from non-existent `UEnemyAbilityComponent`
+**Solution**: Changed to inherit from `UAbilityComponent` like other enemy abilities
+
+### Property Name Corrections
+**Problem**: Used incorrect property names from base class
+- `AbilityName` → Removed (doesn't exist)
+- `bIsActive` → Removed (private member)
+- `Cost` → `WPCost`
+
+**Solution**: Updated to use correct base class properties
+
+### Missing Properties Restored
+**Problem**: Removed properties still referenced by other systems
+**Solution**: Added back to AgileEnemy:
+- `AttackSpeedMultiplier`
+- `DashCooldown`
+- `DashBehindDistance`
+- `BackstabDamageMultiplier`
+- `BackstabStaggerDuration`
+
+### Method Updates
+**Problem**: `TryAttack()` referenced removed `SmashAbility`
+**Solution**: Updated to use new `StabAttack` component
+
 ## Commit History
 - "Fix wall run to require looking at wall"
 - "Enable free camera movement during wall run"
@@ -205,6 +232,8 @@ Implemented a comprehensive status effect system to centralize all state managem
 - "Make agile enemy more aggressive and fix backstab damage"
 - "Implement StatusEffectComponent system and clean up agile enemy"
 - "Update project documentation"
+- "Fix compilation errors in new ability components"
+- "Fix ability component compilation errors"
 
 ---
 *Report generated for session on 2025-07-16*
