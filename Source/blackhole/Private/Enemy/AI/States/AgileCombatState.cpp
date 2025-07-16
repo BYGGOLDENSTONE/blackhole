@@ -40,15 +40,13 @@ void UAgileCombatState::Exit(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine
 
 void UAgileCombatState::Update(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine, float DeltaTime)
 {
-    // Don't call parent Update - we're replacing the entire combat behavior
-    // Super::Update(Enemy, StateMachine, DeltaTime);
+    // Call parent to update base state timers
+    Super::Update(Enemy, StateMachine, DeltaTime);
     
     if (!StateMachine || !StateMachine->GetTarget()) return;
     
-    // Update timers
-    TimeInCurrentState += DeltaTime;
+    // Update phase timer
     TimeInCurrentPhase += DeltaTime;
-    UpdateCooldowns(DeltaTime);
     
     // Update assassin behavior instead of default combat
     UpdateAssassinBehavior(Enemy, StateMachine, DeltaTime);
@@ -242,7 +240,9 @@ void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMac
                 CurrentPhase = EAgileCombatPhase::DashAttack;
                 TimeInCurrentPhase = 0.0f;
                 ExecuteDashAttack(Enemy, StateMachine);
-                StartAbilityCooldown(Enemy, TEXT("DashAttack"), Cast<AAgileEnemy>(Enemy)->DashCooldown);
+                AAgileEnemy* Agile = Cast<AAgileEnemy>(Enemy);
+                float DashCD = Agile ? Agile->DashCooldown : 3.0f;
+                StartAbilityCooldown(Enemy, TEXT("DashAttack"), DashCD);
                 
                 UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Initiating dash backstab attack!"));
             }
@@ -367,7 +367,7 @@ void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMac
             case EAgileCombatPhase::Maintaining: PhaseString = "Maintaining"; break;
         }
         
-        float DashCooldownRemaining = GetCooldownRemaining(Enemy, TEXT("DashAttack"));
+        float DashCooldownRemaining = StateMachine->GetCooldownRemaining(TEXT("DashAttack"));
         GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Cyan, 
             FString::Printf(TEXT("Agile: %s | Dist: %.0f | Dash CD: %.1fs"), 
                 *PhaseString, DistanceToTarget, DashCooldownRemaining));
