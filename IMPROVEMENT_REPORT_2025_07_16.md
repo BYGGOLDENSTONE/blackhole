@@ -122,32 +122,78 @@ Major improvements to wall running system and agile enemy combat behavior, with 
 - Verified backstab damage and stagger application
 - Confirmed aggressive behavior with force timer
 
+## StatusEffectComponent Implementation
+
+### Overview
+Implemented a comprehensive status effect system to centralize all state management across the project.
+
+### Component Features
+1. **Effect Types**: Stagger, Stun, Slow, Freeze, Knockdown, Invulnerable, SpeedBoost, Dead
+2. **Effect Management**: Duration tracking, magnitude support, stacking, immunities
+3. **Helper Methods**: `CanMove()`, `CanAct()`, `IsStaggered()`, etc.
+4. **Event System**: Broadcasts when effects are applied/removed for UI/VFX
+5. **Automatic Cleanup**: Timers handle effect expiration
+
+### Integration
+- Added to `BlackholePlayerCharacter` and `BaseEnemy`
+- Deprecated old stagger methods with proper warnings
+- Removed duplicate state variables (`bIsStaggered`, timer handles)
+
+## Agile Enemy Component Refactor
+
+### New Components
+1. **StabAttackComponent**
+   - Basic melee attack with cone detection
+   - Configurable damage (15), range (150), angle (45°)
+   - Debug visualization support
+
+2. **AssassinApproachComponent**
+   - Special dash-backstab ability
+   - Dashes behind target and executes backstab
+   - Applies 2x damage multiplier and 1.5s stagger
+   - Configurable dash parameters
+
+### Stats Organization
+- Reorganized properties into logical categories:
+  - AI Behavior (chase range, attack range, maintain distances)
+  - Movement (speed, retreat duration)
+  - Combat (dodge chance)
+- Removed redundant stats and old components
+
 ## Next Steps
 
 ### Recommended Improvements
-1. **State Component System** - Centralize all state management (stagger, stun, etc.)
+1. ~~**State Component System** - Centralize all state management~~ ✅ COMPLETED
 2. **More Enemy Types** - Implement remaining enemy variants
 3. **Visual Polish** - Add effects for stagger and backstab
 4. **Balance Tuning** - Fine-tune combat parameters based on playtesting
+5. **Update Combat States** - Refactor AgileCombatState to use new components
 
 ### Known Issues
-- None currently identified
+- AgileCombatState still uses old inline implementation instead of new components
 
 ## Files Modified
 
 ### Core Systems
 - `WallRunComponent.h/cpp` - Wall run improvements
-- `BlackholePlayerCharacter.h/cpp` - Player stagger system
+- `BlackholePlayerCharacter.h/cpp` - Player stagger system → StatusEffectComponent
+- `StatusEffectComponent.h/cpp` - NEW: Centralized state management
+- `BaseEnemy.h/cpp` - Added StatusEffectComponent
 
 ### Enemy AI
 - `AgileCombatState.h/cpp` - Assassin behavior
 - `AgileChaseState.h/cpp` - Custom chase logic
-- `AgileEnemy.h/cpp` - Configurable stats
+- `AgileEnemy.h/cpp` - Refactored with new components
 - `EnemyStateMachine.cpp` - Dead state fix
+
+### New Components
+- `StabAttackComponent.h/cpp` - NEW: Basic agile enemy attack
+- `AssassinApproachComponent.h/cpp` - NEW: Dash-backstab ability
 
 ### Documentation
 - `CLAUDE.md` - Updated with all changes
-- `GDD.md` - Updated enemy descriptions
+- `GDD.md` - Updated enemy descriptions and status effects
+- `IMPROVEMENT_REPORT_2025_07_16.md` - This report
 
 ## Commit History
 - "Fix wall run to require looking at wall"
@@ -157,6 +203,8 @@ Major improvements to wall running system and agile enemy combat behavior, with 
 - "Fix agile enemy behaviors and add configurable stats"
 - "Fix compilation errors in AgileCombatState"
 - "Make agile enemy more aggressive and fix backstab damage"
+- "Implement StatusEffectComponent system and clean up agile enemy"
+- "Update project documentation"
 
 ---
 *Report generated for session on 2025-07-16*

@@ -3,6 +3,15 @@
 ## Overview
 This document details the AI behavior patterns and combat mechanics for all enemy types in the Blackhole project.
 
+## Status Effect System
+All enemies and the player now use a centralized `StatusEffectComponent` for state management:
+- **Stagger**: Disables movement/actions, slows animations
+- **Stun**: Complete incapacitation
+- **Slow**: Movement speed reduction
+- **Other Effects**: Freeze, Knockdown, Invulnerable, SpeedBoost, Dead
+
+The system supports effect stacking, duration management, magnitude variations, and immunity flags.
+
 ## Enemy Types
 
 ### 1. Tank Enemy
@@ -30,7 +39,10 @@ This document details the AI behavior patterns and combat mechanics for all enem
 **Role**: Hit-and-run assassin
 - **Health**: 75 HP
 - **Behavior**: Assassin approach pattern
-- **Special**: Backstab (2x damage + 1.5s stagger)
+- **Abilities**:
+  - **StabAttack**: Basic cone melee (15 damage, 150 range, 45° angle)
+  - **AssassinApproach**: Dash + backstab (2x damage + 1.5s stagger)
+  - **DodgeComponent**: Evasive maneuvers
 - **Pattern**: See detailed breakdown below
 
 ## Agile Enemy - Detailed Behavior
@@ -48,11 +60,11 @@ The agile enemy follows a specific assassin pattern with four distinct phases:
 - Triggers when:
   - Dash ability is ready AND player within 600 units
   - OR 5 seconds have passed (force attack timer)
-- Dashes past the player to land behind them
-- Executes backstab attack:
-  - 2x damage multiplier (configurable)
-  - Applies 1.5s stagger to player
-  - Uses area damage (200 radius) for reliable hit detection
+- Uses `AssassinApproachComponent`:
+  - Dashes past the player to land behind them
+  - Executes backstab using `StabAttackComponent`
+  - Applies damage multiplier and stagger on successful hit
+  - Configurable dash parameters (range, force, timing)
 
 #### Phase 3: Retreating
 - Immediately after successful backstab
@@ -68,13 +80,23 @@ The agile enemy follows a specific assassin pattern with four distinct phases:
 
 ### Configurable Parameters
 All combat parameters are exposed in the editor:
-- `MovementSpeed`: Base movement speed (default: 600)
-- `DashCooldown`: Time between dashes (default: 2.0s)
-- `BackstabDamageMultiplier`: Damage scaling (default: 2.0x)
-- `BackstabStaggerDuration`: Player stun time (default: 1.5s)
+
+**AI Behavior:**
+- `ChaseRange`: Detection range (default: 1200)
+- `AttackRange`: Basic attack range (default: 150)
 - `MaintainDistanceMin`: Minimum keep-away distance (default: 450)
 - `MaintainDistanceMax`: Maximum keep-away distance (default: 550)
+
+**Movement:**
+- `MovementSpeed`: Base movement speed (default: 600)
 - `RetreatDuration`: Time spent retreating (default: 3.0s)
+
+**Combat:**
+- `DodgeChance`: Chance to dodge attacks (default: 0.4)
+
+**Component-Specific:**
+- StabAttack: Damage, range, angle, attack speed
+- AssassinApproach: Dash range, force, backstab multiplier, stagger duration
 
 ### Special Behaviors
 - **Force Attack Timer**: After 5 seconds of maintaining distance, forces an attack even if dash is on cooldown
@@ -111,19 +133,25 @@ All enemies use a state machine with these core states:
 - Applies to player's WP (Will Power) instead of health
 - Supports damage multipliers and special effects
 
-### Stagger System
-- Disables target movement and input
-- Slows animation playback (30% speed)
-- Currently implemented for:
-  - Player (via `ApplyStagger()`)
-  - Enemies (via base class)
+### Status Effect System
+The centralized `StatusEffectComponent` handles all states:
+- **Application**: `ApplyStatusEffect(type, duration, magnitude)`
+- **Removal**: `RemoveStatusEffect(type)` or automatic on expiration
+- **Queries**: `HasStatusEffect()`, `CanMove()`, `CanAct()`
+- **Events**: Broadcasts `OnStatusEffectApplied/Removed` for UI/VFX
 
 ### Ability Components
 Enemies use modular ability components:
+
+**Generic:**
 - **SmashAbilityComponent**: Melee attacks (single/area)
 - **DodgeComponent**: Evasive maneuvers
 - **BlockComponent**: Damage reduction
 - **MindmeldComponent**: WP drain effect
+
+**Agile-Specific:**
+- **StabAttackComponent**: Cone-based melee attack
+- **AssassinApproachComponent**: Dash-backstab combo ability
 
 ## AI Decision Making
 

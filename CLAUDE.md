@@ -42,8 +42,8 @@ Enemy_SM:Tank/Agile/Combat/Hacker|DT_EnemyStats:CSV_config
 
 ## STATUS
 ✅WP_energy|11_abilities|Enemy_drain|Kill/combo_restore|5s_critical|2_combos|Wall_run|4_enemy_types|State_machines
-✅Agile_assassin:600_engage→dash_behind→backstab_2x_area→retreat_3s→maintain_450-550|"AssassinApproach"|5s_force_timer
-✅Agile_mobility:Custom_chase_state|Never_sticks_close|Circle_strafe|Speed_boost_retreat
+✅Agile_assassin:StabAttack+AssassinApproach|600_engage→dash_behind→backstab_2x→retreat_3s→maintain_450-550
+✅StatusEffectComponent:Centralized_states|Stagger/Stun/Slow/etc|All_actors|Event_system
 ✅Wall_run_height:150|Camera_freedom|Critical_state_limit(3)|Slash_trace+sphere
 ❌AIController|Multiplayer|GameplayTags_unused
 
@@ -59,6 +59,8 @@ Enemy_SM:Tank/Agile/Combat/Hacker|DT_EnemyStats:CSV_config
 - ✅Player_stagger:1.5s_on_backstab|Input_disabled|Anim_slowed
 - ✅Agile_configurable_stats:Stagger_duration|Distances|Damage_mult|Retreat_time
 - ✅Agile_aggression:5s_force_attack|Area_backstab|600_dash_range|450-550_maintain
+- ✅StatusEffectComponent:All_actors|Central_state_management|Events|Immunities
+- ✅Agile_components:StabAttack(basic)|AssassinApproach(special)|Stats_cleanup
 
 ## MOVEMENT_SETTINGS
 Friction:4.0|Braking:800|MaxAccel:1200|BrakingFriction:0.5|No_air_friction
@@ -80,6 +82,7 @@ WallRun_camera:Free_look|Movement_input_ignored|W_key_only|Orient_rotation_disab
 Player:BlackholePlayerCharacter|Abilities:Components/Abilities/Player/Hacker/*
 Resources:Systems/ResourceManager|WallRun:Components/Movement/WallRunComponent
 AI:Enemy/StateMachines/*|Config:Config/GameplayConfig.h|GameMode:Core/BlackholeGameMode
+StatusEffects:Components/StatusEffectComponent|AgileAbilities:StabAttack+AssassinApproach
 
 ## FIXED_ISSUES
 Menu_input|Memory_UPROPERTY|GameMode_TSubclassOf|Include_paths|Enemy_duplication→utility
@@ -87,6 +90,7 @@ HUD_cache|WP_sync|Slash_free|Critical_timer|WP_protection|Cheat_removed|Cost_fie
 Combo_classification|Enemy_ability_filtering|Timer_conflicts|Wall_run|State_machines|Combat_enhanced
 Debug_cleanup|Multi_height_detection|WP_energy_transform|Jump_state_preserve|Velocity_HUD
 Wall_run_200|Critical_limit_system|Slash_dual_detection|Agile_chase_spam|Player_stagger_system|Enemy_config_stats
+StatusEffect_component|Agile_ability_components|Stats_organization
 
 ## BUG_PREVENTION_SUMMARY
 Check_methods|Check_members|No_duplicates|Memory_mgmt|Cast_safety|Data_sync|Timer_mgmt

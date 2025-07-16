@@ -164,6 +164,7 @@ When WP reaches 0%, the player enters Ultimate Mode:
 - **Base**: Component-based ability system
 - **Interfaces**: `IResourceConsumer` for clean abstraction
 - **Subsystems**: Dedicated managers for specific responsibilities
+- **StatusEffectComponent**: Centralized state management for all actors
 - **Performance**: 38% improvement through optimization
 
 #### Key Systems
@@ -218,7 +219,9 @@ TestCombo <name>       - Test specific combo
 
 ### Agile Assassin Details
 - **Pattern**: Maintain 450-550 distance → Dash at 600 range → Backstab → 3s retreat
-- **Assassin Approach**: Dashes behind player, deals 2x damage, applies 1.5s stagger
+- **Abilities**:
+  - **StabAttack**: Basic cone melee attack (15 damage, 150 range, 45° angle)
+  - **AssassinApproach**: Dash behind + backstab (2x damage, 1.5s stagger)
 - **Aggressive**: Forces attack after 5 seconds if dash on cooldown
 - **Configurable**: All combat parameters exposed in editor
 
@@ -264,6 +267,28 @@ Buff Scaling:
 - 50%+ WP: +20% damage
 - Per ability lost: +10% damage
 ```
+
+## 🎯 Status Effect System
+
+### StatusEffectComponent
+A centralized system for managing all actor states:
+
+**Supported Effects:**
+- **Stagger**: Disables movement and actions, slows animations
+- **Stun**: Complete incapacitation
+- **Slow**: Reduces movement speed by magnitude
+- **Freeze**: Prevents all movement
+- **Knockdown**: Ground state with recovery
+- **Invulnerable**: Damage immunity
+- **SpeedBoost**: Increases movement speed
+- **Dead**: Permanent death state
+
+**Features:**
+- Effect stacking with configurable limits
+- Duration management with automatic cleanup
+- Magnitude support for variable strength effects
+- Event broadcasting for UI/VFX reactions
+- Immunity system for special enemies/bosses
 
 ## 🔮 Upcoming Feature Implementations
 
@@ -402,6 +427,8 @@ Buff Scaling:
 - Agile enemy assassin behavior overhaul
 - Player stagger system
 - Enemy configurable combat stats
+- StatusEffectComponent system for all actors
+- Agile enemy ability components (StabAttack, AssassinApproach)
 
 ---
 
