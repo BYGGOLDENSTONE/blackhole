@@ -13,7 +13,7 @@ void UGameOverWidget::SetupMenu()
 	UCanvasPanel* RootPanel = NewObject<UCanvasPanel>(this);
 	
 	// Add title
-	UTextBlock* TitleText = NewObject<UTextBlock>(this);
+	UTextBlock* TitleText = NewObject<UTextBlock>(this); 
 	TitleText->SetText(FText::FromString("YOU DIED"));
 	TitleText->SetColorAndOpacity(FSlateColor(FLinearColor::Red));
 	

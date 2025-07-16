@@ -64,6 +64,12 @@ public:
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, 
 		class AController* EventInstigator, AActor* DamageCauser) override;
 
+	// Stagger system
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void ApplyStagger(float Duration);
+	
+	UFUNCTION(BlueprintPure, Category = "Combat")
+	bool IsStaggered() const { return bIsStaggered; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -269,6 +275,10 @@ private:
 	
 	// Death state
 	bool bIsDead = false;
+	
+	// Stagger state
+	bool bIsStaggered = false;
+	FTimerHandle StaggerTimerHandle;
 	
 	// Combo tracking (legacy - will be replaced by ComboDetectionSubsystem)
 	enum class ELastAbilityUsed : uint8

@@ -22,25 +22,38 @@ void UAgileChaseState::Update(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachin
     AActor* Target = StateMachine->GetTarget();
     float DistanceToTarget = FVector::Dist(Enemy->GetActorLocation(), Target->GetActorLocation());
     
-    // Check if we should transition to combat (when dash is ready)
+    // Check if we should transition to combat (when dash is ready AND in range)
     bool bDashOnCooldown = IsAbilityOnCooldown(Enemy, TEXT("DashAttack"));
     
-    // Transition to combat when in range and dash is ready
-    if (DistanceToTarget <= 500.0f && !bDashOnCooldown)
+    // Only transition to combat when dash is ready AND we're in dash range
+    if (!bDashOnCooldown && DistanceToTarget <= 500.0f)
     {
         StateMachine->ChangeState(EEnemyState::Combat);
         return;
     }
     
-    // Maintain distance instead of closing in
-    MaintainDistance(Enemy, StateMachine, DeltaTime);
+    // If player is far away, chase them normally
+    if (DistanceToTarget > MaxDistance)
+    {
+        // Normal chase behavior to close the gap
+        AAIController* AIController = Cast<AAIController>(Enemy->GetController());
+        if (AIController)
+        {
+            AIController->MoveToActor(Target, MinDistance);
+        }
+    }
+    else
+    {
+        // We're in preferred range - maintain distance
+        MaintainDistance(Enemy, StateMachine, DeltaTime);
+    }
     
     // Show debug info
     if (GEngine)
     {
         float DashCooldownRemaining = StateMachine->GetCooldownRemaining(TEXT("DashAttack"));
         GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Yellow, 
-            FString::Printf(TEXT("Agile Chase: Dist: %.0f | Dash CD: %.1fs | Maintaining distance"), 
+            FString::Printf(TEXT("Agile Chase: Dist: %.0f | Assassin Approach CD: %.1fs"), 
                 DistanceToTarget, DashCooldownRemaining));
     }
 }

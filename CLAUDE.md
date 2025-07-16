@@ -42,7 +42,7 @@ Enemy_SM:Tank/Agile/Combat/Hacker|DT_EnemyStats:CSV_config
 
 ## STATUS
 ✅WP_energy|11_abilities|Enemy_drain|Kill/combo_restore|5s_critical|2_combos|Wall_run|4_enemy_types|State_machines
-✅Agile_assassin:500_engage→dash_behind→backstab_2x→retreat_700→maintain_650-750|CD_based_cycle
+✅Agile_assassin:500_engage→dash_behind_overshoot→backstab_2x→retreat_3s→maintain_650-750|"AssassinApproach"
 ✅Agile_mobility:Custom_chase_state|Never_sticks_close|Circle_strafe|Speed_boost_retreat
 ✅Wall_run_height:150|Camera_freedom|Critical_state_limit(3)|Slash_trace+sphere
 ❌AIController|Multiplayer|GameplayTags_unused
@@ -66,6 +66,7 @@ WallRun_camera:Free_look|Movement_input_ignored|W_key_only|Orient_rotation_disab
 
 ## DEV_NOTES
 - No_build_from_terminal→Editor_only
+- Build_path:D:\UE_5.5\Engine\Build\BatchFiles
 - No_cheat_system→gameplay_test_only
 - Gameplay_first→no_polish_yet
 - Push:"git add . && git commit -m 'claude auto' && git push origin main"

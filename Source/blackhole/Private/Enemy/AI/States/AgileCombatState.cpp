@@ -10,6 +10,7 @@
 #include "NavigationSystem.h"
 #include "Engine/Engine.h"
 #include "Navigation/PathFollowingComponent.h"
+#include "Player/BlackholePlayerCharacter.h"
 
 void UAgileCombatState::Enter(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine)
 {
@@ -55,9 +56,9 @@ void UAgileCombatState::Update(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachi
 
 void UAgileCombatState::InitializeCombatActions(ABaseEnemy* Enemy)
 {
-    // Add a dummy action to prevent base class from transitioning to Chase
-    // This action will never be executed (we handle everything in UpdateAssassinBehavior)
-    AddCombatAction(TEXT("AssassinPattern"), 1.0f, 0.1f, 0.0f, 10000.0f);
+    // Add Assassin Approach as the only combat action
+    // This prevents base class from transitioning to Chase
+    AddCombatAction(TEXT("AssassinApproach"), 1.0f, 0.1f, 0.0f, 10000.0f);
 }
 
 void UAgileCombatState::ExecuteCombatAction(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine, const FString& ActionName)
@@ -129,26 +130,34 @@ void UAgileCombatState::ExecuteDashAttack(ABaseEnemy* Enemy, UEnemyStateMachine*
     // Predict where target will be in 0.3 seconds (dash duration)
     FVector PredictedTargetLocation = TargetLocation + (TargetVelocity * 0.3f);
     
-    // Calculate position behind predicted target location
-    FVector TargetForward = Target->GetActorForwardVector();
+    // Calculate dash to overshoot past the player
+    FVector DirectionToTarget = (PredictedTargetLocation - EnemyLocation).GetSafeNormal();
     
     // Use configurable dash behind distance from agile enemy
     AAgileEnemy* Agile = Cast<AAgileEnemy>(Enemy);
-    float BehindDistance = Agile ? Agile->DashBehindDistance : 200.0f;
-    FVector DashTarget = PredictedTargetLocation - (TargetForward * BehindDistance);
+    float BehindDistance = Agile ? Agile->DashBehindDistance : 250.0f;
+    
+    // Overshoot past the player's position
+    float DistanceToTarget = FVector::Dist(EnemyLocation, PredictedTargetLocation);
+    float DashDistance = DistanceToTarget + BehindDistance; // Go past the player
+    
+    FVector DashTarget = EnemyLocation + (DirectionToTarget * DashDistance);
     
     // Ensure dash target is at same height as enemy (no vertical dash)
     DashTarget.Z = EnemyLocation.Z;
-    
-    FVector DashDirection = (DashTarget - EnemyLocation).GetSafeNormal();
     
     if (UCharacterMovementComponent* Movement = Enemy->GetCharacterMovement())
     {
         // Stop current movement first to ensure clean dash
         Movement->StopMovementImmediately();
         
-        // Fast dash towards behind position
-        Movement->AddImpulse(DashDirection * 3000.0f, true);
+        // Calculate dash force based on distance
+        float DashForce = FMath::Clamp(DashDistance * 10.0f, 3000.0f, 5000.0f);
+        
+        // Fast dash through and past the player
+        Movement->AddImpulse(DirectionToTarget * DashForce, true);
+        
+        UE_LOG(LogTemp, Warning, TEXT("Assassin Approach: Dashing %.0f units to get behind player"), DashDistance);
         
         // Schedule attack at end of dash
         if (Enemy->GetWorld())
@@ -173,11 +182,21 @@ void UAgileCombatState::ExecuteDashAttack(ABaseEnemy* Enemy, UEnemyStateMachine*
                     {
                         // Backstab does increased damage
                         float OriginalDamage = SmashAbility->GetDamage();
-                        SmashAbility->SetDamage(OriginalDamage * 2.0f); // Double damage for backstab
+                        float DamageMultiplier = Agile ? Agile->BackstabDamageMultiplier : 2.0f;
+                        SmashAbility->SetDamage(OriginalDamage * DamageMultiplier); // Configurable backstab damage
                         SmashAbility->Execute();
                         SmashAbility->SetDamage(OriginalDamage); // Reset damage
                         
-                        UE_LOG(LogTemp, Warning, TEXT("Agile DashAttack: Executed backstab! Base: %.0f -> Backstab: %.0f damage"), OriginalDamage, OriginalDamage * 2.0f);
+                        // Apply stagger to player on backstab hit
+                        if (ABlackholePlayerCharacter* Player = Cast<ABlackholePlayerCharacter>(WeakTarget.Get()))
+                        {
+                            AAgileEnemy* Agile = Cast<AAgileEnemy>(WeakEnemy.Get());
+                            float StaggerDuration = Agile ? Agile->BackstabStaggerDuration : 1.5f;
+                            Player->ApplyStagger(StaggerDuration);
+                            UE_LOG(LogTemp, Warning, TEXT("Agile Backstab: Applied %.1fs stagger to player"), StaggerDuration);
+                        }
+                        
+                        UE_LOG(LogTemp, Warning, TEXT("Agile DashAttack: Executed backstab! Base: %.0f -> Backstab: %.0f damage (x%.1f)"), OriginalDamage, OriginalDamage * DamageMultiplier, DamageMultiplier);
                     }
                 }
             }, 0.3f, false);
@@ -211,10 +230,10 @@ void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMac
     {
         case EAgileCombatPhase::Approaching:
         {
-            // Chase the player until within dash range
-            if (DistanceToTarget <= DashEngageRange && !bDashOnCooldown)
+            // Maintain distance until dash is ready
+            if (!bDashOnCooldown)
             {
-                // In range and dash is ready - execute dash attack
+                // Dash is ready - execute assassin approach
                 CurrentPhase = EAgileCombatPhase::DashAttack;
                 TimeInCurrentPhase = 0.0f;
                 ExecuteDashAttack(Enemy, StateMachine);
@@ -222,15 +241,38 @@ void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMac
                 float DashCD = Agile ? Agile->DashCooldown : 3.0f;
                 StartAbilityCooldown(Enemy, TEXT("DashAttack"), DashCD);
                 
-                UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Initiating dash backstab attack!"));
+                UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Executing Assassin Approach!"));
             }
             else
             {
-                // Move toward player
-                if (AAIController* AIController = Cast<AAIController>(Enemy->GetController()))
+                // Maintain optimal distance - never walk close
+                if (DistanceToTarget < 400.0f)
                 {
-                    AIController->MoveToActor(Target, 50.0f);
+                    // Too close - back away
+                    FVector RetreatPos = GetRetreatPosition(Enemy, StateMachine);
+                    if (AAIController* AIController = Cast<AAIController>(Enemy->GetController()))
+                    {
+                        AIController->MoveToLocation(RetreatPos, 50.0f);
+                    }
                 }
+                else if (DistanceToTarget > 600.0f)
+                {
+                    // Too far - move to optimal distance
+                    if (AAIController* AIController = Cast<AAIController>(Enemy->GetController()))
+                    {
+                        AIController->MoveToActor(Target, 500.0f);
+                    }
+                }
+                else
+                {
+                    // Good distance - circle strafe
+                    UpdateCircleStrafe(Enemy, StateMachine, DeltaTime);
+                }
+                
+                // Always face the target
+                FVector ToTarget = (Target->GetActorLocation() - Enemy->GetActorLocation()).GetSafeNormal();
+                FRotator LookAtRotation = ToTarget.Rotation();
+                Enemy->SetActorRotation(FRotator(0.0f, LookAtRotation.Yaw, 0.0f));
             }
             break;
         }
@@ -251,8 +293,11 @@ void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMac
         
         case EAgileCombatPhase::Retreating:
         {
-            // Retreat to safe distance
-            if (DistanceToTarget >= RetreatDistance)
+            // Retreat for configurable duration
+            AAgileEnemy* Agile = Cast<AAgileEnemy>(Enemy);
+            float RetreatTime = Agile ? Agile->RetreatDuration : 3.0f;
+            
+            if (TimeInCurrentPhase >= RetreatTime)
             {
                 CurrentPhase = EAgileCombatPhase::Maintaining;
                 TimeInCurrentPhase = 0.0f;
@@ -263,27 +308,22 @@ void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMac
                     Enemy->GetCharacterMovement()->MaxWalkSpeed = Agile->MovementSpeed;
                 }
                 
-                UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Reached safe distance, maintaining position"));
+                UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: %.1f second retreat complete, maintaining position"), RetreatTime);
             }
             else
             {
-                // Move away from player with urgency
-                FVector RetreatPos = GetRetreatPosition(Enemy, StateMachine);
+                // Always move away from player during retreat
+                FVector DirectionAway = (Enemy->GetActorLocation() - Target->GetActorLocation()).GetSafeNormal();
+                FVector RetreatPos = Enemy->GetActorLocation() + (DirectionAway * 300.0f);
+                
                 if (AAIController* AIController = Cast<AAIController>(Enemy->GetController()))
                 {
-                    // Stop current movement first
-                    AIController->StopMovement();
-                    
-                    // Move to retreat position with higher priority
-                    FAIMoveRequest MoveRequest(RetreatPos);
-                    MoveRequest.SetAcceptanceRadius(30.0f);
-                    MoveRequest.SetUsePathfinding(true);
-                    AIController->MoveTo(MoveRequest);
+                    AIController->MoveToLocation(RetreatPos, 30.0f);
                     
                     // Apply speed boost during retreat
                     if (AAgileEnemy* Agile = Cast<AAgileEnemy>(Enemy))
                     {
-                        Enemy->GetCharacterMovement()->MaxWalkSpeed = Agile->MovementSpeed * 1.2f; // 20% faster retreat
+                        Enemy->GetCharacterMovement()->MaxWalkSpeed = Agile->MovementSpeed * 1.5f; // 50% faster retreat
                     }
                 }
                 
@@ -309,8 +349,12 @@ void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMac
             }
             else
             {
-                // Maintain distance between 650-750 units
-                if (DistanceToTarget < MaintainDistanceMin)
+                // Maintain distance between configurable min/max units
+                AAgileEnemy* Agile = Cast<AAgileEnemy>(Enemy);
+                float MinDist = Agile ? Agile->MaintainDistanceMin : 650.0f;
+                float MaxDist = Agile ? Agile->MaintainDistanceMax : 750.0f;
+                
+                if (DistanceToTarget < MinDist)
                 {
                     // Too close - back up
                     FVector RetreatPos = GetRetreatPosition(Enemy, StateMachine);
@@ -319,12 +363,12 @@ void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMac
                         AIController->MoveToLocation(RetreatPos, 50.0f);
                     }
                 }
-                else if (DistanceToTarget > MaintainDistanceMax)
+                else if (DistanceToTarget > MaxDist)
                 {
                     // Too far - move closer slightly
                     if (AAIController* AIController = Cast<AAIController>(Enemy->GetController()))
                     {
-                        AIController->MoveToActor(Target, MaintainDistanceMin);
+                        AIController->MoveToActor(Target, MinDist);
                     }
                 }
                 else

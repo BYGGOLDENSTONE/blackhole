@@ -56,6 +56,21 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Dash Behind Distance"))
 	float DashBehindDistance;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Backstab Stagger Duration", ClampMin = "0.1", ClampMax = "3.0"))
+	float BackstabStaggerDuration;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Maintain Distance Min", ClampMin = "300.0", ClampMax = "1000.0"))
+	float MaintainDistanceMin;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Maintain Distance Max", ClampMin = "400.0", ClampMax = "1200.0"))
+	float MaintainDistanceMax;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Backstab Damage Multiplier", ClampMin = "1.0", ClampMax = "5.0"))
+	float BackstabDamageMultiplier;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Retreat Duration", ClampMin = "1.0", ClampMax = "5.0"))
+	float RetreatDuration;
 
 private:
 	void MoveTowardsTarget(float DeltaTime);

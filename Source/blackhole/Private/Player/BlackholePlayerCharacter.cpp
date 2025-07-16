@@ -1076,3 +1076,40 @@ float ABlackholePlayerCharacter::TakeDamage(float DamageAmount, struct FDamageEv
 	return 0.0f;
 }
 
+void ABlackholePlayerCharacter::ApplyStagger(float Duration)
+{
+	if (!GetCharacterMovement() || !GetWorld() || bIsStaggered) return;
+	
+	// Clear any existing stagger timer
+	GetWorld()->GetTimerManager().ClearTimer(StaggerTimerHandle);
+	
+	// Apply stagger effect
+	bIsStaggered = true;
+	
+	// Disable movement and input
+	GetCharacterMovement()->DisableMovement();
+	DisableInput(Cast<APlayerController>(GetController()));
+	
+	// Apply visual feedback - slow animation rate
+	GetMesh()->GlobalAnimRateScale = 0.3f;
+	
+	UE_LOG(LogTemp, Warning, TEXT("Player staggered for %.1f seconds!"), Duration);
+	
+	// Use weak pointer to avoid crashes if player is destroyed
+	TWeakObjectPtr<ABlackholePlayerCharacter> WeakThis = this;
+	
+	// Set timer to end stagger
+	GetWorld()->GetTimerManager().SetTimer(StaggerTimerHandle, [WeakThis]()
+	{
+		if (WeakThis.IsValid() && WeakThis->GetCharacterMovement())
+		{
+			WeakThis->bIsStaggered = false;
+			WeakThis->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+			WeakThis->EnableInput(Cast<APlayerController>(WeakThis->GetController()));
+			WeakThis->GetMesh()->GlobalAnimRateScale = 1.0f;
+			
+			UE_LOG(LogTemp, Warning, TEXT("Player stagger ended"));
+		}
+	}, Duration, false);
+}
+
