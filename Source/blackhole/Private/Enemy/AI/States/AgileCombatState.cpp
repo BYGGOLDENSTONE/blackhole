@@ -7,6 +7,20 @@
 #include "AIController.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
+#include "NavigationSystem.h"
+#include "Engine/Engine.h"
+
+void UAgileCombatState::Enter(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine)
+{
+    Super::Enter(Enemy, StateMachine);
+    
+    // Start in approaching phase
+    CurrentPhase = EAgileCombatPhase::Approaching;
+    bHasExecutedBackstab = false;
+    TimeInCurrentPhase = 0.0f;
+    
+    UE_LOG(LogTemp, Warning, TEXT("Agile Enemy: Entering combat - starting assassin approach"));
+}
 
 void UAgileCombatState::Exit(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine)
 {
@@ -18,71 +32,33 @@ void UAgileCombatState::Exit(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine
         Enemy->GetWorld()->GetTimerManager().ClearTimer(DashAttackTimerHandle);
     }
     
-    // Reset circle strafe state
+    // Reset assassin state
+    CurrentPhase = EAgileCombatPhase::Approaching;
+    bHasExecutedBackstab = false;
     bIsCircleStrafing = false;
 }
 
 void UAgileCombatState::Update(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine, float DeltaTime)
 {
-    Super::Update(Enemy, StateMachine, DeltaTime);
+    // Don't call parent Update - we're replacing the entire combat behavior
+    // Super::Update(Enemy, StateMachine, DeltaTime);
     
     if (!StateMachine || !StateMachine->GetTarget()) return;
     
-    AActor* Target = StateMachine->GetTarget();
-    float DistanceToTarget = FVector::Dist(Enemy->GetActorLocation(), Target->GetActorLocation());
-    bool bDashOnCooldown = IsAbilityOnCooldown(Enemy, TEXT("DashAttack"));
+    // Update timers
+    TimeInCurrentState += DeltaTime;
+    TimeInCurrentPhase += DeltaTime;
+    UpdateCooldowns(DeltaTime);
     
-    // Check if player is looking at the enemy
-    FVector PlayerForward = Target->GetActorForwardVector();
-    FVector ToEnemy = (Enemy->GetActorLocation() - Target->GetActorLocation()).GetSafeNormal();
-    float DotProduct = FVector::DotProduct(PlayerForward, ToEnemy);
-    bool bPlayerLookingAtEnemy = DotProduct > 0.7f; // ~45 degree cone
-    
-    // Aggressive agile enemy behavior
-    if (!bDashOnCooldown)
-    {
-        // Dash is available - use it aggressively
-        if (bPlayerLookingAtEnemy || DistanceToTarget > 600.0f)
-        {
-            // Force a dash attack if player is looking at us or we're far away
-            // The combat action selection will prioritize dash
-            bIsCircleStrafing = false;
-            return; // Let combat action system handle the dash
-        }
-    }
-    
-    // When dash is on cooldown, be aggressive
-    if (DistanceToTarget < 150.0f)
-    {
-        // Very close - circle strafe for better positioning
-        bIsCircleStrafing = true;
-        UpdateCircleStrafe(Enemy, StateMachine, DeltaTime);
-    }
-    else if (DistanceToTarget > 150.0f && DistanceToTarget < 400.0f)
-    {
-        // Medium range - aggressive approach
-        bIsCircleStrafing = false;
-        // Let base combat state handle movement
-    }
-    else
-    {
-        // Far away - stop strafing and close distance
-        bIsCircleStrafing = false;
-    }
+    // Update assassin behavior instead of default combat
+    UpdateAssassinBehavior(Enemy, StateMachine, DeltaTime);
 }
 
 void UAgileCombatState::InitializeCombatActions(ABaseEnemy* Enemy)
 {
-    // Get agile enemy specific values
-    AAgileEnemy* Agile = Cast<AAgileEnemy>(Enemy);
-    float DashCooldown = Agile ? Agile->DashCooldown : 3.0f;
-    float AttackRange = Agile ? Agile->AttackRange : 200.0f;
-    float AttackCooldown = Agile ? (1.5f / Agile->AttackSpeedMultiplier) : 1.5f; // Faster attack speed = lower cooldown
-    
-    // Agile actions: Quick attacks, dodges, and dash attacks
-    AddCombatAction(TEXT("QuickStrike"), 3.0f, AttackCooldown, 0.0f, AttackRange);      // Fast melee with configurable range and speed
-    AddCombatAction(TEXT("Dodge"), 2.5f, 1.0f, 0.0f, 400.0f);                 // Evasive maneuver
-    AddCombatAction(TEXT("DashAttack"), 3.0f, DashCooldown, 150.0f, 800.0f);  // Gap closer with configurable cooldown
+    // We don't use the automatic combat action system for assassin behavior
+    // Actions are manually triggered based on combat phase
+    // Keep empty to prevent base class from selecting actions
 }
 
 void UAgileCombatState::ExecuteCombatAction(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine, const FString& ActionName)
@@ -219,8 +195,13 @@ void UAgileCombatState::ExecuteDashAttack(ABaseEnemy* Enemy, UEnemyStateMachine*
                     
                     if (USmashAbilityComponent* SmashAbility = WeakEnemy->FindComponentByClass<USmashAbilityComponent>())
                     {
+                        // Backstab does increased damage
+                        float OriginalDamage = SmashAbility->GetDamage();
+                        SmashAbility->SetDamage(OriginalDamage * 2.0f); // Double damage for backstab
                         SmashAbility->Execute();
-                        UE_LOG(LogTemp, Warning, TEXT("Agile DashAttack: Executed backstab"));
+                        SmashAbility->SetDamage(OriginalDamage); // Reset damage
+                        
+                        UE_LOG(LogTemp, Warning, TEXT("Agile DashAttack: Executed backstab for %.0f damage!"), OriginalDamage * 2.0f);
                     }
                 }
             }, 0.3f, false);
@@ -239,6 +220,186 @@ void UAgileCombatState::OnPlayerDashed(ABaseEnemy* Enemy, UEnemyStateMachine* St
         ExecuteDodgeManeuver(Enemy, StateMachine);
         StartAbilityCooldown(Enemy, TEXT("Dodge"), 1.0f);
     }
+}
+
+void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine, float DeltaTime)
+{
+    if (!Enemy || !StateMachine || !StateMachine->GetTarget()) return;
+    
+    AActor* Target = StateMachine->GetTarget();
+    float DistanceToTarget = FVector::Dist(Enemy->GetActorLocation(), Target->GetActorLocation());
+    bool bDashOnCooldown = IsAbilityOnCooldown(Enemy, TEXT("DashAttack"));
+    
+    // Update phase based on current state
+    switch (CurrentPhase)
+    {
+        case EAgileCombatPhase::Approaching:
+        {
+            // Chase the player until within dash range
+            if (DistanceToTarget <= DashEngageRange && !bDashOnCooldown)
+            {
+                // In range and dash is ready - execute dash attack
+                CurrentPhase = EAgileCombatPhase::DashAttack;
+                TimeInCurrentPhase = 0.0f;
+                ExecuteDashAttack(Enemy, StateMachine);
+                StartAbilityCooldown(Enemy, TEXT("DashAttack"), Cast<AAgileEnemy>(Enemy)->DashCooldown);
+                
+                UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Initiating dash backstab attack!"));
+            }
+            else
+            {
+                // Move toward player
+                if (AAIController* AIController = Cast<AAIController>(Enemy->GetController()))
+                {
+                    AIController->MoveToActor(Target, 50.0f);
+                }
+            }
+            break;
+        }
+        
+        case EAgileCombatPhase::DashAttack:
+        {
+            // Wait for dash attack to complete
+            if (TimeInCurrentPhase > 0.5f) // Give time for dash + backstab
+            {
+                CurrentPhase = EAgileCombatPhase::Retreating;
+                TimeInCurrentPhase = 0.0f;
+                bHasExecutedBackstab = true;
+                
+                UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Backstab complete, retreating!"));
+            }
+            break;
+        }
+        
+        case EAgileCombatPhase::Retreating:
+        {
+            // Retreat to safe distance
+            if (DistanceToTarget >= RetreatDistance)
+            {
+                CurrentPhase = EAgileCombatPhase::Maintaining;
+                TimeInCurrentPhase = 0.0f;
+                
+                UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Reached safe distance, maintaining position"));
+            }
+            else
+            {
+                // Move away from player
+                FVector RetreatPos = GetRetreatPosition(Enemy, StateMachine);
+                if (AAIController* AIController = Cast<AAIController>(Enemy->GetController()))
+                {
+                    AIController->MoveToLocation(RetreatPos, 50.0f);
+                }
+                
+                // Face the player while retreating
+                FVector ToTarget = (Target->GetActorLocation() - Enemy->GetActorLocation()).GetSafeNormal();
+                FRotator LookAtRotation = ToTarget.Rotation();
+                Enemy->SetActorRotation(FRotator(0.0f, LookAtRotation.Yaw, 0.0f));
+            }
+            break;
+        }
+        
+        case EAgileCombatPhase::Maintaining:
+        {
+            // Keep distance until dash is ready
+            if (!bDashOnCooldown)
+            {
+                // Dash is ready - go back to approaching
+                CurrentPhase = EAgileCombatPhase::Approaching;
+                TimeInCurrentPhase = 0.0f;
+                bHasExecutedBackstab = false;
+                
+                UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Dash ready, beginning new approach"));
+            }
+            else
+            {
+                // Maintain distance between 650-750 units
+                if (DistanceToTarget < MaintainDistanceMin)
+                {
+                    // Too close - back up
+                    FVector RetreatPos = GetRetreatPosition(Enemy, StateMachine);
+                    if (AAIController* AIController = Cast<AAIController>(Enemy->GetController()))
+                    {
+                        AIController->MoveToLocation(RetreatPos, 50.0f);
+                    }
+                }
+                else if (DistanceToTarget > MaintainDistanceMax)
+                {
+                    // Too far - move closer slightly
+                    if (AAIController* AIController = Cast<AAIController>(Enemy->GetController()))
+                    {
+                        AIController->MoveToActor(Target, MaintainDistanceMin);
+                    }
+                }
+                else
+                {
+                    // Good distance - strafe to avoid attacks
+                    UpdateCircleStrafe(Enemy, StateMachine, DeltaTime);
+                }
+                
+                // Dodge if player attacks
+                if (FMath::RandRange(0.0f, 1.0f) < 0.4f && !IsAbilityOnCooldown(Enemy, TEXT("Dodge")))
+                {
+                    // Check if player is aiming at us
+                    FVector PlayerForward = Target->GetActorForwardVector();
+                    FVector ToEnemy = (Enemy->GetActorLocation() - Target->GetActorLocation()).GetSafeNormal();
+                    float DotProduct = FVector::DotProduct(PlayerForward, ToEnemy);
+                    
+                    if (DotProduct > 0.7f) // Player looking at us
+                    {
+                        ExecuteDodgeManeuver(Enemy, StateMachine);
+                        StartAbilityCooldown(Enemy, TEXT("Dodge"), 1.0f);
+                    }
+                }
+            }
+            break;
+        }
+    }
+    
+    // Show debug info
+    if (GEngine)
+    {
+        FString PhaseString;
+        switch (CurrentPhase)
+        {
+            case EAgileCombatPhase::Approaching: PhaseString = "Approaching"; break;
+            case EAgileCombatPhase::DashAttack: PhaseString = "DashAttack"; break;
+            case EAgileCombatPhase::Retreating: PhaseString = "Retreating"; break;
+            case EAgileCombatPhase::Maintaining: PhaseString = "Maintaining"; break;
+        }
+        
+        float DashCooldownRemaining = GetCooldownRemaining(Enemy, TEXT("DashAttack"));
+        GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Cyan, 
+            FString::Printf(TEXT("Agile: %s | Dist: %.0f | Dash CD: %.1fs"), 
+                *PhaseString, DistanceToTarget, DashCooldownRemaining));
+    }
+}
+
+FVector UAgileCombatState::GetRetreatPosition(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine) const
+{
+    if (!Enemy || !StateMachine || !StateMachine->GetTarget()) 
+        return Enemy->GetActorLocation();
+    
+    AActor* Target = StateMachine->GetTarget();
+    FVector DirectionAway = (Enemy->GetActorLocation() - Target->GetActorLocation()).GetSafeNormal();
+    FVector RetreatPos = Enemy->GetActorLocation() + (DirectionAway * 200.0f); // Move 200 units away
+    
+    // Make sure the retreat position is navigable
+    if (UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(Enemy->GetWorld()))
+    {
+        FNavLocation NavLocation;
+        if (NavSys->GetRandomReachablePointInRadius(RetreatPos, 100.0f, NavLocation))
+        {
+            return NavLocation.Location;
+        }
+    }
+    
+    return RetreatPos;
+}
+
+bool UAgileCombatState::ShouldRetreat(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine) const
+{
+    // Always retreat after backstab in assassin pattern
+    return bHasExecutedBackstab;
 }
 
 void UAgileCombatState::UpdateCircleStrafe(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine, float DeltaTime)

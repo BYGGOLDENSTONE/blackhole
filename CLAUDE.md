@@ -42,6 +42,7 @@ Enemy_SM:Tank/Agile/Combat/Hacker|DT_EnemyStats:CSV_config
 
 ## STATUS
 ✅WP_energy|11_abilities|Enemy_drain|Kill/combo_restore|5s_critical|2_combos|Wall_run|4_enemy_types|State_machines
+✅Agile_assassin:500_engage→dash_behind→backstab_2x→retreat_700→maintain_650-750|CD_based_cycle
 ✅Wall_run_height:150|Camera_freedom|Critical_state_limit(3)|Slash_trace+sphere
 ❌AIController|Multiplayer|GameplayTags_unused
 
