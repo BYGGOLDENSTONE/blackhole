@@ -52,10 +52,12 @@ Enemy_SM:Tank/Agile/Combat/Hacker|DT_EnemyStats:CSV_config
 - ✅Wall_run_speed:Capped_1000_from_dash
 - ✅Wall_run_height:150_units_required(trace_from_feet)|Early_check|Debug_viz
 - ✅Wall_run_look_requirement:Player_must_look_at_wall(40%_dot_product)|Intentional_execution
+- ✅Wall_run_free_camera:Movement_decoupled_from_look|W_key_continues|Aim_while_running
 
 ## MOVEMENT_SETTINGS
 Friction:4.0|Braking:800|MaxAccel:1200|BrakingFriction:0.5|No_air_friction
 Dash:3000_instant|Stop:50%_velocity|WallRun:Cap_1000_from_dash|Normal:600|Exit:70%_at_high_speed
+WallRun_camera:Free_look|Movement_input_ignored|W_key_only|Orient_rotation_disabled
 
 ## UPCOMING_TASKS
 1. More_enemy_types+abilities

@@ -223,6 +223,7 @@ protected:
     // Original values for restoration
     float OriginalGravityScale = 1.0f;
     float OriginalCameraRoll = 0.0f;
+    bool bOriginalOrientRotationToMovement = true;
     
     // Particle component for wall run effect
     UPROPERTY()

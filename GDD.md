@@ -94,8 +94,10 @@ The wall run system enables fluid cyberpunk traversal through vertical environme
 **Mechanics:**
 - **Speed Cap**: Dash speed (3000 units) capped at 1000 units/s during wall run
 - **Height Maintenance**: Player runs at consistent height along wall surface  
-- **Input Control**: W key required to continue wall running
+- **Input Control**: W key required to continue wall running (any direction)
 - **Duration**: Unlimited as long as W is held and wall exists
+- **Camera Freedom**: Full 360° camera control while wall running for combat
+- **Movement Lock**: Character follows wall path regardless of camera direction
 - **Camera Effects**: Dynamic camera tilt based on wall side (±20°)
 
 **Wall Jump System:**

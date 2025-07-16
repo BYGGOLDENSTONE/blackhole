@@ -21,6 +21,9 @@ UWallRunComponent::UWallRunComponent()
     PrimaryComponentTick.bCanEverTick = true;
     PrimaryComponentTick.bStartWithTickEnabled = true;
     
+    // Set tick group to post-physics to ensure we override velocity after movement component
+    PrimaryComponentTick.TickGroup = TG_PostPhysics;
+    
     // Disable debug logs by default (enable only when debugging)
     bShowDebugLogs = false;
     bShowDebugVisuals = false;
@@ -158,16 +161,8 @@ void UWallRunComponent::UpdateStateMachine(float DeltaTime)
             UpdateWallRunMovement(DeltaTime);
             UpdateWallDetection(DeltaTime);
             
-                    // Check if speed dropped significantly below wall run speed
-            float CurrentSpeed = MovementComponent->Velocity.Size2D();
-            float MinimumSpeed = CurrentWallRunSpeed * 0.7f; // 70% of wall run speed
-            
-            if (CurrentSpeed < MinimumSpeed)
-            {
-                UE_LOG(LogTemp, Warning, TEXT("WallRun: Speed too low (%.1f < %.1f), ending wall run"), CurrentSpeed, MinimumSpeed);
-                // Debug message removed
-                EndWallRun(false);
-            }
+            // Remove speed check - we're controlling velocity directly now
+            // Speed should remain constant as long as W is held
             break;
         }
         
@@ -258,6 +253,12 @@ void UWallRunComponent::UpdateWallRunMovement(float DeltaTime)
     if (CurrentState != EWallRunState::WallRunning)
     {
         return;
+    }
+    
+    // Clear any accumulated movement input to prevent interference
+    if (MovementComponent)
+    {
+        MovementComponent->ConsumeInputVector();
     }
     
     ApplyWallRunMovement(DeltaTime);
@@ -682,8 +683,14 @@ void UWallRunComponent::ApplyWallRunPhysics()
         return;
     }
     
+    // Store original rotation settings
+    bOriginalOrientRotationToMovement = MovementComponent->bOrientRotationToMovement;
+    
     // Disable gravity
     MovementComponent->GravityScale = 0.0f;
+    
+    // Disable rotation to movement during wall run to allow free camera look
+    MovementComponent->bOrientRotationToMovement = false;
     
     // Set movement mode to flying for better control
     MovementComponent->SetMovementMode(MOVE_Flying);
@@ -788,6 +795,9 @@ void UWallRunComponent::RestoreNormalMovement()
     
     // Restore gravity
     MovementComponent->GravityScale = OriginalGravityScale;
+    
+    // Restore rotation to movement setting
+    MovementComponent->bOrientRotationToMovement = bOriginalOrientRotationToMovement;
     
     // Set to falling mode to allow the launch to work properly
     MovementComponent->SetMovementMode(MOVE_Falling);
@@ -1198,13 +1208,16 @@ bool UWallRunComponent::HasForwardInput() const
         return false;
     }
     
-    // Check if player has any movement input (not just forward)
-    // During wall run, any input keeps the run going regardless of camera direction
+    // Get raw input vector
     FVector InputVector = OwnerCharacter->GetLastMovementInputVector();
     
-    // If we're already wall running, check for any input magnitude
+    // If we're already wall running, only check if there's any forward component in the input
+    // This allows player to look around while holding W
     if (CurrentState == EWallRunState::WallRunning)
     {
+        // Check if there's any forward input component (W key)
+        // We check the Y component of the 2D input which represents forward/back
+        // This is independent of camera direction
         return InputVector.Size() > 0.1f; // Any movement input continues wall run
     }
     
