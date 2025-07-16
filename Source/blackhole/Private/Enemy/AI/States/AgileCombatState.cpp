@@ -180,9 +180,12 @@ void UAgileCombatState::ExecuteDashAttack(ABaseEnemy* Enemy, UEnemyStateMachine*
                     
                     if (USmashAbilityComponent* SmashAbility = WeakEnemy->FindComponentByClass<USmashAbilityComponent>())
                     {
+                        // Get agile enemy for configuration
+                        AAgileEnemy* AgileEnemy = Cast<AAgileEnemy>(WeakEnemy.Get());
+                        
                         // Backstab does increased damage
                         float OriginalDamage = SmashAbility->GetDamage();
-                        float DamageMultiplier = Agile ? Agile->BackstabDamageMultiplier : 2.0f;
+                        float DamageMultiplier = AgileEnemy ? AgileEnemy->BackstabDamageMultiplier : 2.0f;
                         SmashAbility->SetDamage(OriginalDamage * DamageMultiplier); // Configurable backstab damage
                         SmashAbility->Execute();
                         SmashAbility->SetDamage(OriginalDamage); // Reset damage
@@ -190,8 +193,7 @@ void UAgileCombatState::ExecuteDashAttack(ABaseEnemy* Enemy, UEnemyStateMachine*
                         // Apply stagger to player on backstab hit
                         if (ABlackholePlayerCharacter* Player = Cast<ABlackholePlayerCharacter>(WeakTarget.Get()))
                         {
-                            AAgileEnemy* Agile = Cast<AAgileEnemy>(WeakEnemy.Get());
-                            float StaggerDuration = Agile ? Agile->BackstabStaggerDuration : 1.5f;
+                            float StaggerDuration = AgileEnemy ? AgileEnemy->BackstabStaggerDuration : 1.5f;
                             Player->ApplyStagger(StaggerDuration);
                             UE_LOG(LogTemp, Warning, TEXT("Agile Backstab: Applied %.1fs stagger to player"), StaggerDuration);
                         }
@@ -303,7 +305,7 @@ void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMac
                 TimeInCurrentPhase = 0.0f;
                 
                 // Reset to normal speed
-                if (AAgileEnemy* Agile = Cast<AAgileEnemy>(Enemy))
+                if (Agile)
                 {
                     Enemy->GetCharacterMovement()->MaxWalkSpeed = Agile->MovementSpeed;
                 }
@@ -321,7 +323,7 @@ void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMac
                     AIController->MoveToLocation(RetreatPos, 30.0f);
                     
                     // Apply speed boost during retreat
-                    if (AAgileEnemy* Agile = Cast<AAgileEnemy>(Enemy))
+                    if (Agile)
                     {
                         Enemy->GetCharacterMovement()->MaxWalkSpeed = Agile->MovementSpeed * 1.5f; // 50% faster retreat
                     }
