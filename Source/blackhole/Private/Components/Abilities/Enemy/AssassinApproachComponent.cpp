@@ -2,6 +2,7 @@
 #include "Components/Abilities/Enemy/StabAttackComponent.h"
 #include "Enemy/BaseEnemy.h"
 #include "Enemy/AgileEnemy.h"
+#include "Enemy/AI/EnemyStateMachine.h"
 #include "Player/BlackholePlayerCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Engine/World.h"

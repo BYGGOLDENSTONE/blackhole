@@ -20,6 +20,10 @@ public:
 	// Override to handle damage as WP reduction
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, 
 		class AController* EventInstigator, AActor* DamageCauser) override;
+	
+	// Get state machine for ability components
+	UFUNCTION(BlueprintPure, Category = "AI")
+	UEnemyStateMachine* GetStateMachine() const { return StateMachine; }
 
 protected:
 	virtual void BeginPlay() override;

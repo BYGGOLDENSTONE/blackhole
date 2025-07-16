@@ -1,11 +1,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Components/Abilities/Enemy/EnemyAbilityComponent.h"
+#include "Components/Abilities/AbilityComponent.h"
 #include "StabAttackComponent.generated.h"
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class BLACKHOLE_API UStabAttackComponent : public UEnemyAbilityComponent
+class BLACKHOLE_API UStabAttackComponent : public UAbilityComponent
 {
 	GENERATED_BODY()
 
