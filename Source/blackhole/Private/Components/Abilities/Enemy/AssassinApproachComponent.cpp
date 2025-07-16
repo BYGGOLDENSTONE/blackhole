@@ -11,11 +11,10 @@
 
 UAssassinApproachComponent::UAssassinApproachComponent()
 {
-	AbilityName = "AssassinApproach";
 	Cooldown = 3.0f;
-	bIsActive = false;
 	Range = 600.0f; // Maximum dash range
-	Cost = 0.0f; // No cost for enemy abilities
+	WPCost = 0.0f; // No cost for enemy abilities
+	bIsBasicAbility = false; // This is a special ability
 }
 
 void UAssassinApproachComponent::BeginPlay()

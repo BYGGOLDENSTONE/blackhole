@@ -7,11 +7,10 @@
 
 UStabAttackComponent::UStabAttackComponent()
 {
-	AbilityName = "StabAttack";
 	Cooldown = 1.0f; // Base cooldown, modified by attack speed
-	bIsActive = false;
 	Range = 150.0f;
-	Cost = 0.0f; // Basic attack has no cost
+	WPCost = 0.0f; // Basic attack has no cost
+	bIsBasicAbility = true; // This is a basic ability
 }
 
 void UStabAttackComponent::BeginPlay()

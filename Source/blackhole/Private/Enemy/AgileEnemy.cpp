@@ -87,9 +87,9 @@ void AAgileEnemy::MoveTowardsTarget(float DeltaTime)
 
 void AAgileEnemy::TryAttack()
 {
-	if (SmashAbility && SmashAbility->CanExecute())
+	if (StabAttack && StabAttack->CanExecute())
 	{
-		SmashAbility->Execute();
+		StabAttack->Execute();
 	}
 }
 

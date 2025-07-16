@@ -58,6 +58,21 @@ public:
 	// Combat Stats
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Dodge Chance", ClampMin = "0.0", ClampMax = "1.0"))
 	float DodgeChance = 0.4f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Attack Speed Multiplier", ClampMin = "0.1", ClampMax = "3.0"))
+	float AttackSpeedMultiplier = 1.5f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Dash Cooldown", ClampMin = "0.5"))
+	float DashCooldown = 2.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Dash Behind Distance"))
+	float DashBehindDistance = 250.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Backstab Damage Multiplier", ClampMin = "1.0", ClampMax = "5.0"))
+	float BackstabDamageMultiplier = 2.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Backstab Stagger Duration", ClampMin = "0.1", ClampMax = "3.0"))
+	float BackstabStaggerDuration = 1.5f;
 
 private:
 	void MoveTowardsTarget(float DeltaTime);
