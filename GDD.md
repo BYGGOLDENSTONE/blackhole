@@ -208,13 +208,19 @@ TestCombo <name>       - Test specific combo
 | **Hacker Scout** | 50 | Ranged attacks | Mindmeld (1 WP/sec) |
 | **Combat Drone** | 75 | Aggressive melee | High mobility |
 | **Tank Unit** | 150 | Defensive | 50% damage reduction |
-| **Agile Assassin** | 75 | Hit and run | 30% dodge chance |
+| **Agile Assassin** | 75 | Assassin approach | Backstab (2x damage + 1.5s stagger) |
 
 ### AI Behaviors
 - **Detection**: 2500 unit sight range
 - **Combat**: Adaptive tactics based on player actions
 - **Coordination**: Basic flanking and group tactics
 - **Special**: Mindmeld maintains WP pressure
+
+### Agile Assassin Details
+- **Pattern**: Maintain 450-550 distance → Dash at 600 range → Backstab → 3s retreat
+- **Assassin Approach**: Dashes behind player, deals 2x damage, applies 1.5s stagger
+- **Aggressive**: Forces attack after 5 seconds if dash on cooldown
+- **Configurable**: All combat parameters exposed in editor
 
 ## 🎨 Visual & Audio Design
 
@@ -261,19 +267,7 @@ Buff Scaling:
 
 ## 🔮 Upcoming Feature Implementations
 
-### 1. Wall Run Improvements
-**Camera Freedom**
-- Players can freely look around while wall running without interrupting the movement
-- Camera rotation is decoupled from wall run state
-- Maintains cinematic feel while providing player control
-
-**Height Requirement Adjustment**
-- Minimum height from ground: 150 units (implemented)
-- Prevents accidental wall runs from simple jumps
-- Requires intentional high jumps or dashes to access
-- Traces from player's feet for accurate height detection
-
-### 2. Critical State Limit System
+### 1. Critical State Limit System
 **Lives/Retry Mechanic**
 - Players have limited "critical state entries" (default: 3 per level)
 - Each time WP reaches 0%, one entry is consumed
@@ -401,6 +395,13 @@ Buff Scaling:
 - Death condition system
 - Ultimate ability framework
 - Combat state detection
+
+### v3.2 (2025-07-16)
+- Wall run intentionality system (look requirement)
+- Wall run free camera movement
+- Agile enemy assassin behavior overhaul
+- Player stagger system
+- Enemy configurable combat stats
 
 ---
 
