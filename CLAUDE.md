@@ -42,7 +42,7 @@ Enemy_SM:Tank/Agile/Combat/Hacker|DT_EnemyStats:CSV_config
 
 ## STATUS
 ✅WP_energy|11_abilities|Enemy_drain|Kill/combo_restore|5s_critical|2_combos|Wall_run|4_enemy_types|State_machines
-✅Agile_assassin:500_engage→dash_behind_overshoot→backstab_2x→retreat_3s→maintain_650-750|"AssassinApproach"
+✅Agile_assassin:600_engage→dash_behind→backstab_2x_area→retreat_3s→maintain_450-550|"AssassinApproach"|5s_force_timer
 ✅Agile_mobility:Custom_chase_state|Never_sticks_close|Circle_strafe|Speed_boost_retreat
 ✅Wall_run_height:150|Camera_freedom|Critical_state_limit(3)|Slash_trace+sphere
 ❌AIController|Multiplayer|GameplayTags_unused
@@ -58,6 +58,7 @@ Enemy_SM:Tank/Agile/Combat/Hacker|DT_EnemyStats:CSV_config
 - ✅Agile_enemy_chase_fix:Only_dash_when_in_range(500)|Normal_chase_when_far
 - ✅Player_stagger:1.5s_on_backstab|Input_disabled|Anim_slowed
 - ✅Agile_configurable_stats:Stagger_duration|Distances|Damage_mult|Retreat_time
+- ✅Agile_aggression:5s_force_attack|Area_backstab|600_dash_range|450-550_maintain
 
 ## MOVEMENT_SETTINGS
 Friction:4.0|Braking:800|MaxAccel:1200|BrakingFriction:0.5|No_air_friction
