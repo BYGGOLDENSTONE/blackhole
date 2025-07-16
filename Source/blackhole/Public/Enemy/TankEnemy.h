@@ -7,6 +7,8 @@
 class UAreaDamageAbilityComponent;
 class UBlockComponent;
 class UStaticMeshComponent;
+class UHeatAuraComponent;
+class UChargeAbilityComponent;
 
 UCLASS()
 class BLACKHOLE_API ATankEnemy : public ABaseEnemy
@@ -30,6 +32,12 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	UBlockComponent* BlockAbility;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
+	UHeatAuraComponent* HeatAuraAbility;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
+	UChargeAbilityComponent* ChargeAbility;
 
 public:
 	// Combat stats - public for data table access

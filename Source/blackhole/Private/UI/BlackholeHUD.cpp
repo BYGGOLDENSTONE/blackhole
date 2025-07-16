@@ -198,6 +198,10 @@ void ABlackholeHUD::DrawHUD()
 		UpdateCachedValues();
 		LastCacheUpdateTime = CurrentTime;
 	}
+	
+	// Update notifications
+	float DeltaTime = GetWorld()->GetDeltaSeconds();
+	UpdateNotifications(DeltaTime);
 
 	DrawCrosshair();
 
@@ -262,6 +266,12 @@ void ABlackholeHUD::DrawHUD()
 	
 	// Velocity indicator removed per user request
 	// DrawVelocityIndicator();
+	
+	// Draw notifications
+	DrawNotifications();
+	
+	// Draw enemy ability progress bars
+	DrawEnemyAbilityProgress();
 
 	DrawTargetInfo();
 }
@@ -1315,4 +1325,285 @@ void ABlackholeHUD::DrawWallRunTimer()
 		FString SpeedText = FString::Printf(TEXT("Speed: %.0f"), CurrentSpeed);
 		DrawText(SpeedText, FColor::White, ScreenRightX, ScreenTopY + 75.0f, nullptr, 1.0f, false);
 	}
+}
+
+// Notification System Implementation
+void ABlackholeHUD::AddNotification(const FString& Message, const FColor& Color, float Duration)
+{
+	FNotification NewNotification;
+	NewNotification.Message = Message;
+	NewNotification.Color = Color;
+	NewNotification.TimeRemaining = Duration;
+	NewNotification.TotalDuration = Duration;
+	
+	ActiveNotifications.Add(NewNotification);
+	
+	// Limit the number of notifications to prevent spam
+	if (ActiveNotifications.Num() > 5)
+	{
+		ActiveNotifications.RemoveAt(0);
+	}
+}
+
+void ABlackholeHUD::UpdateNotifications(float DeltaTime)
+{
+	// Update notification timers and remove expired ones
+	for (int32 i = ActiveNotifications.Num() - 1; i >= 0; i--)
+	{
+		ActiveNotifications[i].TimeRemaining -= DeltaTime;
+		if (ActiveNotifications[i].TimeRemaining <= 0.0f)
+		{
+			ActiveNotifications.RemoveAt(i);
+		}
+	}
+	
+	// Update enemy ability progress timers
+	if (bShowingPsiDisruptorProgress)
+	{
+		PsiDisruptorBuildProgress += DeltaTime;
+		if (PsiDisruptorBuildProgress >= PsiDisruptorBuildTime)
+		{
+			bShowingPsiDisruptorProgress = false;
+			PsiDisruptorBuildProgress = 0.0f;
+		}
+	}
+	
+	if (bShowingMindmeldProgress)
+	{
+		MindmeldProgress += DeltaTime;
+		if (MindmeldProgress >= MindmeldCastTime)
+		{
+			bShowingMindmeldProgress = false;
+			MindmeldProgress = 0.0f;
+			MindmeldCaster = nullptr;
+		}
+		
+		// Clear caster if it becomes invalid
+		if (MindmeldCaster && !IsValid(MindmeldCaster))
+		{
+			MindmeldCaster = nullptr;
+		}
+	}
+}
+
+void ABlackholeHUD::DrawNotifications()
+{
+	if (!Canvas || ActiveNotifications.Num() == 0)
+	{
+		return;
+	}
+	
+	float NotificationX = Canvas->SizeX * 0.5f - 200.0f;
+	float NotificationY = Canvas->SizeY * 0.2f;
+	float NotificationHeight = 30.0f;
+	float NotificationSpacing = 5.0f;
+	
+	for (int32 i = 0; i < ActiveNotifications.Num(); i++)
+	{
+		const FNotification& Notification = ActiveNotifications[i];
+		
+		// Calculate fade alpha based on time remaining
+		float Alpha = 1.0f;
+		if (Notification.TimeRemaining < 1.0f)
+		{
+			Alpha = Notification.TimeRemaining;
+		}
+		
+		// Draw notification background
+		FColor BGColor = FColor(0, 0, 0, (uint8)(150 * Alpha));
+		DrawRect(BGColor, NotificationX - 10, NotificationY + i * (NotificationHeight + NotificationSpacing) - 5,
+				420, NotificationHeight);
+		
+		// Draw notification text
+		FColor TextColor = Notification.Color;
+		TextColor.A = (uint8)(255 * Alpha);
+		DrawText(Notification.Message, TextColor, NotificationX, 
+				NotificationY + i * (NotificationHeight + NotificationSpacing), nullptr, 1.2f, false);
+	}
+}
+
+void ABlackholeHUD::DrawEnemyAbilityProgress()
+{
+	if (!Canvas)
+	{
+		return;
+	}
+	
+	float ProgressBarX = Canvas->SizeX * 0.5f - 150.0f;
+	float ProgressBarY = Canvas->SizeY * 0.4f;
+	float ProgressBarWidth = 300.0f;
+	float ProgressBarHeight = 30.0f;
+	
+	// Draw Psi-Disruptor build progress
+	if (bShowingPsiDisruptorProgress)
+	{
+		// Background
+		DrawRect(FColor(0, 0, 0, 200), ProgressBarX - 5, ProgressBarY - 5, 
+				ProgressBarWidth + 10, ProgressBarHeight + 10);
+		
+		// Progress bar background
+		DrawRect(FColor(50, 50, 50), ProgressBarX, ProgressBarY, ProgressBarWidth, ProgressBarHeight);
+		
+		// Progress bar fill
+		float Progress = FMath::Clamp(PsiDisruptorBuildProgress / PsiDisruptorBuildTime, 0.0f, 1.0f);
+		float FilledWidth = ProgressBarWidth * Progress;
+		
+		// Gradient color from yellow to red as it nears completion
+		FColor BarColor = FColor::MakeRedToGreenColorFromScalar(1.0f - Progress);
+		DrawRect(BarColor, ProgressBarX, ProgressBarY, FilledWidth, ProgressBarHeight);
+		
+		// Draw text
+		float TimeRemaining = PsiDisruptorBuildTime - PsiDisruptorBuildProgress;
+		FString ProgressText = FString::Printf(TEXT("PSI-DISRUPTOR BUILDING: %.1fs"), TimeRemaining);
+		DrawText(ProgressText, FColor::Yellow, ProgressBarX + 10, ProgressBarY + 5, nullptr, 1.2f, false);
+		
+		// Draw warning
+		DrawText(TEXT("DESTROY THE BUILDERS TO STOP IT!"), FColor::Orange, 
+				ProgressBarX + 20, ProgressBarY + ProgressBarHeight + 10, nullptr, 1.0f, false);
+		
+		// Flash border when near completion
+		if (Progress > 0.8f)
+		{
+			float Flash = FMath::Sin(GetWorld()->GetTimeSeconds() * 10.0f) * 0.5f + 0.5f;
+			FColor FlashColor = FColor((uint8)(255 * Flash), 0, 0, 255);
+			// Top
+			DrawRect(FlashColor, ProgressBarX - 5, ProgressBarY - 5, ProgressBarWidth + 10, 3);
+			// Bottom
+			DrawRect(FlashColor, ProgressBarX - 5, ProgressBarY + ProgressBarHeight + 2, ProgressBarWidth + 10, 3);
+			// Left
+			DrawRect(FlashColor, ProgressBarX - 5, ProgressBarY - 5, 3, ProgressBarHeight + 10);
+			// Right
+			DrawRect(FlashColor, ProgressBarX + ProgressBarWidth + 2, ProgressBarY - 5, 3, ProgressBarHeight + 10);
+		}
+	}
+	
+	// Draw MindMeld progress (offset if both are active)
+	if (bShowingMindmeldProgress)
+	{
+		float MindmeldY = ProgressBarY;
+		if (bShowingPsiDisruptorProgress)
+		{
+			MindmeldY += ProgressBarHeight + 60; // Offset below Psi-Disruptor bar
+		}
+		
+		// Background
+		DrawRect(FColor(0, 0, 0, 200), ProgressBarX - 5, MindmeldY - 5, 
+				ProgressBarWidth + 10, ProgressBarHeight + 10);
+		
+		// Progress bar background
+		DrawRect(FColor(50, 50, 50), ProgressBarX, MindmeldY, ProgressBarWidth, ProgressBarHeight);
+		
+		// Progress bar fill
+		float Progress = FMath::Clamp(MindmeldProgress / MindmeldCastTime, 0.0f, 1.0f);
+		float FilledWidth = ProgressBarWidth * Progress;
+		
+		// Purple color for psychic ability
+		FColor BarColor = FColor(128 + (uint8)(127 * Progress), 0, 255, 255);
+		DrawRect(BarColor, ProgressBarX, MindmeldY, FilledWidth, ProgressBarHeight);
+		
+		// Draw text
+		float TimeRemaining = MindmeldCastTime - MindmeldProgress;
+		FString ProgressText = FString::Printf(TEXT("MINDMELD CASTING: %.1fs"), TimeRemaining);
+		DrawText(ProgressText, FColor::Magenta, ProgressBarX + 10, MindmeldY + 5, nullptr, 1.2f, false);
+		
+		// Draw warning
+		DrawText(TEXT("GET WITHIN 300 UNITS TO INTERRUPT!"), FColor::Cyan, 
+				ProgressBarX + 20, MindmeldY + ProgressBarHeight + 10, nullptr, 1.0f, false);
+		
+		// Draw location indicator if we have a valid caster
+		if (MindmeldCaster && IsValid(MindmeldCaster))
+		{
+			// Project caster location to screen
+			FVector CasterLocation = MindmeldCaster->GetActorLocation();
+			FVector2D ScreenLocation;
+			
+			if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+			{
+				if (PC->ProjectWorldLocationToScreen(CasterLocation, ScreenLocation))
+				{
+					// Draw direction indicator
+					float IndicatorSize = 30.0f;
+					FColor IndicatorColor = FColor::Magenta;
+					
+					// Draw circle at enemy position
+					DrawRect(IndicatorColor, ScreenLocation.X - IndicatorSize/2, ScreenLocation.Y - IndicatorSize/2, 
+							IndicatorSize, IndicatorSize);
+					
+					// Draw text above the indicator
+					DrawText(TEXT("MINDMELDER"), IndicatorColor, ScreenLocation.X - 40, ScreenLocation.Y - IndicatorSize - 20, 
+							nullptr, 1.0f, false);
+					
+					// Draw distance to enemy
+					if (PlayerCharacter)
+					{
+						float Distance = FVector::Dist(PlayerCharacter->GetActorLocation(), CasterLocation);
+						FString DistanceText = FString::Printf(TEXT("%.0fm"), Distance / 100.0f);
+						DrawText(DistanceText, FColor::White, ScreenLocation.X - 20, ScreenLocation.Y + IndicatorSize + 5,
+								nullptr, 0.9f, false);
+					}
+				}
+			}
+		}
+		
+		// Critical flash when near completion
+		if (Progress > 0.9f)
+		{
+			float Flash = FMath::Sin(GetWorld()->GetTimeSeconds() * 15.0f) * 0.5f + 0.5f;
+			FColor FlashColor = FColor(255, 0, (uint8)(255 * Flash), 255);
+			// Draw skull icon or death warning
+			FString DeathWarning = TEXT("!!! INSTANT DEATH IMMINENT !!!");
+			DrawText(DeathWarning, FlashColor, ProgressBarX + 50, MindmeldY - 25, nullptr, 1.5f, false);
+		}
+	}
+}
+
+// PsiDisruptor Event Handlers
+void ABlackholeHUD::OnPsiDisruptorBuildStarted(const FVector& BuildLocation)
+{
+	bShowingPsiDisruptorProgress = true;
+	PsiDisruptorBuildProgress = 0.0f;
+	PsiDisruptorLocation = BuildLocation;
+	
+	AddNotification(TEXT("WARNING: Enemies building Psi-Disruptor!"), FColor::Orange, 5.0f);
+	AddNotification(TEXT("It will disable your movement abilities!"), FColor::Yellow, 5.0f);
+}
+
+void ABlackholeHUD::OnPsiDisruptorBuildComplete()
+{
+	bShowingPsiDisruptorProgress = false;
+	PsiDisruptorBuildProgress = 0.0f;
+	
+	AddNotification(TEXT("PSI-DISRUPTOR ACTIVATED!"), FColor::Red, 5.0f);
+	AddNotification(TEXT("Movement abilities disabled!"), FColor::Red, 5.0f);
+}
+
+// MindMeld Event Handlers
+void ABlackholeHUD::OnMindmeldStarted(float CastTime, AActor* Caster)
+{
+	bShowingMindmeldProgress = true;
+	MindmeldProgress = 0.0f;
+	MindmeldCastTime = CastTime;
+	MindmeldCaster = Caster;
+	
+	AddNotification(TEXT("DANGER: MindMelder channeling instant kill!"), FColor::Magenta, 5.0f);
+	AddNotification(FString::Printf(TEXT("You have %.0f seconds to interrupt!"), CastTime), FColor::Cyan, 5.0f);
+}
+
+void ABlackholeHUD::OnMindmeldComplete()
+{
+	bShowingMindmeldProgress = false;
+	MindmeldProgress = 0.0f;
+	MindmeldCaster = nullptr;
+	
+	// This shouldn't show if the player died, but just in case
+	AddNotification(TEXT("MINDMELD COMPLETE - FATAL!"), FColor::Red, 3.0f);
+}
+
+void ABlackholeHUD::OnMindmeldInterrupted()
+{
+	bShowingMindmeldProgress = false;
+	MindmeldProgress = 0.0f;
+	MindmeldCaster = nullptr;
+	
+	AddNotification(TEXT("Mindmeld interrupted! Well done!"), FColor::Green, 3.0f);
 }

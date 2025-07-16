@@ -52,8 +52,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (DisplayName = "Movement Speed"))
 	float MovementSpeed = 600.0f;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (DisplayName = "Retreat Duration", ClampMin = "1.0", ClampMax = "5.0"))
-	float RetreatDuration = 3.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (DisplayName = "Retreat Duration", ClampMin = "1.0", ClampMax = "10.0"))
+	float RetreatDuration = 6.0f;
 	
 	// Combat Stats
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (DisplayName = "Dodge Chance", ClampMin = "0.0", ClampMax = "1.0"))

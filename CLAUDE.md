@@ -43,8 +43,11 @@ Enemy_SM:Tank/Agile/Combat/Hacker|DT_EnemyStats:CSV_config
 - Validate_ownership_in_listeners
 
 ## STATUS
-✅WP_energy|11_abilities|Enemy_drain|Kill/combo_restore|5s_critical|2_combos|Wall_run|4_enemy_types|State_machines
-✅Agile_assassin:StabAttack+AssassinApproach|600_engage→dash_behind→backstab_2x→retreat_3s→maintain_450-550
+✅WP_energy|11_abilities|Enemy_drain|Kill/combo_restore|5s_critical|2_combos|Wall_run|8_enemy_types|State_machines
+✅Agile_assassin:StabAttack(0.5s_stagger)+AssassinApproach|600_engage→dash_behind→backstab_2x→retreat_6s→maintain_450-550
+✅Tank_enemy:HeatAura(5WP/s)+Charge(300-1500)+GroundSlam|Heavy_slow|Heat_affects_all
+✅Standard_enemy:SwordAttack+Builder|Psi-disruptor_construction(20s)|Disables_movement_abilities
+✅MindMelder_enemy:PowerfulMindmeld(30s_cast→0WP)|3000_range|Interrupt_at_300|Location_warning
 ✅StatusEffectComponent:Centralized_states|Stagger/Stun/Slow/etc|All_actors|Event_system
 ✅Wall_run_height:150|Camera_freedom|Critical_state_limit(3)|Slash_trace+sphere
 ❌AIController|Multiplayer|GameplayTags_unused
@@ -64,6 +67,12 @@ Enemy_SM:Tank/Agile/Combat/Hacker|DT_EnemyStats:CSV_config
 - ✅StatusEffectComponent:All_actors|Central_state_management|Events|Immunities
 - ✅Agile_components:StabAttack(basic)|AssassinApproach(special)|Stats_cleanup
 - ✅Compilation_fixes:AbilityComponent_inheritance|Property_names|Stats_restored
+- ✅New_enemies:Tank+HeatAura+Charge|Standard+Builder|MindMelder+30s_kill
+- ✅Agile_updates:6s_retreat|0.5s_stab_stagger|Assassin_pattern_refined
+- ✅Psi-disruptor:Builder_coordination|20s_build|Disables_dash/jump/wallrun
+- ✅Tank_abilities:5WP/s_heat_aura|Charge_1200speed|Knockback_on_impact
+- ✅Enemy_death_fix:Clear_timers|Stop_line_of_sight|Proper_cleanup
+- ✅New_state_machines:StandardEnemy+MindMelder|Combat_states|Proper_AI
 
 ## MOVEMENT_SETTINGS
 Friction:4.0|Braking:800|MaxAccel:1200|BrakingFriction:0.5|No_air_friction
@@ -71,7 +80,10 @@ Dash:3000_instant|Stop:50%_velocity|WallRun:Cap_1000_from_dash|Normal:600|Exit:7
 WallRun_camera:Free_look|Movement_input_ignored|W_key_only|Orient_rotation_disabled
 
 ## UPCOMING_TASKS
-1. More_enemy_types+abilities
+1. Visual_effects_for_abilities+status_effects
+2. UI_notifications_for_mindmeld+psi-disruptor
+3. Boss_encounters
+4. Additional_combos(Tempest_Blade|Blade_Dance)
 
 ## DEV_NOTES
 - No_build_from_terminal→Editor_only
@@ -86,6 +98,8 @@ Player:BlackholePlayerCharacter|Abilities:Components/Abilities/Player/Hacker/*
 Resources:Systems/ResourceManager|WallRun:Components/Movement/WallRunComponent
 AI:Enemy/StateMachines/*|Config:Config/GameplayConfig.h|GameMode:Core/BlackholeGameMode
 StatusEffects:Components/StatusEffectComponent|AgileAbilities:StabAttack+AssassinApproach
+Enemies:Agile/Tank/Standard/MindMelder|BuilderComp:Psi-disruptor|HeatAura+Charge:Tank
+PsiDisruptor:Actors/PsiDisruptor|PowerfulMindmeld:30s_instant_kill
 
 ## FIXED_ISSUES
 Menu_input|Memory_UPROPERTY|GameMode_TSubclassOf|Include_paths|Enemy_duplication→utility
@@ -94,6 +108,7 @@ Combo_classification|Enemy_ability_filtering|Timer_conflicts|Wall_run|State_mach
 Debug_cleanup|Multi_height_detection|WP_energy_transform|Jump_state_preserve|Velocity_HUD
 Wall_run_200|Critical_limit_system|Slash_dual_detection|Agile_chase_spam|Player_stagger_system|Enemy_config_stats
 StatusEffect_component|Agile_ability_components|Stats_organization|Component_inheritance_fix
+Enemy_death_cleanup|New_enemy_state_machines|Compilation_errors|API_method_updates
 
 ## BUG_PREVENTION_SUMMARY
 Check_methods|Check_members|No_duplicates|Memory_mgmt|Cast_safety|Data_sync|Timer_mgmt

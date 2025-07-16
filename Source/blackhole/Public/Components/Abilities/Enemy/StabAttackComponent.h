@@ -24,6 +24,9 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stab Attack", meta = (DisplayName = "Attack Speed", ClampMin = "0.1", ClampMax = "3.0"))
 	float AttackSpeed = 1.5f; // Animation speed multiplier
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stab Attack", meta = (DisplayName = "Stagger Duration", ClampMin = "0.0", ClampMax = "3.0"))
+	float StaggerDuration = 0.5f; // Stagger duration on hit
 
 	virtual void Execute() override;
 	

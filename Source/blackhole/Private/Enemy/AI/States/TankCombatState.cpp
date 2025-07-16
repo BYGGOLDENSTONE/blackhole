@@ -3,6 +3,7 @@
 #include "Enemy/AI/EnemyStateMachine.h"
 #include "Components/Abilities/Enemy/BlockComponent.h"
 #include "Components/Abilities/Enemy/AreaDamageAbilityComponent.h"
+#include "Components/Abilities/Enemy/ChargeAbilityComponent.h"
 
 void UTankCombatState::InitializeCombatActions(ABaseEnemy* Enemy)
 {
@@ -10,6 +11,7 @@ void UTankCombatState::InitializeCombatActions(ABaseEnemy* Enemy)
     AddCombatAction(TEXT("Smash"), 3.0f, 2.5f, 0.0f, 250.0f);      // Primary attack - matches SmashAbility range
     AddCombatAction(TEXT("Block"), 2.0f, 1.5f, 0.0f, 500.0f);      // Defensive stance
     AddCombatAction(TEXT("GroundSlam"), 1.0f, 5.0f, 0.0f, 300.0f); // AoE attack - matches area radius
+    AddCombatAction(TEXT("Charge"), 2.5f, 5.0f, 300.0f, 1500.0f);  // Charge when player is far away
 }
 
 void UTankCombatState::ExecuteCombatAction(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine, const FString& ActionName)
@@ -33,6 +35,11 @@ void UTankCombatState::ExecuteCombatAction(ABaseEnemy* Enemy, UEnemyStateMachine
     {
         ExecuteGroundSlam(Tank);
         StartAbilityCooldown(Enemy, TEXT("GroundSlam"), 5.0f);
+    }
+    else if (ActionName == TEXT("Charge"))
+    {
+        ExecuteCharge(Tank);
+        StartAbilityCooldown(Enemy, TEXT("Charge"), 5.0f);
     }
 }
 
@@ -85,5 +92,23 @@ void UTankCombatState::ExecuteGroundSlam(ABaseEnemy* Enemy)
         StartAbilityCooldown(Enemy, TEXT("Block"), 2.0f);
         
         UE_LOG(LogTemp, Warning, TEXT("Tank GroundSlam: Executed area damage attack - Staggered for 1.5s"));
+    }
+}
+
+void UTankCombatState::ExecuteCharge(ABaseEnemy* Enemy)
+{
+    ATankEnemy* Tank = Cast<ATankEnemy>(Enemy);
+    if (!Tank) return;
+    
+    if (UChargeAbilityComponent* ChargeAbility = Tank->FindComponentByClass<UChargeAbilityComponent>())
+    {
+        ChargeAbility->Execute();
+        
+        // Tank cannot perform other actions during charge
+        StartAbilityCooldown(Enemy, TEXT("Smash"), 3.0f);
+        StartAbilityCooldown(Enemy, TEXT("Block"), 3.0f);
+        StartAbilityCooldown(Enemy, TEXT("GroundSlam"), 3.0f);
+        
+        UE_LOG(LogTemp, Warning, TEXT("Tank Charge: Initiating charge towards player!"));
     }
 }

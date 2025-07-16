@@ -208,8 +208,10 @@ TestCombo <name>       - Test specific combo
 |------|--------|----------|---------|
 | **Hacker Scout** | 50 | Ranged attacks | Mindmeld (1 WP/sec) |
 | **Combat Drone** | 75 | Aggressive melee | High mobility |
-| **Tank Unit** | 150 | Defensive | 50% damage reduction |
+| **Tank Unit** | 150 | Defensive + Charge | Heat aura (5 WP/sec) + Charge ability |
 | **Agile Assassin** | 75 | Assassin approach | Backstab (2x damage + 1.5s stagger) |
+| **Standard Soldier** | 100 | Basic melee | Builder component for psi-disruptor |
+| **Mind Melder** | 75 | Long-range caster | 30s mindmeld (instant 0 WP) |
 
 ### AI Behaviors
 - **Detection**: 2500 unit sight range
@@ -218,12 +220,34 @@ TestCombo <name>       - Test specific combo
 - **Special**: Mindmeld maintains WP pressure
 
 ### Agile Assassin Details
-- **Pattern**: Maintain 450-550 distance → Dash at 600 range → Backstab → 3s retreat
+- **Pattern**: Maintain 450-550 distance → Dash at 600 range → Backstab → 6s retreat
 - **Abilities**:
-  - **StabAttack**: Basic cone melee attack (15 damage, 150 range, 45° angle)
+  - **StabAttack**: Basic cone melee attack (15 damage, 150 range, 45° angle, 0.5s stagger)
   - **AssassinApproach**: Dash behind + backstab (2x damage, 1.5s stagger)
 - **Aggressive**: Forces attack after 5 seconds if dash on cooldown
 - **Configurable**: All combat parameters exposed in editor
+
+### Tank Unit Details
+- **Pattern**: Slow approach → Ground slam/charge based on distance
+- **Abilities**:
+  - **Heat Aura**: Passive 300 radius aura draining 5 WP/sec from all nearby
+  - **Charge**: 300-1500 range dash dealing knockback damage
+  - **Ground Slam**: AoE attack with knockback and stagger
+- **Tanky**: 150 health, slow movement (300 units/s), heavy mass
+
+### Standard Soldier Details
+- **Pattern**: Basic chase → Sword attack → Coordinate building when alerted
+- **Abilities**:
+  - **Sword Attack**: Wide cone melee (20 damage, 180 range, 60° angle)
+  - **Builder Component**: Can build psi-disruptor with 2+ soldiers
+- **Psi-Disruptor**: 20s build time, disables dash/jump/wallrun in 2000 radius
+
+### Mind Melder Details
+- **Pattern**: Maintain 2000+ distance → Channel mindmeld → Retreat when damaged
+- **Abilities**:
+  - **Powerful Mindmeld**: 30s channel, drops player WP to 0 instantly
+  - **Warning System**: Player notified of location and countdown
+- **Fragile**: 75 health, interrupts on damage or close proximity (300 units)
 
 ## 🎨 Visual & Audio Design
 
@@ -317,7 +341,13 @@ A centralized system for managing all actor states:
 4. **Result**: More forgiving targeting while maintaining skill requirement
 
 ### 4. Enemy System Expansion
-**New Enemy Types** (Planned):
+**Implemented Enemy Types** ✅:
+- **Tank Unit**: Heat aura + charge ability
+- **Standard Soldier**: Builder component for psi-disruptor
+- **Mind Melder**: 30s instant-kill mindmeld
+- **Agile Assassin**: Enhanced with 6s retreat and stab stagger
+
+**Future Enemy Types** (Planned):
 - **Virus**: Spreads corruption, area denial
 - **Firewall**: Tank variant with shields
 - **Script Kiddie**: Summons minions
@@ -337,10 +367,13 @@ A centralized system for managing all actor states:
 - WP corruption system
 - Ultimate/sacrifice mechanics
 - Combo system (2 combos)
-- Enemy AI basics
+- Enemy AI system (8 enemy types)
 - Death conditions
 - Performance optimizations
 - Data-driven architecture
+- StatusEffectComponent system
+- Psi-disruptor builder mechanics
+- Enemy ability components
 
 ### In Development 🔄
 - Additional combos

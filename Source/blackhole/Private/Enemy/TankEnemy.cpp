@@ -1,6 +1,8 @@
 #include "Enemy/TankEnemy.h"
 #include "Components/Abilities/Enemy/AreaDamageAbilityComponent.h"
 #include "Components/Abilities/Enemy/BlockComponent.h"
+#include "Components/Abilities/Enemy/HeatAuraComponent.h"
+#include "Components/Abilities/Enemy/ChargeAbilityComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -16,6 +18,8 @@ ATankEnemy::ATankEnemy()
 	// Only create the abilities this enemy type should have
 	AreaDamageAbility = CreateDefaultSubobject<UAreaDamageAbilityComponent>(TEXT("AreaDamageAbility"));
 	BlockAbility = CreateDefaultSubobject<UBlockComponent>(TEXT("BlockAbility"));
+	HeatAuraAbility = CreateDefaultSubobject<UHeatAuraComponent>(TEXT("HeatAuraAbility"));
+	ChargeAbility = CreateDefaultSubobject<UChargeAbilityComponent>(TEXT("ChargeAbility"));
 	// NO DodgeAbility - this enemy cannot dodge!
 
 	AttackRange = 200.0f; // Increased attack range
@@ -36,6 +40,27 @@ ATankEnemy::ATankEnemy()
 		AreaDamageAbility->CustomAbilityName = "Ground Slam";
 		AreaDamageAbility->SetCooldown(5.0f);
 		AreaDamageAbility->PreDamageDelay = 0.5f;
+	}
+	
+	// Configure heat aura
+	if (HeatAuraAbility)
+	{
+		HeatAuraAbility->DamagePerSecond = 5.0f;
+		HeatAuraAbility->AuraRadius = 300.0f;
+		HeatAuraAbility->TickInterval = 1.0f;
+		HeatAuraAbility->bAffectsEnemies = true; // Tank's heat affects other enemies too
+	}
+	
+	// Configure charge ability
+	if (ChargeAbility)
+	{
+		ChargeAbility->ChargeSpeed = 1200.0f;
+		ChargeAbility->ChargeDistance = 1000.0f;
+		ChargeAbility->ImpactDamage = 30.0f;
+		ChargeAbility->ImpactRadius = 200.0f;
+		ChargeAbility->KnockbackForce = 800.0f;
+		ChargeAbility->MinChargeDistance = 300.0f;
+		ChargeAbility->SetCooldown(5.0f);
 	}
 
 	// Configure tank movement settings - heavy and slow

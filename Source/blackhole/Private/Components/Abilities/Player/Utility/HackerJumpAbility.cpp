@@ -51,6 +51,13 @@ void UHackerJumpAbility::BeginPlay()
 
 bool UHackerJumpAbility::CanExecute() const
 {
+	// CRITICAL: Check if ability is disabled (e.g., by PsiDisruptor)
+	if (bIsDisabled)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("HackerJump: Cannot execute - ability is DISABLED"));
+		return false;
+	}
+	
 	// Don't check additional resource requirements for jumps
 	if (!GetCharacterOwner() || !CachedMovement)
 	{

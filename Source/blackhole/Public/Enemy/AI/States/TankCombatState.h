@@ -17,4 +17,5 @@ private:
     void ExecuteSmashAttack(ABaseEnemy* Enemy);
     void ExecuteBlockStance(ABaseEnemy* Enemy);
     void ExecuteGroundSlam(ABaseEnemy* Enemy);
+    void ExecuteCharge(ABaseEnemy* Enemy);
 };

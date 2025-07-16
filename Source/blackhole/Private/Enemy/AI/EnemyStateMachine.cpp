@@ -269,7 +269,18 @@ void UEnemyStateMachine::ChangeState(EEnemyState NewState)
     {
         SetComponentTickEnabled(false);
         CurrentStateObject = nullptr;
-        UE_LOG(LogTemp, Warning, TEXT("%s: Entered Dead state - tick disabled"), *OwnerEnemy->GetName());
+        
+        // Clear all timers
+        if (GetWorld())
+        {
+            GetWorld()->GetTimerManager().ClearTimer(LineOfSightTimer);
+            GetWorld()->GetTimerManager().ClearAllTimersForObject(this);
+        }
+        
+        // Clear target reference
+        Target = nullptr;
+        
+        UE_LOG(LogTemp, Warning, TEXT("%s: Entered Dead state - all functionality disabled"), *OwnerEnemy->GetName());
     }
     else
     {

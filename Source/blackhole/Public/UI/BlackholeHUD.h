@@ -192,6 +192,25 @@ protected:
 	
 	UFUNCTION()
 	void OnCriticalTimerExpired();
+	
+	// Notification System
+	UFUNCTION()
+	void OnPsiDisruptorBuildStarted(const FVector& BuildLocation);
+	
+	UFUNCTION()
+	void OnPsiDisruptorBuildComplete();
+	
+	UFUNCTION()
+	void OnMindmeldStarted(float CastTime, AActor* Caster = nullptr);
+	
+	UFUNCTION()
+	void OnMindmeldComplete();
+	
+	UFUNCTION()
+	void OnMindmeldInterrupted();
+	
+	// General notification system
+	void AddNotification(const FString& Message, const FColor& Color, float Duration = 5.0f);
 
 private:
 	AActor* GetTargetedActor() const;
@@ -222,4 +241,31 @@ private:
 	TCHAR TargetTextBuffer[128];
 	TCHAR CooldownTextBuffer[32];
 	TCHAR DebugTextBuffer[256];
+	
+	// Notification system
+	struct FNotification
+	{
+		FString Message;
+		FColor Color;
+		float TimeRemaining;
+		float TotalDuration;
+	};
+	
+	TArray<FNotification> ActiveNotifications;
+	
+	// Progress tracking for enemy abilities
+	float PsiDisruptorBuildProgress = 0.0f;
+	float PsiDisruptorBuildTime = 20.0f;
+	bool bShowingPsiDisruptorProgress = false;
+	FVector PsiDisruptorLocation;
+	
+	float MindmeldProgress = 0.0f;
+	float MindmeldCastTime = 30.0f;
+	bool bShowingMindmeldProgress = false;
+	AActor* MindmeldCaster = nullptr;
+	
+	// Helper methods
+	void UpdateNotifications(float DeltaTime);
+	void DrawNotifications();
+	void DrawEnemyAbilityProgress();
 };

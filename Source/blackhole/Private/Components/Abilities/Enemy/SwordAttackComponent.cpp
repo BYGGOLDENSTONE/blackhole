@@ -1,20 +1,19 @@
-#include "Components/Abilities/Enemy/StabAttackComponent.h"
+#include "Components/Abilities/Enemy/SwordAttackComponent.h"
 #include "Enemy/BaseEnemy.h"
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Engine/DamageEvents.h"
-#include "Components/StatusEffectComponent.h"
 
-UStabAttackComponent::UStabAttackComponent()
+USwordAttackComponent::USwordAttackComponent()
 {
-	Cooldown = 1.0f; // Base cooldown, modified by attack speed
-	Range = 150.0f;
+	Cooldown = 1.5f; // Slightly slower than stab
+	Range = 180.0f;
 	WPCost = 0.0f; // Basic attack has no cost
 	bIsBasicAbility = true; // This is a basic ability
 }
 
-void UStabAttackComponent::BeginPlay()
+void USwordAttackComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	
@@ -24,11 +23,11 @@ void UStabAttackComponent::BeginPlay()
 	// Adjust cooldown based on attack speed
 	if (AttackSpeed > 0.0f)
 	{
-		Cooldown = 1.0f / AttackSpeed;
+		Cooldown = 1.5f / AttackSpeed;
 	}
 }
 
-void UStabAttackComponent::Execute()
+void USwordAttackComponent::Execute()
 {
 	if (!CanExecute())
 	{
@@ -36,10 +35,10 @@ void UStabAttackComponent::Execute()
 	}
 	
 	Super::Execute();
-	PerformStabAttack();
+	PerformSwordAttack();
 }
 
-void UStabAttackComponent::PerformStabAttack()
+void USwordAttackComponent::PerformSwordAttack()
 {
 	if (!GetOwner()) return;
 	
@@ -74,16 +73,7 @@ void UStabAttackComponent::PerformStabAttack()
 					FPointDamageEvent DamageEvent(BaseDamage, Hit, ForwardVector, nullptr);
 					HitActor->TakeDamage(BaseDamage, DamageEvent, nullptr, Owner);
 					
-					// Apply stagger if duration is set
-					if (StaggerDuration > 0.0f)
-					{
-						if (UStatusEffectComponent* StatusEffect = HitActor->FindComponentByClass<UStatusEffectComponent>())
-						{
-							StatusEffect->ApplyStatusEffect(EStatusEffectType::Stagger, StaggerDuration, 1.0f);
-						}
-					}
-					
-					UE_LOG(LogTemp, Warning, TEXT("StabAttack: Dealt %.0f damage to %s"), BaseDamage, *HitActor->GetName());
+					UE_LOG(LogTemp, Warning, TEXT("SwordAttack: Dealt %.0f damage to %s"), BaseDamage, *HitActor->GetName());
 				}
 			}
 		}
@@ -93,6 +83,6 @@ void UStabAttackComponent::PerformStabAttack()
 	// Debug visualization
 	DrawDebugCone(GetWorld(), StartLocation, ForwardVector, AttackRange, 
 		FMath::DegreesToRadians(AttackAngle), FMath::DegreesToRadians(AttackAngle), 
-		12, FColor::Red, false, 1.0f);
+		12, FColor::Yellow, false, 1.0f);
 	#endif
 }
