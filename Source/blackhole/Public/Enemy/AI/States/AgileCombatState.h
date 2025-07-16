@@ -61,4 +61,8 @@ private:
     float CircleStrafeDirection = 1.0f; // 1 or -1 for left/right
     float TimeSinceDirectionChange = 0.0f;
     void UpdateCircleStrafe(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine, float DeltaTime);
+    
+    // Force attack timer
+    float TimeInMaintainPhase = 0.0f;
+    const float MaxMaintainTime = 5.0f; // Force attack after 5 seconds
 };

@@ -26,7 +26,7 @@ void UAgileChaseState::Update(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachin
     bool bDashOnCooldown = IsAbilityOnCooldown(Enemy, TEXT("DashAttack"));
     
     // Only transition to combat when dash is ready AND we're in dash range
-    if (!bDashOnCooldown && DistanceToTarget <= 500.0f)
+    if (!bDashOnCooldown && DistanceToTarget <= 600.0f) // Increased range for more aggressive behavior
     {
         StateMachine->ChangeState(EEnemyState::Combat);
         return;

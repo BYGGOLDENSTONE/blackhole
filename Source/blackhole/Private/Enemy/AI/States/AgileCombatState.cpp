@@ -137,9 +137,9 @@ void UAgileCombatState::ExecuteDashAttack(ABaseEnemy* Enemy, UEnemyStateMachine*
     AAgileEnemy* Agile = Cast<AAgileEnemy>(Enemy);
     float BehindDistance = Agile ? Agile->DashBehindDistance : 250.0f;
     
-    // Overshoot past the player's position
+    // Overshoot past the player's position - but not too far
     float DistanceToTarget = FVector::Dist(EnemyLocation, PredictedTargetLocation);
-    float DashDistance = DistanceToTarget + BehindDistance; // Go past the player
+    float DashDistance = DistanceToTarget + 150.0f; // Reduced overshoot for better hit detection
     
     FVector DashTarget = EnemyLocation + (DirectionToTarget * DashDistance);
     
@@ -183,12 +183,22 @@ void UAgileCombatState::ExecuteDashAttack(ABaseEnemy* Enemy, UEnemyStateMachine*
                         // Get agile enemy for configuration
                         AAgileEnemy* AgileEnemy = Cast<AAgileEnemy>(WeakEnemy.Get());
                         
+                        // Temporarily use area damage for backstab to ensure hit
+                        bool bOriginalAreaDamage = SmashAbility->bIsAreaDamage;
+                        float OriginalRadius = SmashAbility->GetAreaRadius();
+                        SmashAbility->SetAreaDamage(true);
+                        SmashAbility->SetAreaRadius(200.0f); // Small radius to hit player behind us
+                        
                         // Backstab does increased damage
                         float OriginalDamage = SmashAbility->GetDamage();
                         float DamageMultiplier = AgileEnemy ? AgileEnemy->BackstabDamageMultiplier : 2.0f;
                         SmashAbility->SetDamage(OriginalDamage * DamageMultiplier); // Configurable backstab damage
                         SmashAbility->Execute();
-                        SmashAbility->SetDamage(OriginalDamage); // Reset damage
+                        
+                        // Reset all values
+                        SmashAbility->SetDamage(OriginalDamage);
+                        SmashAbility->SetAreaDamage(bOriginalAreaDamage);
+                        SmashAbility->SetAreaRadius(OriginalRadius);
                         
                         // Apply stagger to player on backstab hit
                         if (ABlackholePlayerCharacter* Player = Cast<ABlackholePlayerCharacter>(WeakTarget.Get()))
@@ -232,8 +242,8 @@ void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMac
     {
         case EAgileCombatPhase::Approaching:
         {
-            // Maintain distance until dash is ready
-            if (!bDashOnCooldown)
+            // If dash is ready and we're in range - ATTACK!
+            if (!bDashOnCooldown && DistanceToTarget <= 600.0f) // Increased dash range
             {
                 // Dash is ready - execute assassin approach
                 CurrentPhase = EAgileCombatPhase::DashAttack;
@@ -243,11 +253,19 @@ void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMac
                 float DashCD = Agile ? Agile->DashCooldown : 3.0f;
                 StartAbilityCooldown(Enemy, TEXT("DashAttack"), DashCD);
                 
-                UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Executing Assassin Approach!"));
+                UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Executing Assassin Approach from %.0f units!"), DistanceToTarget);
+            }
+            else if (!bDashOnCooldown && DistanceToTarget > 600.0f)
+            {
+                // Dash ready but too far - move closer aggressively
+                if (AAIController* AIController = Cast<AAIController>(Enemy->GetController()))
+                {
+                    AIController->MoveToActor(Target, 500.0f);
+                }
             }
             else
             {
-                // Maintain optimal distance - never walk close
+                // Dash on cooldown - maintain distance
                 if (DistanceToTarget < 400.0f)
                 {
                     // Too close - back away
@@ -303,6 +321,7 @@ void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMac
             {
                 CurrentPhase = EAgileCombatPhase::Maintaining;
                 TimeInCurrentPhase = 0.0f;
+                TimeInMaintainPhase = 0.0f; // Reset maintain timer
                 
                 // Reset to normal speed
                 if (Agile)
@@ -339,15 +358,28 @@ void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMac
         
         case EAgileCombatPhase::Maintaining:
         {
-            // Keep distance until dash is ready
-            if (!bDashOnCooldown)
+            // Track time in maintain phase
+            TimeInMaintainPhase += DeltaTime;
+            
+            // Force attack after 5 seconds OR when dash is ready
+            bool bForceAttack = TimeInMaintainPhase >= MaxMaintainTime;
+            
+            if (!bDashOnCooldown || bForceAttack)
             {
-                // Dash is ready - go back to approaching
+                // Dash is ready or we've waited too long - attack now!
                 CurrentPhase = EAgileCombatPhase::Approaching;
                 TimeInCurrentPhase = 0.0f;
+                TimeInMaintainPhase = 0.0f;
                 bHasExecutedBackstab = false;
                 
-                UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Dash ready, beginning new approach"));
+                if (bForceAttack)
+                {
+                    UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Forcing attack after %.1f seconds!"), MaxMaintainTime);
+                }
+                else
+                {
+                    UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Dash ready, beginning new approach"));
+                }
             }
             else
             {

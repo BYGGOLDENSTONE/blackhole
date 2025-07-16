@@ -28,8 +28,8 @@ AAgileEnemy::AAgileEnemy()
 	DashCooldown = 2.0f; // More frequent dashes (was 3.0)
 	DashBehindDistance = 250.0f; // Distance behind player after dash
 	BackstabStaggerDuration = 1.5f; // Player stagger duration on backstab hit
-	MaintainDistanceMin = 650.0f; // Minimum distance to maintain from player
-	MaintainDistanceMax = 750.0f; // Maximum distance to maintain from player
+	MaintainDistanceMin = 450.0f; // Closer minimum distance for more aggression
+	MaintainDistanceMax = 550.0f; // Closer maximum distance for more aggression
 	BackstabDamageMultiplier = 2.0f; // Double damage for backstab
 	RetreatDuration = 3.0f; // How long to retreat after backstab
 	
