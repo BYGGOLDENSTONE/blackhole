@@ -340,14 +340,6 @@ void ABlackholePlayerCharacter::Move(const FInputActionValue& Value)
 	// input is a Vector2D
 	FVector2D MovementVector = Value.Get<FVector2D>();
 
-	// Check if we're wall running - if so, don't process movement input normally
-	if (WallRunComponent && WallRunComponent->IsWallRunning())
-	{
-		// During wall run, movement is handled by WallRunComponent
-		// We don't want to add movement input that would interfere with wall run direction
-		return;
-	}
-
 	if (Controller != nullptr)
 	{
 		// find out which way is forward
@@ -363,6 +355,9 @@ void ABlackholePlayerCharacter::Move(const FInputActionValue& Value)
 		// add movement 
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
+		
+		// Note: Wall run component will override velocity when active
+		// We still need to process input so HasForwardInput() works correctly
 	}
 }
 

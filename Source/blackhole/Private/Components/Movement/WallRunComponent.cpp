@@ -21,8 +21,8 @@ UWallRunComponent::UWallRunComponent()
     PrimaryComponentTick.bCanEverTick = true;
     PrimaryComponentTick.bStartWithTickEnabled = true;
     
-    // Set tick group to post-physics to ensure we override velocity after movement component
-    PrimaryComponentTick.TickGroup = TG_PostPhysics;
+    // Tick during physics to ensure we process after movement input but before other checks
+    PrimaryComponentTick.TickGroup = TG_DuringPhysics;
     
     // Disable debug logs by default (enable only when debugging)
     bShowDebugLogs = false;
@@ -255,12 +255,7 @@ void UWallRunComponent::UpdateWallRunMovement(float DeltaTime)
         return;
     }
     
-    // Clear any accumulated movement input to prevent interference
-    if (MovementComponent)
-    {
-        MovementComponent->ConsumeInputVector();
-    }
-    
+    // Don't consume input here - we need it for HasForwardInput() checks
     ApplyWallRunMovement(DeltaTime);
 }
 
@@ -723,8 +718,11 @@ void UWallRunComponent::ApplyWallRunMovement(float DeltaTime)
     FVector TowardWall = CurrentWallNormal * -50.0f; // Small push toward wall
     WallRunVelocity += TowardWall;
     
-    // Apply velocity - camera direction doesn't affect movement
+    // Apply velocity override - this will replace any velocity from movement input
     MovementComponent->Velocity = WallRunVelocity;
+    
+    // Don't consume input vector here - we need it for HasForwardInput() checks
+    // The velocity override above is sufficient to control movement
 }
 
 void UWallRunComponent::EndWallRun(bool bJumpCancel)
@@ -790,8 +788,9 @@ void UWallRunComponent::RestoreNormalMovement()
         return;
     }
     
-    UE_LOG(LogTemp, Error, TEXT("WallRun: Restoring gravity scale from %.2f to %.2f"), 
-        MovementComponent->GravityScale, OriginalGravityScale);
+    // Remove verbose logs - these are normal operations, not errors
+    // UE_LOG(LogTemp, Warning, TEXT("WallRun: Restoring gravity scale from %.2f to %.2f"), 
+    //     MovementComponent->GravityScale, OriginalGravityScale);
     
     // Restore gravity
     MovementComponent->GravityScale = OriginalGravityScale;
@@ -801,7 +800,7 @@ void UWallRunComponent::RestoreNormalMovement()
     
     // Set to falling mode to allow the launch to work properly
     MovementComponent->SetMovementMode(MOVE_Falling);
-    UE_LOG(LogTemp, Error, TEXT("WallRun: Gravity restored, movement mode set to FALLING for jump"));
+    // UE_LOG(LogTemp, Warning, TEXT("WallRun: Gravity restored, movement mode set to FALLING for jump"));
     
     // If player had high speed (from dash), gradually reduce speed instead of immediate stop
     if (CurrentWallRunSpeed > Settings.WallRunSpeed * 1.5f)
