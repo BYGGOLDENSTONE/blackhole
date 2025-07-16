@@ -1,7 +1,7 @@
 #include "Enemy/AI/AgileEnemyStateMachine.h"
 #include "Enemy/AI/States/IdleState.h"
 #include "Enemy/AI/States/AlertState.h"
-#include "Enemy/AI/States/ChaseState.h"
+#include "Enemy/AI/States/AgileChaseState.h"
 #include "Enemy/AI/States/AgileCombatState.h"
 #include "Enemy/AgileEnemy.h"
 #include "Config/GameplayConfig.h"
@@ -41,7 +41,7 @@ void UAgileEnemyStateMachine::CreateDefaultStates()
     // Create states
     UIdleState* IdleState = NewObject<UIdleState>(this, UIdleState::StaticClass());
     UAlertState* AlertState = NewObject<UAlertState>(this, UAlertState::StaticClass());
-    UChaseState* ChaseState = NewObject<UChaseState>(this, UChaseState::StaticClass());
+    UAgileChaseState* ChaseState = NewObject<UAgileChaseState>(this, UAgileChaseState::StaticClass());
     UAgileCombatState* CombatState = NewObject<UAgileCombatState>(this, UAgileCombatState::StaticClass());
     // No retreat state for agile enemies - they never retreat
     
@@ -77,12 +77,12 @@ void UAgileEnemyStateMachine::SetupAgileParameters()
     AgileParams.AttackRange = AttackRange;         // Use configurable attack range
     AgileParams.ChaseRange = 3000.0f;              // Very persistent chaser
     AgileParams.SightRange = GameplayConfig::Enemy::DETECTION_RANGE;              
-    AgileParams.PreferredCombatDistance = 100.0f;  // Get very close
+    AgileParams.PreferredCombatDistance = 500.0f;  // Dash attack range
     
     // Timing parameters
     AgileParams.ReactionTime = 0.2f;               // Very fast reactions
     AgileParams.SearchDuration = 8.0f;             // Persistent searcher
-    AgileParams.MaxTimeInCombat = 8.0f;            // Hit and run style
+    AgileParams.MaxTimeInCombat = 999.0f;          // Stay in combat for assassin pattern
     AgileParams.PatrolWaitTime = 1.5f;             // Restless
     
     // Combat parameters

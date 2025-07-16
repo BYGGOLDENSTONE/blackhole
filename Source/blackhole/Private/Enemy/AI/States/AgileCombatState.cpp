@@ -9,6 +9,7 @@
 #include "TimerManager.h"
 #include "NavigationSystem.h"
 #include "Engine/Engine.h"
+#include "Navigation/PathFollowingComponent.h"
 
 void UAgileCombatState::Enter(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine)
 {
@@ -54,38 +55,15 @@ void UAgileCombatState::Update(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachi
 
 void UAgileCombatState::InitializeCombatActions(ABaseEnemy* Enemy)
 {
-    // We don't use the automatic combat action system for assassin behavior
-    // Actions are manually triggered based on combat phase
-    // Keep empty to prevent base class from selecting actions
+    // Add a dummy action to prevent base class from transitioning to Chase
+    // This action will never be executed (we handle everything in UpdateAssassinBehavior)
+    AddCombatAction(TEXT("AssassinPattern"), 1.0f, 0.1f, 0.0f, 10000.0f);
 }
 
 void UAgileCombatState::ExecuteCombatAction(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine, const FString& ActionName)
 {
-    if (!Enemy) return;
-    
-    AAgileEnemy* Agile = Cast<AAgileEnemy>(Enemy);
-    if (!Agile) return;
-    
-    if (ActionName == TEXT("QuickStrike"))
-    {
-        ExecuteQuickStrike(Agile);
-        float AttackCooldown = Agile ? (1.5f / Agile->AttackSpeedMultiplier) : 1.5f;
-        StartAbilityCooldown(Enemy, TEXT("QuickStrike"), AttackCooldown);
-        bLastActionWasDodge = false;
-    }
-    else if (ActionName == TEXT("Dodge"))
-    {
-        ExecuteDodgeManeuver(Agile, StateMachine);
-        StartAbilityCooldown(Enemy, TEXT("Dodge"), 1.0f);
-        bLastActionWasDodge = true;
-    }
-    else if (ActionName == TEXT("DashAttack"))
-    {
-        ExecuteDashAttack(Agile, StateMachine);
-        // Use agile enemy's configurable dash cooldown
-        StartAbilityCooldown(Enemy, TEXT("DashAttack"), Agile->DashCooldown);
-        bLastActionWasDodge = false;
-    }
+    // Do nothing - all combat is handled in UpdateAssassinBehavior
+    // This prevents the base class from executing actions
 }
 
 void UAgileCombatState::ExecuteQuickStrike(ABaseEnemy* Enemy)
@@ -199,7 +177,7 @@ void UAgileCombatState::ExecuteDashAttack(ABaseEnemy* Enemy, UEnemyStateMachine*
                         SmashAbility->Execute();
                         SmashAbility->SetDamage(OriginalDamage); // Reset damage
                         
-                        UE_LOG(LogTemp, Warning, TEXT("Agile DashAttack: Executed backstab for %.0f damage!"), OriginalDamage * 2.0f);
+                        UE_LOG(LogTemp, Warning, TEXT("Agile DashAttack: Executed backstab! Base: %.0f -> Backstab: %.0f damage"), OriginalDamage, OriginalDamage * 2.0f);
                     }
                 }
             }, 0.3f, false);
@@ -279,15 +257,34 @@ void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMac
                 CurrentPhase = EAgileCombatPhase::Maintaining;
                 TimeInCurrentPhase = 0.0f;
                 
+                // Reset to normal speed
+                if (AAgileEnemy* Agile = Cast<AAgileEnemy>(Enemy))
+                {
+                    Enemy->GetCharacterMovement()->MaxWalkSpeed = Agile->MovementSpeed;
+                }
+                
                 UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Reached safe distance, maintaining position"));
             }
             else
             {
-                // Move away from player
+                // Move away from player with urgency
                 FVector RetreatPos = GetRetreatPosition(Enemy, StateMachine);
                 if (AAIController* AIController = Cast<AAIController>(Enemy->GetController()))
                 {
-                    AIController->MoveToLocation(RetreatPos, 50.0f);
+                    // Stop current movement first
+                    AIController->StopMovement();
+                    
+                    // Move to retreat position with higher priority
+                    FAIMoveRequest MoveRequest(RetreatPos);
+                    MoveRequest.SetAcceptanceRadius(30.0f);
+                    MoveRequest.SetUsePathfinding(true);
+                    AIController->MoveTo(MoveRequest);
+                    
+                    // Apply speed boost during retreat
+                    if (AAgileEnemy* Agile = Cast<AAgileEnemy>(Enemy))
+                    {
+                        Enemy->GetCharacterMovement()->MaxWalkSpeed = Agile->MovementSpeed * 1.2f; // 20% faster retreat
+                    }
                 }
                 
                 // Face the player while retreating
