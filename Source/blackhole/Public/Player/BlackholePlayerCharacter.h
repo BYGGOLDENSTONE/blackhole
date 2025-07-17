@@ -116,20 +116,7 @@ protected:
 	float BrakingDeceleration = 800.0f;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement Settings", meta = (DisplayName = "Max Walk Speed", ClampMin = "100.0", ClampMax = "1000.0"))
-	float MaxWalkSpeed = 300.0f; // Default to walk speed, not run speed
-	
-	// Walk/Run System
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement Settings", meta = (DisplayName = "Walk Speed"))
-	float WalkSpeed = 300.0f;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement Settings", meta = (DisplayName = "Run Speed"))
-	float RunSpeed = 600.0f;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement Settings", meta = (DisplayName = "Double Tap Window"))
-	float DoubleTapWindow = 1.0f;
-	
-	UPROPERTY(BlueprintReadOnly, Category = "Movement Settings")
-	bool bIsRunning = false;
+	float MaxWalkSpeed = 600.0f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
 	UWillPowerComponent* WillPowerComponent;
@@ -224,9 +211,6 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* MenuToggleAction;  // Quote key for menu
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* WalkRunToggleAction;  // For double-tap detection
 
 	// Path-based ability slots (6 total)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
@@ -295,14 +279,6 @@ private:
 	
 	// Death state
 	bool bIsDead = false;
-	
-	// Walk/Run System
-	float LastWKeyPressTime = -10.0f; // Initialize to negative to prevent false double-tap on first press
-	bool bWKeyPressed = false;
-	void HandleWKeyPress();
-	void HandleWKeyRelease();
-	void SetMovementSpeed(bool bRun);
-	void ResetDoubleTapState(); // Kept for compatibility but no longer used
 	
 	// Combo tracking (legacy - will be replaced by ComboDetectionSubsystem)
 	enum class ELastAbilityUsed : uint8

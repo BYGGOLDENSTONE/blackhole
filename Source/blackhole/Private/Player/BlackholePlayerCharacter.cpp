@@ -33,7 +33,6 @@
 #include "Components/Abilities/AbilityComponent.h"
 #include "Components/Movement/WallRunComponent.h"
 #include "Components/StatusEffectComponent.h"
-#include "TimerManager.h"
 #include "Config/GameplayConfig.h"
 #include "Engine/World.h"
 
@@ -176,12 +175,6 @@ void ABlackholePlayerCharacter::BeginPlay()
 		ResourceMgr->OnWPDepleted.AddDynamic(this, &ABlackholePlayerCharacter::OnWPDepleted);
 	}
 	
-	// Initialize movement speed to walk speed
-	bIsRunning = false;
-	SetMovementSpeed(false);
-	
-	// Initialize double-tap timing
-	LastWKeyPressTime = -10.0f;
 	
 }
 
@@ -355,27 +348,6 @@ void ABlackholePlayerCharacter::Move(const FInputActionValue& Value)
 	
 	// input is a Vector2D
 	FVector2D MovementVector = Value.Get<FVector2D>();
-	
-	// Check for W key press (forward movement)
-	if (MovementVector.Y > 0.0f)
-	{
-		if (!bWKeyPressed)
-		{
-			bWKeyPressed = true;
-			UE_LOG(LogTemp, Warning, TEXT("W key pressed - calling HandleWKeyPress"));
-			HandleWKeyPress();
-		}
-	}
-	else if (MovementVector.Y <= 0.0f)
-	{
-		if (bWKeyPressed)
-		{
-			bWKeyPressed = false;
-			UE_LOG(LogTemp, Warning, TEXT("W key released - calling HandleWKeyRelease"));
-			HandleWKeyRelease();
-		}
-	}
-
 	if (Controller != nullptr)
 	{
 		// find out which way is forward
@@ -888,8 +860,7 @@ void ABlackholePlayerCharacter::UpdateMovementSettings()
 	{
 		Movement->GroundFriction = GroundFriction;
 		Movement->BrakingDecelerationWalking = BrakingDeceleration;
-		// Don't override MaxWalkSpeed here - it's managed by the walk/run system
-		// Movement->MaxWalkSpeed = MaxWalkSpeed;
+		Movement->MaxWalkSpeed = MaxWalkSpeed;
 		
 		// Apply momentum preservation settings
 		Movement->BrakingDecelerationFalling = 0.0f;
@@ -900,8 +871,8 @@ void ABlackholePlayerCharacter::UpdateMovementSettings()
 		Movement->MaxAcceleration = 1200.0f;
 		Movement->MinAnalogWalkSpeed = 20.0f;
 		
-		UE_LOG(LogTemp, Warning, TEXT("Movement settings updated - Friction: %.2f, Deceleration: %.2f"), 
-			GroundFriction, BrakingDeceleration);
+		UE_LOG(LogTemp, Warning, TEXT("Movement settings updated - Friction: %.2f, Deceleration: %.2f, MaxSpeed: %.2f"), 
+			GroundFriction, BrakingDeceleration, MaxWalkSpeed);
 	}
 }
 
@@ -1143,56 +1114,4 @@ bool ABlackholePlayerCharacter::IsStaggered() const
 	return false;
 }
 
-void ABlackholePlayerCharacter::HandleWKeyPress()
-{
-	float CurrentTime = GetWorld()->GetTimeSeconds();
-	float TimeSinceLastPress = CurrentTime - LastWKeyPressTime;
-	
-	UE_LOG(LogTemp, Warning, TEXT("HandleWKeyPress - TimeSinceLastPress: %.2f, DoubleTapWindow: %.2f"), 
-		TimeSinceLastPress, DoubleTapWindow);
-	
-	// Simple double-tap detection: if pressed twice within the window
-	if (TimeSinceLastPress <= DoubleTapWindow && TimeSinceLastPress > 0.1f) // 0.1f to avoid instant re-triggers
-	{
-		// This is a valid double tap!
-		bIsRunning = !bIsRunning;
-		SetMovementSpeed(bIsRunning);
-		
-		// Reset timing to prevent triple-tap
-		LastWKeyPressTime = -10.0f;
-		
-		UE_LOG(LogTemp, Warning, TEXT("Double tap detected! Running: %s"), bIsRunning ? TEXT("ON") : TEXT("OFF"));
-	}
-	else
-	{
-		// Record this press time for next comparison
-		LastWKeyPressTime = CurrentTime;
-		
-		UE_LOG(LogTemp, Warning, TEXT("W key press - recorded for potential double tap"));
-	}
-}
-
-void ABlackholePlayerCharacter::HandleWKeyRelease()
-{
-	// Simple release tracking for debugging
-	UE_LOG(LogTemp, Warning, TEXT("W key released"));
-}
-
-void ABlackholePlayerCharacter::ResetDoubleTapState()
-{
-	// No longer needed with simplified system
-}
-
-void ABlackholePlayerCharacter::SetMovementSpeed(bool bRun)
-{
-	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
-	{
-		float NewSpeed = bRun ? RunSpeed : WalkSpeed;
-		Movement->MaxWalkSpeed = NewSpeed;
-		MaxWalkSpeed = NewSpeed; // Update our stored value
-		
-		UE_LOG(LogTemp, Warning, TEXT("Movement speed set to: %.0f (Running: %s)"), 
-			NewSpeed, bRun ? TEXT("YES") : TEXT("NO"));
-	}
-}
 
