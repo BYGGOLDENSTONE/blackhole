@@ -117,6 +117,19 @@ protected:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement Settings", meta = (DisplayName = "Max Walk Speed", ClampMin = "100.0", ClampMax = "1000.0"))
 	float MaxWalkSpeed = 600.0f;
+	
+	// Walk/Run System
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement Settings", meta = (DisplayName = "Walk Speed"))
+	float WalkSpeed = 300.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement Settings", meta = (DisplayName = "Run Speed"))
+	float RunSpeed = 600.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement Settings", meta = (DisplayName = "Double Tap Window"))
+	float DoubleTapWindow = 1.0f;
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Movement Settings")
+	bool bIsRunning = false;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
 	UWillPowerComponent* WillPowerComponent;
@@ -279,6 +292,12 @@ private:
 	
 	// Death state
 	bool bIsDead = false;
+	
+	// Walk/Run System
+	float LastWKeyPressTime = 0.0f;
+	bool bWKeyPressed = false;
+	void HandleWKeyPress();
+	void SetMovementSpeed(bool bRun);
 	
 	// Combo tracking (legacy - will be replaced by ComboDetectionSubsystem)
 	enum class ELastAbilityUsed : uint8

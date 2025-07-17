@@ -40,7 +40,7 @@ protected:
     
     // Door Settings
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Door Settings", meta = (DisplayName = "Door Height"))
-    float DoorHeight = 300.0f;
+    float DoorHeight = 600.0f; // Doubled from 300 for taller doors
     
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Door Settings", meta = (DisplayName = "Move Speed"))
     float MoveSpeed = 200.0f;

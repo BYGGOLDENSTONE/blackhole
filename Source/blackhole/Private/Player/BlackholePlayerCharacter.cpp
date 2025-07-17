@@ -175,6 +175,10 @@ void ABlackholePlayerCharacter::BeginPlay()
 		ResourceMgr->OnWPDepleted.AddDynamic(this, &ABlackholePlayerCharacter::OnWPDepleted);
 	}
 	
+	// Initialize movement speed to walk speed
+	bIsRunning = false;
+	SetMovementSpeed(false);
+	
 }
 
 void ABlackholePlayerCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -347,6 +351,17 @@ void ABlackholePlayerCharacter::Move(const FInputActionValue& Value)
 	
 	// input is a Vector2D
 	FVector2D MovementVector = Value.Get<FVector2D>();
+	
+	// Check for W key press (forward movement)
+	if (MovementVector.Y > 0.0f && !bWKeyPressed)
+	{
+		bWKeyPressed = true;
+		HandleWKeyPress();
+	}
+	else if (MovementVector.Y <= 0.0f && bWKeyPressed)
+	{
+		bWKeyPressed = false;
+	}
 
 	if (Controller != nullptr)
 	{
@@ -1112,5 +1127,35 @@ bool ABlackholePlayerCharacter::IsStaggered() const
 		return StatusEffectComponent->IsStaggered();
 	}
 	return false;
+}
+
+void ABlackholePlayerCharacter::HandleWKeyPress()
+{
+	float CurrentTime = GetWorld()->GetTimeSeconds();
+	
+	// Check if this is a double tap
+	if (CurrentTime - LastWKeyPressTime <= DoubleTapWindow)
+	{
+		// Double tap detected - toggle run mode
+		bIsRunning = !bIsRunning;
+		SetMovementSpeed(bIsRunning);
+		
+		UE_LOG(LogTemp, Warning, TEXT("Double tap detected! Running: %s"), bIsRunning ? TEXT("ON") : TEXT("OFF"));
+	}
+	
+	LastWKeyPressTime = CurrentTime;
+}
+
+void ABlackholePlayerCharacter::SetMovementSpeed(bool bRun)
+{
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		float NewSpeed = bRun ? RunSpeed : WalkSpeed;
+		Movement->MaxWalkSpeed = NewSpeed;
+		MaxWalkSpeed = NewSpeed; // Update our stored value
+		
+		UE_LOG(LogTemp, Warning, TEXT("Movement speed set to: %.0f (Running: %s)"), 
+			NewSpeed, bRun ? TEXT("YES") : TEXT("NO"));
+	}
 }
 
