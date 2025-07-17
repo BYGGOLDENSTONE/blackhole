@@ -294,10 +294,15 @@ private:
 	bool bIsDead = false;
 	
 	// Walk/Run System
-	float LastWKeyPressTime = 0.0f;
+	float LastWKeyPressTime = -10.0f; // Initialize to negative to prevent false double-tap on first press
+	float LastWKeyReleaseTime = -10.0f;
 	bool bWKeyPressed = false;
+	bool bWaitingForDoubleTap = false;
+	int32 WKeyPressCount = 0;
 	void HandleWKeyPress();
+	void HandleWKeyRelease();
 	void SetMovementSpeed(bool bRun);
+	void ResetDoubleTapState();
 	
 	// Combo tracking (legacy - will be replaced by ComboDetectionSubsystem)
 	enum class ELastAbilityUsed : uint8

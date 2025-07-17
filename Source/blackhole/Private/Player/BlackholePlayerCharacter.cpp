@@ -33,6 +33,7 @@
 #include "Components/Abilities/AbilityComponent.h"
 #include "Components/Movement/WallRunComponent.h"
 #include "Components/StatusEffectComponent.h"
+#include "TimerManager.h"
 #include "Config/GameplayConfig.h"
 #include "Engine/World.h"
 
@@ -178,6 +179,11 @@ void ABlackholePlayerCharacter::BeginPlay()
 	// Initialize movement speed to walk speed
 	bIsRunning = false;
 	SetMovementSpeed(false);
+	
+	// Reset double-tap state
+	ResetDoubleTapState();
+	LastWKeyPressTime = -10.0f;
+	LastWKeyReleaseTime = -10.0f;
 	
 }
 
@@ -361,6 +367,7 @@ void ABlackholePlayerCharacter::Move(const FInputActionValue& Value)
 	else if (MovementVector.Y <= 0.0f && bWKeyPressed)
 	{
 		bWKeyPressed = false;
+		HandleWKeyRelease();
 	}
 
 	if (Controller != nullptr)
@@ -1133,17 +1140,52 @@ void ABlackholePlayerCharacter::HandleWKeyPress()
 {
 	float CurrentTime = GetWorld()->GetTimeSeconds();
 	
-	// Check if this is a double tap
-	if (CurrentTime - LastWKeyPressTime <= DoubleTapWindow)
+	// If we're waiting for a double tap and within the window
+	if (bWaitingForDoubleTap && (CurrentTime - LastWKeyReleaseTime) <= DoubleTapWindow)
 	{
-		// Double tap detected - toggle run mode
+		// This is a valid double tap!
 		bIsRunning = !bIsRunning;
 		SetMovementSpeed(bIsRunning);
 		
+		// Reset double tap state
+		ResetDoubleTapState();
+		
 		UE_LOG(LogTemp, Warning, TEXT("Double tap detected! Running: %s"), bIsRunning ? TEXT("ON") : TEXT("OFF"));
 	}
+	else
+	{
+		// First press or expired double tap window
+		ResetDoubleTapState();
+		LastWKeyPressTime = CurrentTime;
+		WKeyPressCount = 1;
+		
+		UE_LOG(LogTemp, VeryVerbose, TEXT("W key press - waiting for potential double tap"));
+	}
+}
+
+void ABlackholePlayerCharacter::HandleWKeyRelease()
+{
+	float CurrentTime = GetWorld()->GetTimeSeconds();
+	LastWKeyReleaseTime = CurrentTime;
 	
-	LastWKeyPressTime = CurrentTime;
+	// If this is the first press release, start waiting for double tap
+	if (WKeyPressCount == 1)
+	{
+		bWaitingForDoubleTap = true;
+		
+		// Set a timer to reset double tap state after the window expires
+		FTimerHandle ResetTimer;
+		GetWorld()->GetTimerManager().SetTimer(ResetTimer, this, &ABlackholePlayerCharacter::ResetDoubleTapState, 
+			DoubleTapWindow + 0.1f, false);
+	}
+}
+
+void ABlackholePlayerCharacter::ResetDoubleTapState()
+{
+	bWaitingForDoubleTap = false;
+	WKeyPressCount = 0;
+	
+	UE_LOG(LogTemp, VeryVerbose, TEXT("Double tap state reset"));
 }
 
 void ABlackholePlayerCharacter::SetMovementSpeed(bool bRun)
