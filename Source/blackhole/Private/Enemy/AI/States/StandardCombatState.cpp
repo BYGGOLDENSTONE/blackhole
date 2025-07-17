@@ -11,21 +11,15 @@ void UStandardCombatState::Enter(ABaseEnemy* Enemy, UEnemyStateMachine* StateMac
     
     bHasCheckedBuilding = false;
     TimeSinceLastBuildCheck = 0.0f;
-    
-    // Check for building opportunity when entering combat
-    if (AStandardEnemy* StandardEnemy = Cast<AStandardEnemy>(Enemy))
-    {
-        StandardEnemy->OnAlerted();
-    }
 }
 
 void UStandardCombatState::Update(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine, float DeltaTime)
 {
     Super::Update(Enemy, StateMachine, DeltaTime);
     
-    // Periodically check for building opportunities
+    // Periodically check for building opportunities during combat
     TimeSinceLastBuildCheck += DeltaTime;
-    if (TimeSinceLastBuildCheck >= 5.0f)
+    if (TimeSinceLastBuildCheck >= 10.0f) // Check every 10 seconds
     {
         TimeSinceLastBuildCheck = 0.0f;
         CheckBuildingOpportunity(Enemy);

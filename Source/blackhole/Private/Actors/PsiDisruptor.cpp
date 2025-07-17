@@ -88,20 +88,10 @@ void APsiDisruptor::Tick(float DeltaTime)
 float APsiDisruptor::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, 
 	class AController* EventInstigator, AActor* DamageCauser)
 {
-	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
-	
-	Health -= ActualDamage;
-	
-	UE_LOG(LogTemp, Warning, TEXT("Psi-Disruptor took %.0f damage. Health: %.0f/%.0f"), 
-		ActualDamage, Health, MaxHealth);
-	
-	if (Health <= 0)
-	{
-		RemoveDisruption();
-		Destroy();
-	}
-	
-	return ActualDamage;
+	// Psi-Disruptor is invulnerable to normal damage
+	// Can only be destroyed by singularity ability
+	UE_LOG(LogTemp, Warning, TEXT("Psi-Disruptor is immune to normal damage! Use Singularity (Ultimate Gravity Pull) to destroy it."));
+	return 0.0f;
 }
 
 void APsiDisruptor::DestroyByUltimate()

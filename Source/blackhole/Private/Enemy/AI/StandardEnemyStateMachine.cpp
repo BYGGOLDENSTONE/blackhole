@@ -2,9 +2,10 @@
 #include "Config/GameplayConfig.h"
 #include "Enemy/AI/States/IdleState.h"
 #include "Enemy/AI/States/AlertState.h"
-#include "Enemy/AI/States/ChaseState.h"
+#include "Enemy/AI/States/StandardChaseState.h"
 #include "Enemy/AI/States/StandardCombatState.h"
 #include "Enemy/AI/States/RetreatState.h"
+#include "Enemy/AI/States/StandardBuildingState.h"
 #include "Enemy/StandardEnemy.h"
 
 void UStandardEnemyStateMachine::BeginPlay()
@@ -26,9 +27,10 @@ void UStandardEnemyStateMachine::CreateDefaultStates()
     // Create states
     UIdleState* IdleState = NewObject<UIdleState>(this, UIdleState::StaticClass());
     UAlertState* AlertState = NewObject<UAlertState>(this, UAlertState::StaticClass());
-    UChaseState* ChaseState = NewObject<UChaseState>(this, UChaseState::StaticClass());
+    UStandardChaseState* ChaseState = NewObject<UStandardChaseState>(this, UStandardChaseState::StaticClass());
     UStandardCombatState* CombatState = NewObject<UStandardCombatState>(this, UStandardCombatState::StaticClass());
     URetreatState* RetreatState = NewObject<URetreatState>(this, URetreatState::StaticClass());
+    UStandardBuildingState* BuildingState = NewObject<UStandardBuildingState>(this, UStandardBuildingState::StaticClass());
     
     // Register states
     RegisterState(EEnemyState::Idle, IdleState);
@@ -36,6 +38,7 @@ void UStandardEnemyStateMachine::CreateDefaultStates()
     RegisterState(EEnemyState::Chase, ChaseState);
     RegisterState(EEnemyState::Combat, CombatState);
     RegisterState(EEnemyState::Retreat, RetreatState);
+    RegisterState(EEnemyState::Building, BuildingState);
 }
 
 void UStandardEnemyStateMachine::SetupStandardParameters()

@@ -21,7 +21,7 @@ void UStatusEffectComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
-void UStatusEffectComponent::ApplyStatusEffect(EStatusEffectType EffectType, float Duration, float Magnitude, bool bAllowStacking)
+void UStatusEffectComponent::ApplyStatusEffect(EStatusEffectType EffectType, float Duration, float Magnitude, bool bAllowStacking, AActor* Source, int32 Priority)
 {
 	if (EffectType == EStatusEffectType::None) return;
 	
@@ -36,31 +36,73 @@ void UStatusEffectComponent::ApplyStatusEffect(EStatusEffectType EffectType, flo
 	// Check if effect already exists
 	if (FStatusEffect* ExistingEffect = ActiveEffects.Find(EffectType))
 	{
-		if (bAllowStacking && ExistingEffect->StackCount < ExistingEffect->MaxStacks)
+		// Check priority - only apply if new effect has equal or higher priority
+		if (Priority < ExistingEffect->Priority)
 		{
-			ExistingEffect->StackCount++;
-			ExistingEffect->Magnitude = FMath::Max(ExistingEffect->Magnitude, Magnitude);
+			UE_LOG(LogTemp, Verbose, TEXT("StatusEffect: New effect %d has lower priority (%d < %d), ignoring"), 
+				(int32)EffectType, Priority, ExistingEffect->Priority);
+			return;
 		}
 		
-		// Refresh duration if new duration is longer
-		if (Duration > GetEffectRemainingDuration(EffectType))
+		// Handle stacking behavior based on effect type
+		EEffectStackingRule StackingRule = GetStackingRule(EffectType);
+		
+		switch (StackingRule)
 		{
-			// Clear old timer
-			if (UWorld* World = GetWorld())
-			{
-				World->GetTimerManager().ClearTimer(ExistingEffect->DurationTimer);
-				
-				// Set new timer
-				if (Duration > 0.0f && !ExistingEffect->bIsInfinite)
+			case EEffectStackingRule::Stack:
+				if (bAllowStacking && ExistingEffect->StackCount < ExistingEffect->MaxStacks)
 				{
-					FTimerDelegate TimerDel;
-					TimerDel.BindUObject(this, &UStatusEffectComponent::OnEffectExpired, EffectType);
-					World->GetTimerManager().SetTimer(ExistingEffect->DurationTimer, TimerDel, Duration, false);
+					ExistingEffect->StackCount++;
+					ExistingEffect->Magnitude = FMath::Max(ExistingEffect->Magnitude, Magnitude);
 				}
-			}
-			ExistingEffect->Duration = Duration;
+				break;
+				
+			case EEffectStackingRule::Replace:
+				// Replace completely - remove old and add new below
+				RemoveStatusEffect(EffectType);
+				break;
+				
+			case EEffectStackingRule::Refresh:
+				// Refresh duration to new value
+				if (UWorld* World = GetWorld())
+				{
+					World->GetTimerManager().ClearTimer(ExistingEffect->DurationTimer);
+					if (Duration > 0.0f && !ExistingEffect->bIsInfinite)
+					{
+						FTimerDelegate TimerDel;
+						TimerDel.BindUObject(this, &UStatusEffectComponent::OnEffectExpired, EffectType);
+						World->GetTimerManager().SetTimer(ExistingEffect->DurationTimer, TimerDel, Duration, false);
+					}
+				}
+				ExistingEffect->Duration = Duration;
+				ExistingEffect->Source = Source;
+				ExistingEffect->Priority = Priority;
+				return;
+				
+			case EEffectStackingRule::RefreshExtend:
+				// Add new duration to existing
+				{
+					float NewDuration = GetEffectRemainingDuration(EffectType) + Duration;
+					if (UWorld* World = GetWorld())
+					{
+						World->GetTimerManager().ClearTimer(ExistingEffect->DurationTimer);
+						if (NewDuration > 0.0f && !ExistingEffect->bIsInfinite)
+						{
+							FTimerDelegate TimerDel;
+							TimerDel.BindUObject(this, &UStatusEffectComponent::OnEffectExpired, EffectType);
+							World->GetTimerManager().SetTimer(ExistingEffect->DurationTimer, TimerDel, NewDuration, false);
+						}
+					}
+					ExistingEffect->Duration = NewDuration;
+					ExistingEffect->Source = Source;
+					ExistingEffect->Priority = FMath::Max(ExistingEffect->Priority, Priority);
+				}
+				return;
+				
+			case EEffectStackingRule::Ignore:
+			default:
+				return;
 		}
-		return;
 	}
 	
 	// Create new effect
@@ -69,6 +111,8 @@ void UStatusEffectComponent::ApplyStatusEffect(EStatusEffectType EffectType, flo
 	NewEffect.Duration = Duration;
 	NewEffect.Magnitude = Magnitude;
 	NewEffect.bIsInfinite = (Duration <= 0.0f);
+	NewEffect.Source = Source;
+	NewEffect.Priority = Priority;
 	
 	// Apply effect logic
 	ApplyEffectLogic(EffectType, Magnitude);
@@ -288,5 +332,77 @@ void UStatusEffectComponent::UpdateInputState()
 	else
 	{
 		PawnOwner->DisableInput(PC);
+	}
+}
+
+void UStatusEffectComponent::RemoveEffectsFromSource(AActor* Source)
+{
+	if (!Source) return;
+	
+	TArray<EStatusEffectType> EffectsToRemove;
+	
+	// Find all effects from this source
+	for (const auto& EffectPair : ActiveEffects)
+	{
+		if (EffectPair.Value.Source.IsValid() && EffectPair.Value.Source.Get() == Source)
+		{
+			EffectsToRemove.Add(EffectPair.Key);
+		}
+	}
+	
+	// Remove them
+	for (EStatusEffectType EffectType : EffectsToRemove)
+	{
+		RemoveStatusEffect(EffectType);
+	}
+	
+	UE_LOG(LogTemp, Warning, TEXT("StatusEffect: Removed %d effects from source %s"), 
+		EffectsToRemove.Num(), *Source->GetName());
+}
+
+AActor* UStatusEffectComponent::GetEffectSource(EStatusEffectType EffectType) const
+{
+	const FStatusEffect* Effect = ActiveEffects.Find(EffectType);
+	if (Effect && Effect->Source.IsValid())
+	{
+		return Effect->Source.Get();
+	}
+	return nullptr;
+}
+
+int32 UStatusEffectComponent::GetEffectPriority(EStatusEffectType EffectType) const
+{
+	const FStatusEffect* Effect = ActiveEffects.Find(EffectType);
+	return Effect ? Effect->Priority : 0;
+}
+
+EEffectStackingRule UStatusEffectComponent::GetStackingRule(EStatusEffectType EffectType) const
+{
+	// Define stacking rules for each effect type
+	switch (EffectType)
+	{
+		case EStatusEffectType::Stagger:
+		case EStatusEffectType::Stun:
+			return EEffectStackingRule::Refresh;  // Refresh duration
+			
+		case EStatusEffectType::Slow:
+		case EStatusEffectType::SpeedBoost:
+			return EEffectStackingRule::Replace;  // Replace with new value
+			
+		case EStatusEffectType::Burn:
+		case EStatusEffectType::DamageBoost:
+			return EEffectStackingRule::Stack;  // Allow stacking
+			
+		case EStatusEffectType::Shield:
+			return EEffectStackingRule::RefreshExtend;  // Add durations
+			
+		case EStatusEffectType::Freeze:
+		case EStatusEffectType::Knockdown:
+		case EStatusEffectType::Invulnerable:
+		case EStatusEffectType::Dead:
+			return EEffectStackingRule::Ignore;  // Don't allow multiple
+			
+		default:
+			return EEffectStackingRule::Replace;
 	}
 }

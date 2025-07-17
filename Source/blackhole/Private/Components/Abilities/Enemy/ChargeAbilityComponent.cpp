@@ -182,7 +182,8 @@ void UChargeAbilityComponent::ApplyImpactDamage(const FVector& ImpactLocation)
 			// Apply knockdown effect
 			if (UStatusEffectComponent* StatusEffect = Character->FindComponentByClass<UStatusEffectComponent>())
 			{
-				StatusEffect->ApplyStatusEffect(EStatusEffectType::Knockdown, 1.5f, 1.0f);
+				// Pass the owner as the source of the knockdown effect
+				StatusEffect->ApplyStatusEffect(EStatusEffectType::Knockdown, 1.5f, 1.0f, false, GetOwner());
 			}
 		}
 		

@@ -6,6 +6,7 @@
 #include "Config/GameplayConfig.h"
 #include "Player/BlackholePlayerCharacter.h"
 #include "Components/Movement/WallRunComponent.h"
+#include "Components/StatusEffectComponent.h"
 
 UAbilityComponent::UAbilityComponent()
 {
@@ -119,12 +120,34 @@ bool UAbilityComponent::CanExecute() const
 				return false;
 			}
 			
+			// Check if status effects allow ability usage
+			if (UStatusEffectComponent* StatusComp = PlayerOwner->FindComponentByClass<UStatusEffectComponent>())
+			{
+				if (!StatusComp->CanAct())
+				{
+					UE_LOG(LogTemp, Verbose, TEXT("Ability %s: CanExecute() = FALSE - Status effects prevent action"), *GetName());
+					return false;
+				}
+			}
+			
 			// Check wall run restrictions - only allow certain abilities during wall running
 			if (UWallRunComponent* WallRunComp = PlayerOwner->GetWallRunComponent())
 			{
 				if (!WallRunComp->CanUseAbilityDuringWallRun(this))
 				{
 					UE_LOG(LogTemp, Verbose, TEXT("Ability %s: CanExecute() = FALSE - Blocked during wall run"), *GetName());
+					return false;
+				}
+			}
+		}
+		else
+		{
+			// For non-player owners (enemies), also check status effects
+			if (UStatusEffectComponent* StatusComp = Owner->FindComponentByClass<UStatusEffectComponent>())
+			{
+				if (!StatusComp->CanAct())
+				{
+					UE_LOG(LogTemp, Verbose, TEXT("Ability %s: CanExecute() = FALSE - Status effects prevent action"), *GetName());
 					return false;
 				}
 			}

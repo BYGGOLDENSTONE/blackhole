@@ -9,6 +9,7 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Engine/EngineTypes.h"
+#include "Actors/PsiDisruptor.h"
 
 UGravityPullAbilityComponent::UGravityPullAbilityComponent()
 {
@@ -225,22 +226,58 @@ void UGravityPullAbilityComponent::ExecuteUltimate()
     ActorsToIgnore.Add(Owner);
     
     TArray<AActor*> OutActors;
+    // Create object types for detection - include all relevant types
+    TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+    ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_Pawn));
+    ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_WorldDynamic));
+    ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
+    ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_PhysicsBody));
+    
     UKismetSystemLibrary::SphereOverlapActors(
         GetWorld(),
         SingularityPoint,
         UltimateRadius,
-        TArray<TEnumAsByte<EObjectTypeQuery>>(),
+        ObjectTypes,
         nullptr,
         ActorsToIgnore,
         OutActors
     );
     
+    UE_LOG(LogTemp, Warning, TEXT("Singularity: Found %d actors in radius %.1f"), OutActors.Num(), UltimateRadius);
+    
     int32 EntitiesPulled = 0;
+    
+    // Check for PsiDisruptors first and destroy them
+    for (AActor* Actor : OutActors)
+    {
+        if (!Actor) continue;
+        
+        UE_LOG(LogTemp, Verbose, TEXT("Singularity checking actor: %s (Class: %s)"), 
+            *Actor->GetName(), *Actor->GetClass()->GetName());
+        
+        // Check if it's a PsiDisruptor
+        if (APsiDisruptor* Disruptor = Cast<APsiDisruptor>(Actor))
+        {
+            UE_LOG(LogTemp, Error, TEXT("SINGULARITY: Found Psi-Disruptor! Destroying it!"));
+            Disruptor->DestroyByUltimate();
+            EntitiesPulled++;
+            continue;
+        }
+        else if (Actor->GetClass()->GetName().Contains(TEXT("PsiDisruptor")))
+        {
+            // Fallback check in case cast fails
+            UE_LOG(LogTemp, Error, TEXT("SINGULARITY: Found PsiDisruptor by name but cast failed! Class: %s"), 
+                *Actor->GetClass()->GetName());
+        }
+    }
     
     // Pull everything to the singularity point
     for (AActor* Actor : OutActors)
     {
         if (!Actor) continue;
+        
+        // Skip if already destroyed (like PsiDisruptor)
+        if (!IsValid(Actor)) continue;
         
         // Check if it's an enemy or physics object
         bool bIsEnemy = Actor->ActorHasTag("Enemy") || Actor->IsA<ACharacter>();

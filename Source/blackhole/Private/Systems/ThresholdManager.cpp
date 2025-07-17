@@ -265,6 +265,8 @@ void UThresholdManager::OnWPMaxReachedHandler(int32 TimesReached)
 
 void UThresholdManager::ActivateUltimateMode()
 {
+	UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: ActivateUltimateMode called"));
+	
 	if (bUltimateModeActive)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Ultimate mode already active"));
@@ -664,7 +666,8 @@ void UThresholdManager::StartCriticalTimer()
 {
 	if (bCriticalTimerActive)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Critical timer already active"));
+		float TimeRemaining = GetCriticalTimeRemaining();
+		UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Critical timer already active with %.1f seconds remaining"), TimeRemaining);
 		return;
 	}
 	
@@ -705,6 +708,7 @@ void UThresholdManager::StartCriticalTimer()
 	// Ultimate mode will be activated separately to avoid circular dependency
 	
 	// Start the death timer
+	UE_LOG(LogTemp, Error, TEXT("ThresholdManager: Starting critical timer for %.1f seconds"), CriticalTimerDuration);
 	GetWorld()->GetTimerManager().SetTimer(
 		CriticalTimerHandle,
 		this,
@@ -760,6 +764,8 @@ void UThresholdManager::StopCriticalTimer()
 
 void UThresholdManager::OnCriticalTimerExpiredInternal()
 {
+	UE_LOG(LogTemp, Error, TEXT("ThresholdManager: OnCriticalTimerExpiredInternal called! Critical timer duration was %.1f seconds"), CriticalTimerDuration);
+	
 	bCriticalTimerActive = false;
 	
 	// Clear critical state in ResourceManager
@@ -776,6 +782,9 @@ void UThresholdManager::OnCriticalTimerExpiredInternal()
 	
 	// End combat first to clean up properly
 	EndCombat();
+	
+	// Increment critical state entries used
+	CriticalStateEntriesUsed++;
 	
 	// Check if player has critical state entries remaining
 	if (CriticalStateEntriesUsed >= CriticalStateLimit)
@@ -797,7 +806,7 @@ void UThresholdManager::OnCriticalTimerExpiredInternal()
 			float MaxWP = ResourceManager->GetMaxWillPower();
 			// Player is at 0 WP, so add full amount to reach 100%
 			ResourceManager->AddWillPower(MaxWP);
-			UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Restored WP to 100%% (full energy)"));
+			UE_LOG(LogTemp, Warning, TEXT("ThresholdManager: Restored WP to 100%% (full energy) - Entry used!"));
 		}
 	}
 }

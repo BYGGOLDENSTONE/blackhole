@@ -1429,10 +1429,11 @@ void ABlackholeHUD::DrawEnemyAbilityProgress()
 		return;
 	}
 	
-	float ProgressBarX = Canvas->SizeX * 0.5f - 150.0f;
-	float ProgressBarY = Canvas->SizeY * 0.4f;
+	// Move progress bars to top right corner
 	float ProgressBarWidth = 300.0f;
 	float ProgressBarHeight = 30.0f;
+	float ProgressBarX = Canvas->SizeX - ProgressBarWidth - 20.0f; // 20 pixels from right edge
+	float ProgressBarY = 100.0f; // Below the top HUD elements
 	
 	// Draw Psi-Disruptor build progress
 	if (bShowingPsiDisruptorProgress)
@@ -1507,7 +1508,7 @@ void ABlackholeHUD::DrawEnemyAbilityProgress()
 		DrawText(ProgressText, FColor::Magenta, ProgressBarX + 10, MindmeldY + 5, nullptr, 1.2f, false);
 		
 		// Draw warning
-		DrawText(TEXT("GET WITHIN 300 UNITS TO INTERRUPT!"), FColor::Cyan, 
+		DrawText(TEXT("KILL THE MINDMELDER TO INTERRUPT!"), FColor::Red, 
 				ProgressBarX + 20, MindmeldY + ProgressBarHeight + 10, nullptr, 1.0f, false);
 		
 		// Draw location indicator if we have a valid caster
@@ -1585,8 +1586,8 @@ void ABlackholeHUD::OnMindmeldStarted(float CastTime, AActor* Caster)
 	MindmeldCastTime = CastTime;
 	MindmeldCaster = Caster;
 	
-	AddNotification(TEXT("DANGER: MindMelder channeling instant kill!"), FColor::Magenta, 5.0f);
-	AddNotification(FString::Printf(TEXT("You have %.0f seconds to interrupt!"), CastTime), FColor::Cyan, 5.0f);
+	AddNotification(TEXT("DANGER: MindMelder channeling PowerfulMindmeld!"), FColor::Magenta, 5.0f);
+	AddNotification(FString::Printf(TEXT("Kill the MindMelder in %.0f seconds or your WP drops to 0!"), CastTime), FColor::Red, 5.0f);
 }
 
 void ABlackholeHUD::OnMindmeldComplete()

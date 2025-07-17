@@ -21,6 +21,17 @@ enum class EStatusEffectType : uint8
 	Dead = 255
 };
 
+// Enum for effect stacking behavior
+UENUM(BlueprintType)
+enum class EEffectStackingRule : uint8
+{
+	Replace,        // New effect replaces old
+	Stack,          // Effects stack up to max
+	Refresh,        // Reset duration to new value
+	RefreshExtend,  // Add new duration to existing
+	Ignore          // Ignore new effect if one exists
+};
+
 USTRUCT(BlueprintType)
 struct FStatusEffect
 {
@@ -45,6 +56,14 @@ struct FStatusEffect
 	UPROPERTY(BlueprintReadWrite)
 	int32 MaxStacks = 1;
 	
+	// Source tracking
+	UPROPERTY(BlueprintReadWrite)
+	TWeakObjectPtr<AActor> Source;
+	
+	// Priority for conflicting effects (higher = more important)
+	UPROPERTY(BlueprintReadWrite)
+	int32 Priority = 0;
+	
 	// Timer handle for duration
 	FTimerHandle DurationTimer;
 };
@@ -62,7 +81,7 @@ public:
 
 	// Apply a status effect
 	UFUNCTION(BlueprintCallable, Category = "Status Effects")
-	void ApplyStatusEffect(EStatusEffectType EffectType, float Duration, float Magnitude = 1.0f, bool bAllowStacking = false);
+	void ApplyStatusEffect(EStatusEffectType EffectType, float Duration, float Magnitude = 1.0f, bool bAllowStacking = false, AActor* Source = nullptr, int32 Priority = 0);
 	
 	// Remove a specific status effect
 	UFUNCTION(BlueprintCallable, Category = "Status Effects")
@@ -111,6 +130,18 @@ public:
 	// Get all active effects
 	UFUNCTION(BlueprintPure, Category = "Status Effects")
 	TArray<EStatusEffectType> GetActiveEffects() const;
+	
+	// Remove all effects from a specific source
+	UFUNCTION(BlueprintCallable, Category = "Status Effects")
+	void RemoveEffectsFromSource(AActor* Source);
+	
+	// Get effect source
+	UFUNCTION(BlueprintPure, Category = "Status Effects")
+	AActor* GetEffectSource(EStatusEffectType EffectType) const;
+	
+	// Get effect priority
+	UFUNCTION(BlueprintPure, Category = "Status Effects")
+	int32 GetEffectPriority(EStatusEffectType EffectType) const;
 
 	// Events
 	UPROPERTY(BlueprintAssignable, Category = "Status Effects")
@@ -142,4 +173,7 @@ private:
 	// Update movement and input based on effects
 	void UpdateMovementState();
 	void UpdateInputState();
+	
+	// Get stacking rule for effect type
+	EEffectStackingRule GetStackingRule(EStatusEffectType EffectType) const;
 };

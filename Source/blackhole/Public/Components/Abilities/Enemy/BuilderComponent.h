@@ -32,6 +32,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Builder", meta = (DisplayName = "Psi-Disruptor Class"))
 	TSubclassOf<AActor> PsiDisruptorClass;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Builder", meta = (DisplayName = "Build Sphere Material"))
+	class UMaterialInterface* BuildSphereMaterial;
+	
 	// Events
 	UPROPERTY(BlueprintAssignable, Category = "Builder")
 	FOnBuildingStarted OnBuildingStarted;
@@ -52,8 +55,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Builder")
 	void CancelBuild();
 	
+	UFUNCTION(BlueprintCallable, Category = "Builder")
+	void PauseBuild();
+	
+	UFUNCTION(BlueprintCallable, Category = "Builder")
+	void ResumeBuild();
+	
 	UFUNCTION(BlueprintPure, Category = "Builder")
 	bool IsBuilding() const { return bIsBuilding; }
+	
+	UFUNCTION(BlueprintPure, Category = "Builder")
+	bool IsBuildPaused() const { return bBuildPaused; }
 	
 	UFUNCTION(BlueprintPure, Category = "Builder")
 	bool IsLeader() const { return bIsBuildLeader; }
@@ -76,7 +88,10 @@ protected:
 private:
 	bool bIsBuilding;
 	bool bIsBuildLeader;
+	bool bBuildPaused;
 	float BuildProgress;
+	float CurrentBuildTime; // Actual time remaining
+	float TimeSpentBuilding; // Time already spent
 	FVector CurrentBuildLocation;
 	
 	UPROPERTY()
@@ -88,11 +103,21 @@ private:
 	UPROPERTY()
 	APsiDisruptor* SpawnedDisruptor;
 	
+	// Visual build sphere
+	UPROPERTY()
+	class UStaticMeshComponent* BuildSphere;
+	
+	UPROPERTY()
+	class AActor* BuildSphereActor;
+	
 	FTimerHandle BuildTimerHandle;
+	int32 InitialBuilderCount; // Track initial builders for timer calculation
 	
 	void UpdateBuildProgress();
 	void CompleteBuild();
 	void SpawnPsiDisruptor();
+	void CreateBuildSphere();
+	void DestroyBuildSphere();
 	
 	// Static tracking of all active builders
 	static TArray<UBuilderComponent*> AllActiveBuilders;

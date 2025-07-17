@@ -50,8 +50,8 @@ void UMindMelderCombatState::Update(ABaseEnemy* Enemy, UEnemyStateMachine* State
 void UMindMelderCombatState::InitializeCombatActions(ABaseEnemy* Enemy)
 {
     // Mind Melder actions: Powerful mindmeld and dodge
-    AddCombatAction(TEXT("PowerfulMindmeld"), 5.0f, 60.0f, 1500.0f, 3000.0f);  // Primary attack - long range
-    AddCombatAction(TEXT("Dodge"), 3.0f, 2.0f, 0.0f, 500.0f);                  // Defensive dodge when close
+    AddCombatAction(TEXT("PowerfulMindmeld"), 10.0f, 45.0f, 1500.0f, 3000.0f);  // High priority, reduced cooldown
+    AddCombatAction(TEXT("Dodge"), 3.0f, 2.0f, 0.0f, 500.0f);                   // Defensive dodge when close
 }
 
 void UMindMelderCombatState::ExecuteCombatAction(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine, const FString& ActionName)
@@ -80,16 +80,18 @@ void UMindMelderCombatState::ExecutePowerfulMindmeld(ABaseEnemy* Enemy, UEnemySt
     
     if (UPowerfulMindmeldComponent* Mindmeld = MindMelder->GetPowerfulMindmeld())
     {
-        // Only execute if we've been at safe distance for a bit
-        if (TimeAtSafeDistance >= 1.0f) // Reduced from 2.0f for faster execution
+        // Execute immediately when in range (removed time requirement)
+        Mindmeld->Execute();
+        
+        // Mind melder should transition to channeling state
+        if (Mindmeld->IsChanneling())
         {
-            Mindmeld->Execute();
-            
-            // Mind melder should transition to channeling state
-            if (Mindmeld->IsChanneling())
-            {
-                StateMachine->ChangeState(EEnemyState::Channeling);
-            }
+            StateMachine->ChangeState(EEnemyState::Channeling);
+            UE_LOG(LogTemp, Warning, TEXT("MindMelder: Started PowerfulMindmeld channel!"));
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("MindMelder: Failed to start PowerfulMindmeld"));
         }
     }
 }

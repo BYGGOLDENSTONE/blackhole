@@ -8,13 +8,15 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/Character.h"
 #include "UI/BlackholeHUD.h"
+#include "Systems/ResourceManager.h"
+#include "Systems/ThresholdManager.h"
 
 UPowerfulMindmeldComponent::UPowerfulMindmeldComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bStartWithTickEnabled = true;
 	
-	Cooldown = 60.0f; // Long cooldown
+	Cooldown = 45.0f; // Reduced cooldown for more frequent use
 	Range = 3000.0f;
 	WPCost = 0.0f; // No cost for enemy ability
 	bIsBasicAbility = false;
@@ -26,6 +28,18 @@ void UPowerfulMindmeldComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	Range = ChannelRange;
+}
+
+void UPowerfulMindmeldComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// Interrupt channel if owner is being destroyed
+	if (bIsChanneling)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("PowerfulMindmeld: MindMelder destroyed, interrupting channel!"));
+		InterruptChannel();
+	}
+	
+	Super::EndPlay(EndPlayReason);
 }
 
 void UPowerfulMindmeldComponent::Execute()
@@ -55,15 +69,23 @@ void UPowerfulMindmeldComponent::Execute()
 		FCollisionQueryParams QueryParams;
 		QueryParams.AddIgnoredActor(GetOwner());
 		
-		if (!GetWorld()->LineTraceSingleByChannel(HitResult, 
+		bool bHitSomething = GetWorld()->LineTraceSingleByChannel(HitResult, 
 			GetOwner()->GetActorLocation() + FVector(0, 0, 50), 
 			Player->GetActorLocation() + FVector(0, 0, 50),
-			ECC_Visibility, QueryParams))
+			ECC_Visibility, QueryParams);
+		
+		// Check if we hit the player or nothing (clear line of sight)
+		if (!bHitSomething || HitResult.GetActor() == Player)
 		{
 			// Clear line of sight
 			ChannelTarget = Player;
 			Super::Execute();
 			StartChannel();
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("PowerfulMindmeld: No line of sight to player"));
+			return;
 		}
 	}
 	else
@@ -79,9 +101,40 @@ void UPowerfulMindmeldComponent::StartChannel()
 	bIsChanneling = true;
 	ChannelStartTime = GetWorld()->GetTimeSeconds();
 	
+	UE_LOG(LogTemp, Error, TEXT("PowerfulMindmeld: Starting channel! CastTime=%.1f, Target=%s"), 
+		CastTime, ChannelTarget ? *ChannelTarget->GetName() : TEXT("nullptr"));
+	
 	// Start completion timer
-	GetWorld()->GetTimerManager().SetTimer(ChannelCompleteTimer, this, 
-		&UPowerfulMindmeldComponent::CompleteChannel, CastTime, false);
+	FTimerDelegate TimerDelegate;
+	TimerDelegate.BindLambda([this]()
+	{
+		UE_LOG(LogTemp, Error, TEXT("PowerfulMindmeld: Timer fired! Calling CompleteChannel..."));
+		CompleteChannel();
+	});
+	
+	GetWorld()->GetTimerManager().SetTimer(ChannelCompleteTimer, TimerDelegate, CastTime, false);
+	
+	// Verify timer was set
+	if (GetWorld()->GetTimerManager().IsTimerActive(ChannelCompleteTimer))
+	{
+		float TimeRemaining = GetWorld()->GetTimerManager().GetTimerRemaining(ChannelCompleteTimer);
+		UE_LOG(LogTemp, Error, TEXT("PowerfulMindmeld: Timer successfully set! CastTime=%.1f, TimeRemaining=%.1f"), CastTime, TimeRemaining);
+		
+		// Set a recurring log timer to track progress
+		FTimerHandle LogTimer;
+		GetWorld()->GetTimerManager().SetTimer(LogTimer, [this]()
+		{
+			if (bIsChanneling)
+			{
+				float Remaining = GetWorld()->GetTimerManager().GetTimerRemaining(ChannelCompleteTimer);
+				UE_LOG(LogTemp, Warning, TEXT("PowerfulMindmeld: Channel progress - %.1f seconds remaining"), Remaining);
+			}
+		}, 5.0f, true);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("PowerfulMindmeld: FAILED to set timer!"));
+	}
 	
 	// Notify about channel start
 	OnMindmeldStarted.Broadcast(CastTime);
@@ -102,18 +155,36 @@ void UPowerfulMindmeldComponent::StartChannel()
 		// TODO: Play channeling animation/effect
 	}
 	
-	UE_LOG(LogTemp, Error, TEXT("MIND MELDER: Starting %0.f second channel! Get close to interrupt!"), CastTime);
+	UE_LOG(LogTemp, Error, TEXT("MIND MELDER: Starting %.0f second channel! Only death can interrupt!"), CastTime);
 }
 
 void UPowerfulMindmeldComponent::UpdateChannel()
 {
-	if (!bIsChanneling || !ChannelTarget) return;
-	
-	// Check if we should interrupt
-	if (CheckInterruptConditions())
+	if (!bIsChanneling) 
 	{
+		return;
+	}
+	
+	if (!ChannelTarget)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("PowerfulMindmeld: UpdateChannel - Lost target during channel!"));
 		InterruptChannel();
 		return;
+	}
+	
+	// Check if we should interrupt (only if owner dies)
+	if (CheckInterruptConditions())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("PowerfulMindmeld: UpdateChannel - Interrupt conditions met (owner died)!"));
+		InterruptChannel();
+		return;
+	}
+	
+	// Log progress
+	float TimeRemaining = GetTimeRemaining();
+	if (FMath::Fmod(TimeRemaining, 5.0f) < 0.2f) // Log every 5 seconds
+	{
+		UE_LOG(LogTemp, Warning, TEXT("PowerfulMindmeld: Channel in progress - %.1f seconds remaining"), TimeRemaining);
 	}
 	
 	// Visual feedback
@@ -134,18 +205,54 @@ void UPowerfulMindmeldComponent::UpdateChannel()
 
 void UPowerfulMindmeldComponent::CompleteChannel()
 {
+	UE_LOG(LogTemp, Error, TEXT("PowerfulMindmeld: CompleteChannel called! bIsChanneling=%d, ChannelTarget=%s"), 
+		bIsChanneling, ChannelTarget ? *ChannelTarget->GetName() : TEXT("nullptr"));
+	
 	if (!bIsChanneling || !ChannelTarget) return;
 	
 	// Drop player WP to 0
 	if (ABlackholePlayerCharacter* Player = Cast<ABlackholePlayerCharacter>(ChannelTarget))
 	{
-		if (UWillPowerComponent* WPComp = Player->FindComponentByClass<UWillPowerComponent>())
+		UE_LOG(LogTemp, Error, TEXT("PowerfulMindmeld: Found player %s"), *Player->GetName());
+		
+		// Get ResourceManager to properly drain WP and trigger critical state
+		if (UResourceManager* ResMgr = GetWorld()->GetGameInstance()->GetSubsystem<UResourceManager>())
 		{
-			float CurrentWP = WPComp->GetCurrentValue();
-			WPComp->DrainWillPower(CurrentWP); // Drop to 0
+			float CurrentWP = ResMgr->GetCurrentWillPower();
+			float MaxWP = ResMgr->GetMaxWillPower();
+			UE_LOG(LogTemp, Error, TEXT("PowerfulMindmeld: Player current WP = %.1f, draining all via ResourceManager..."), CurrentWP);
 			
-			UE_LOG(LogTemp, Error, TEXT("MIND MELD COMPLETE: Player WP dropped to 0!"));
+			// Use TakeDamage to drain all WP - this will trigger OnWPDepleted and start critical timer
+			ResMgr->TakeDamage(CurrentWP);
+			
+			// Verify it worked
+			float NewWP = ResMgr->GetCurrentWillPower();
+			UE_LOG(LogTemp, Error, TEXT("MIND MELD COMPLETE: Player WP dropped from %.1f to %.1f!"), CurrentWP, NewWP);
+			
+			// Force a special MindMeld critical state that ignores entries
+			if (UThresholdManager* ThreshMgr = GetWorld()->GetSubsystem<UThresholdManager>())
+			{
+				// Notify ThresholdManager that this is a MindMeld-induced critical state
+				// This should force ultimate usage, not just consume an entry
+				UE_LOG(LogTemp, Error, TEXT("PowerfulMindmeld: Forcing MindMeld critical state - player MUST use ultimate!"));
+				ThreshMgr->StartCriticalTimer();
+			}
 		}
+		else if (UWillPowerComponent* WPComp = Player->FindComponentByClass<UWillPowerComponent>())
+		{
+			// Fallback to direct component access
+			float CurrentWP = WPComp->GetCurrentValue();
+			UE_LOG(LogTemp, Error, TEXT("PowerfulMindmeld: No ResourceManager, using WillPowerComponent directly"));
+			WPComp->SetCurrentValue(0.0f);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("PowerfulMindmeld: Could not find WillPowerComponent on player!"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("PowerfulMindmeld: Failed to cast ChannelTarget to player!"));
 	}
 	
 	OnMindmeldComplete.Broadcast();
@@ -229,33 +336,13 @@ bool UPowerfulMindmeldComponent::CheckInterruptConditions()
 {
 	if (!ChannelTarget || !GetOwner()) return true;
 	
-	// Check if player is close enough to interrupt
-	float Distance = FVector::Dist(GetOwner()->GetActorLocation(), ChannelTarget->GetActorLocation());
-	if (Distance <= InterruptRange)
-	{
-		// Check if player damaged the caster
-		if (ACharacter* OwnerChar = Cast<ACharacter>(GetOwner()))
-		{
-			// This would be triggered by damage events
-			return true;
-		}
-	}
+	// Only interrupt if owner is dead or target is invalid
+	// Do NOT interrupt for proximity or line of sight
 	
-	// Check if lost line of sight
-	if (bRequiresLineOfSight)
+	// Check if owner (MindMelder) is still alive
+	if (!IsValid(GetOwner()))
 	{
-		FHitResult HitResult;
-		FCollisionQueryParams QueryParams;
-		QueryParams.AddIgnoredActor(GetOwner());
-		
-		if (GetWorld()->LineTraceSingleByChannel(HitResult, 
-			GetOwner()->GetActorLocation() + FVector(0, 0, 50), 
-			ChannelTarget->GetActorLocation() + FVector(0, 0, 50),
-			ECC_Visibility, QueryParams))
-		{
-			// Line of sight blocked
-			return true;
-		}
+		return true;
 	}
 	
 	// Check if target is still valid
@@ -264,6 +351,7 @@ bool UPowerfulMindmeldComponent::CheckInterruptConditions()
 		return true;
 	}
 	
+	// Channel continues unless MindMelder is killed
 	return false;
 }
 
@@ -275,8 +363,8 @@ void UPowerfulMindmeldComponent::NotifyPlayerOfChannel()
 		// Show location indicator
 		FVector EnemyLocation = GetOwner()->GetActorLocation();
 		
-		UE_LOG(LogTemp, Error, TEXT("WARNING: MIND MELDER channeling at location %s! %.0f seconds to interrupt!"), 
-			*EnemyLocation.ToString(), CastTime);
+		UE_LOG(LogTemp, Error, TEXT("WARNING: MIND MELDER channeling PowerfulMindmeld! %.0f seconds until WP drops to 0! Kill the MindMelder to interrupt!"), 
+			CastTime);
 		
 		// Draw debug sphere at enemy location
 		#if WITH_EDITOR

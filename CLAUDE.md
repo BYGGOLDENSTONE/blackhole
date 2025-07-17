@@ -46,11 +46,35 @@ Enemy_SM:Tank/Agile/Combat/Hacker|DT_EnemyStats:CSV_config
 ✅WP_energy|11_abilities|Enemy_drain|Kill/combo_restore|5s_critical|2_combos|Wall_run|8_enemy_types|State_machines
 ✅Agile_assassin:StabAttack(0.5s_stagger)+AssassinApproach|600_engage→dash_behind→backstab_2x→retreat_6s→maintain_450-550
 ✅Tank_enemy:HeatAura(5WP/s)+Charge(300-1500)+GroundSlam|Heavy_slow|Heat_affects_all
-✅Standard_enemy:SwordAttack+Builder|Psi-disruptor_construction(20s)|Disables_movement_abilities
-✅MindMelder_enemy:PowerfulMindmeld(30s_cast→0WP)|3000_range|Interrupt_at_300|Location_warning
+✅Standard_enemy:SwordAttack+Builder|Build_after_4s_chase|Psi-disruptor_construction(20s)|Disables_movement_abilities
+✅MindMelder_enemy:PowerfulMindmeld(30s_cast→0WP)|3000_range|Interrupt_only_by_death|Location_warning
 ✅StatusEffectComponent:Centralized_states|Stagger/Stun/Slow/etc|All_actors|Event_system
 ✅Wall_run_height:150|Camera_freedom|Critical_state_limit(3)|Slash_trace+sphere
 ❌AIController|Multiplayer|GameplayTags_unused
+
+## LATEST_SESSION_CHANGES(2025-07-17)
+- ✅StatusEffectComponent_improvements:Source_tracking|Priority_system|Stacking_rules
+- ✅AbilityComponent:Added_CanAct()_check_before_execution
+- ✅Movement_system:Added_CanMove()_checks_to_Move/Jump/Dash
+- ✅Effect_priorities:Higher_priority_effects_override_lower
+- ✅Stacking_rules:Per-effect_type(Refresh/Replace/Stack/Extend/Ignore)
+- ✅Source_cleanup:RemoveEffectsFromSource()_for_proper_cleanup
+- ✅StandardEnemy_building:Build_PsiDisruptor_after_6s_without_hitting_player
+- ✅PsiDisruptor_invulnerable:Only_destroyable_by_GravityPull_ultimate(Singularity)
+- ✅GravityPull_ultimate:Detects_and_destroys_PsiDisruptors|Added_object_types_for_detection
+- ✅Builder_interruption:Building_cancels_if_not_enough_builders_alive
+- ✅MindMelder_fix:PowerfulMindmeld_executes_properly|Reduced_cooldown_45s|Fixed_LoS_check
+- ✅PowerfulMindmeld_completion:Uses_SetCurrentValue(0)_to_drop_WP|Only_interrupted_by_death
+- ✅PowerfulMindmeld_endplay:Added_EndPlay_to_interrupt_on_MindMelder_death
+- ✅HUD_timer_positions:Moved_from_center_to_top_right_corner
+- ✅HUD_MindMeld_text:Updated_to_"Kill_MindMelder"_not_"Get_close"
+- ✅Builder_hit_tracking:OnSwordHit_delegate_tracks_actual_hits_not_attempts
+- ✅Builder_spawn_debug:Added_logging_for_PsiDisruptor_spawn_failures
+- ✅StandardChaseState:Created_new_state_for_4s_chase_timeout_building
+- ✅StandardEnemy_building_moved:From_combat_to_chase_state|4s_timeout
+- ✅PowerfulMindmeld_debug:Added_timer_verification|Progress_logging
+- ✅PowerfulMindmeld_WP_fix:Use_ResourceManager|Triggers_critical_timer_properly
+- ✅PowerfulMindmeld_compile_fix:Renamed_local_vars_to_avoid_shadowing_members
 
 ## LATEST_SESSION_CHANGES(2025-07-16)
 - ✅Velocity_indicator:Smaller|No_direction|Y-150→REMOVED

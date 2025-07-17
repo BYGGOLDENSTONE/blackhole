@@ -17,6 +17,7 @@ enum class EEnemyState : uint8
     Cooldown        UMETA(DisplayName = "Cooldown"),
     Stunned         UMETA(DisplayName = "Stunned"),
     Channeling      UMETA(DisplayName = "Channeling Ability"),
+    Building        UMETA(DisplayName = "Building"),
     Dead            UMETA(DisplayName = "Dead")
 };
 

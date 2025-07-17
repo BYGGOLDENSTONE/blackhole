@@ -79,7 +79,8 @@ void UStabAttackComponent::PerformStabAttack()
 					{
 						if (UStatusEffectComponent* StatusEffect = HitActor->FindComponentByClass<UStatusEffectComponent>())
 						{
-							StatusEffect->ApplyStatusEffect(EStatusEffectType::Stagger, StaggerDuration, 1.0f);
+							// Pass the owner as the source of the stagger effect
+							StatusEffect->ApplyStatusEffect(EStatusEffectType::Stagger, StaggerDuration, 1.0f, false, Owner);
 						}
 					}
 					

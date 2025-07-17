@@ -339,6 +339,12 @@ void ABlackholePlayerCharacter::SetupPlayerInputComponent(UInputComponent* Playe
 
 void ABlackholePlayerCharacter::Move(const FInputActionValue& Value)
 {
+	// Check if status effects allow movement
+	if (StatusEffectComponent && !StatusEffectComponent->CanMove())
+	{
+		return; // Movement blocked by status effects
+	}
+	
 	// input is a Vector2D
 	FVector2D MovementVector = Value.Get<FVector2D>();
 
@@ -584,6 +590,12 @@ void ABlackholePlayerCharacter::UseDash()
 		return;
 	}
 	
+	// Check if status effects allow movement/dashing
+	if (StatusEffectComponent && !StatusEffectComponent->CanMove())
+	{
+		return; // Movement/dashing blocked by status effects
+	}
+	
 	// Only register input if ability can execute
 	if (IsValid(HackerDashAbility) && HackerDashAbility->CanExecute())
 	{
@@ -608,6 +620,12 @@ void ABlackholePlayerCharacter::UseUtilityJump()
 	if (!IsValid(this) || bIsDead)
 	{
 		return;
+	}
+	
+	// Check if status effects allow movement/jumping
+	if (StatusEffectComponent && !StatusEffectComponent->CanMove())
+	{
+		return; // Movement/jumping blocked by status effects
 	}
 	
 	// Debug: Show that jump input was received
