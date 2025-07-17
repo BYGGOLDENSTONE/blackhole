@@ -224,6 +224,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* MenuToggleAction;  // Quote key for menu
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* WalkRunToggleAction;  // For double-tap detection
 
 	// Path-based ability slots (6 total)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
@@ -295,14 +298,11 @@ private:
 	
 	// Walk/Run System
 	float LastWKeyPressTime = -10.0f; // Initialize to negative to prevent false double-tap on first press
-	float LastWKeyReleaseTime = -10.0f;
 	bool bWKeyPressed = false;
-	bool bWaitingForDoubleTap = false;
-	int32 WKeyPressCount = 0;
 	void HandleWKeyPress();
 	void HandleWKeyRelease();
 	void SetMovementSpeed(bool bRun);
-	void ResetDoubleTapState();
+	void ResetDoubleTapState(); // Kept for compatibility but no longer used
 	
 	// Combo tracking (legacy - will be replaced by ComboDetectionSubsystem)
 	enum class ELastAbilityUsed : uint8

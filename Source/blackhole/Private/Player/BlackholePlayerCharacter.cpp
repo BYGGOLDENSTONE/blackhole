@@ -180,10 +180,8 @@ void ABlackholePlayerCharacter::BeginPlay()
 	bIsRunning = false;
 	SetMovementSpeed(false);
 	
-	// Reset double-tap state
-	ResetDoubleTapState();
+	// Initialize double-tap timing
 	LastWKeyPressTime = -10.0f;
-	LastWKeyReleaseTime = -10.0f;
 	
 }
 
@@ -359,17 +357,23 @@ void ABlackholePlayerCharacter::Move(const FInputActionValue& Value)
 	FVector2D MovementVector = Value.Get<FVector2D>();
 	
 	// Check for W key press (forward movement)
-	if (MovementVector.Y > 0.0f && !bWKeyPressed)
+	if (MovementVector.Y > 0.0f)
 	{
-		bWKeyPressed = true;
-		UE_LOG(LogTemp, Warning, TEXT("W key pressed - calling HandleWKeyPress"));
-		HandleWKeyPress();
+		if (!bWKeyPressed)
+		{
+			bWKeyPressed = true;
+			UE_LOG(LogTemp, Warning, TEXT("W key pressed - calling HandleWKeyPress"));
+			HandleWKeyPress();
+		}
 	}
-	else if (MovementVector.Y <= 0.0f && bWKeyPressed)
+	else if (MovementVector.Y <= 0.0f)
 	{
-		bWKeyPressed = false;
-		UE_LOG(LogTemp, Warning, TEXT("W key released - calling HandleWKeyRelease"));
-		HandleWKeyRelease();
+		if (bWKeyPressed)
+		{
+			bWKeyPressed = false;
+			UE_LOG(LogTemp, Warning, TEXT("W key released - calling HandleWKeyRelease"));
+			HandleWKeyRelease();
+		}
 	}
 
 	if (Controller != nullptr)
@@ -1142,62 +1146,41 @@ bool ABlackholePlayerCharacter::IsStaggered() const
 void ABlackholePlayerCharacter::HandleWKeyPress()
 {
 	float CurrentTime = GetWorld()->GetTimeSeconds();
+	float TimeSinceLastPress = CurrentTime - LastWKeyPressTime;
 	
-	UE_LOG(LogTemp, Warning, TEXT("HandleWKeyPress - bWaitingForDoubleTap: %s, TimeSinceRelease: %.2f, DoubleTapWindow: %.2f"), 
-		bWaitingForDoubleTap ? TEXT("true") : TEXT("false"), 
-		CurrentTime - LastWKeyReleaseTime, 
-		DoubleTapWindow);
+	UE_LOG(LogTemp, Warning, TEXT("HandleWKeyPress - TimeSinceLastPress: %.2f, DoubleTapWindow: %.2f"), 
+		TimeSinceLastPress, DoubleTapWindow);
 	
-	// If we're waiting for a double tap and within the window
-	if (bWaitingForDoubleTap && (CurrentTime - LastWKeyReleaseTime) <= DoubleTapWindow)
+	// Simple double-tap detection: if pressed twice within the window
+	if (TimeSinceLastPress <= DoubleTapWindow && TimeSinceLastPress > 0.1f) // 0.1f to avoid instant re-triggers
 	{
 		// This is a valid double tap!
 		bIsRunning = !bIsRunning;
 		SetMovementSpeed(bIsRunning);
 		
-		// Reset double tap state
-		ResetDoubleTapState();
+		// Reset timing to prevent triple-tap
+		LastWKeyPressTime = -10.0f;
 		
 		UE_LOG(LogTemp, Warning, TEXT("Double tap detected! Running: %s"), bIsRunning ? TEXT("ON") : TEXT("OFF"));
 	}
 	else
 	{
-		// First press or expired double tap window
-		ResetDoubleTapState();
+		// Record this press time for next comparison
 		LastWKeyPressTime = CurrentTime;
-		WKeyPressCount = 1;
 		
-		UE_LOG(LogTemp, Warning, TEXT("W key press - waiting for potential double tap"));
+		UE_LOG(LogTemp, Warning, TEXT("W key press - recorded for potential double tap"));
 	}
 }
 
 void ABlackholePlayerCharacter::HandleWKeyRelease()
 {
-	float CurrentTime = GetWorld()->GetTimeSeconds();
-	LastWKeyReleaseTime = CurrentTime;
-	
-	UE_LOG(LogTemp, Warning, TEXT("HandleWKeyRelease - WKeyPressCount: %d"), WKeyPressCount);
-	
-	// If this is the first press release, start waiting for double tap
-	if (WKeyPressCount == 1)
-	{
-		bWaitingForDoubleTap = true;
-		
-		UE_LOG(LogTemp, Warning, TEXT("Starting double-tap wait window (%.1f seconds)"), DoubleTapWindow);
-		
-		// Set a timer to reset double tap state after the window expires
-		FTimerHandle ResetTimer;
-		GetWorld()->GetTimerManager().SetTimer(ResetTimer, this, &ABlackholePlayerCharacter::ResetDoubleTapState, 
-			DoubleTapWindow + 0.1f, false);
-	}
+	// Simple release tracking for debugging
+	UE_LOG(LogTemp, Warning, TEXT("W key released"));
 }
 
 void ABlackholePlayerCharacter::ResetDoubleTapState()
 {
-	bWaitingForDoubleTap = false;
-	WKeyPressCount = 0;
-	
-	UE_LOG(LogTemp, Warning, TEXT("Double tap state reset"));
+	// No longer needed with simplified system
 }
 
 void ABlackholePlayerCharacter::SetMovementSpeed(bool bRun)
