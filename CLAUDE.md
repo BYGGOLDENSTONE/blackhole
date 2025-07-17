@@ -76,6 +76,18 @@ Enemy_SM:Tank/Agile/Combat/Hacker|DT_EnemyStats:CSV_config
 - ✅PowerfulMindmeld_WP_fix:Use_ResourceManager|Triggers_critical_timer_properly
 - ✅PowerfulMindmeld_compile_fix:Renamed_local_vars_to_avoid_shadowing_members
 
+## LATEST_SESSION_CHANGES(2025-07-17_CONTINUED)
+- ✅PsiDisruptor_visual_sphere:Translucent_mesh|Shows_build_area|Persists_after_builder_death
+- ✅Build_timer_scaling:Doubles_per_dead_builder(1.5x_multiplier)|Pause_when_no_builders|Resume_on_entry
+- ✅StandardBuildingState:New_AI_state|Prevents_combat|Returns_to_sphere_if_drift
+- ✅BuilderComponent_enhanced:PauseBuild()|ResumeBuild()|CreateBuildSphere()|DestroyBuildSphere()
+- ✅AutomaticDoor_system:Proximity_detection|Look_at_requirement|Auto_close_on_exit
+- ✅Door_opens_up:When_player_close_AND_looking|Smooth_interpolation|600_unit_height
+- ✅Inside_detection:Separate_trigger_volume|Immediate_close_on_exit
+- ✅Walk_Run_System:Added_double-tap_W|300/600_speeds|REMOVED_due_to_bugs
+- ✅Debug_trace_cleanup:Removed_door_look_debug_line|Kept_proximity_boxes
+- ✅Compilation_fixes:GetController_cast|Variable_shadowing|Multiple_files
+
 ## LATEST_SESSION_CHANGES(2025-07-17)
 - ✅AutomaticDoor_system:Proximity_detection|Look_at_requirement|Auto_close_on_exit
 - ✅Door_opens_up:When_player_close_AND_looking|Smooth_interpolation
