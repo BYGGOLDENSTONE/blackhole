@@ -76,6 +76,15 @@ Enemy_SM:Tank/Agile/Combat/Hacker|DT_EnemyStats:CSV_config
 - ✅PowerfulMindmeld_WP_fix:Use_ResourceManager|Triggers_critical_timer_properly
 - ✅PowerfulMindmeld_compile_fix:Renamed_local_vars_to_avoid_shadowing_members
 
+## LATEST_SESSION_CHANGES(2025-07-17)
+- ✅AutomaticDoor_system:Proximity_detection|Look_at_requirement|Auto_close_on_exit
+- ✅Door_opens_up:When_player_close_AND_looking|Smooth_interpolation
+- ✅Inside_detection:Separate_trigger_volume|Immediate_close_on_exit
+- ✅Visual_feedback:Debug_boxes|Player_look_direction|Door_states
+- ✅PsiDisruptor_building:Visual_sphere|Timer_doubling_on_death|Pause_not_cancel
+- ✅Builder_behavior:Stay_in_sphere|No_chase/attack|Building_state
+- ✅StandardEnemy_fixes:GetController_cast|Building_state_integration
+
 ## LATEST_SESSION_CHANGES(2025-07-16)
 - ✅Velocity_indicator:Smaller|No_direction|Y-150→REMOVED
 - ✅Critical_100%_restore:Not_partial_when_entries_remain
@@ -124,6 +133,7 @@ AI:Enemy/StateMachines/*|Config:Config/GameplayConfig.h|GameMode:Core/BlackholeG
 StatusEffects:Components/StatusEffectComponent|AgileAbilities:StabAttack+AssassinApproach
 Enemies:Agile/Tank/Standard/MindMelder|BuilderComp:Psi-disruptor|HeatAura+Charge:Tank
 PsiDisruptor:Actors/PsiDisruptor|PowerfulMindmeld:30s_instant_kill
+AutomaticDoor:Actors/AutomaticDoor|Proximity+Look_detection|Auto_close_on_exit
 
 ## FIXED_ISSUES
 Menu_input|Memory_UPROPERTY|GameMode_TSubclassOf|Include_paths|Enemy_duplication→utility
