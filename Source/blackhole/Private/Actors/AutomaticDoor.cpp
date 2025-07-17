@@ -159,14 +159,6 @@ bool AAutomaticDoor::IsPlayerLookingAtDoor() const
     // Check if player is looking at door (within threshold)
     bool bLookingAt = DotProduct >= LookAtThreshold;
     
-    #if WITH_EDITOR
-    if (bPlayerNearby)
-    {
-        // Draw debug line showing player look direction
-        DrawDebugLine(GetWorld(), PlayerViewLocation, PlayerViewLocation + (PlayerLookDirection * 500.0f), 
-            bLookingAt ? FColor::Green : FColor::Red, false, -1.0f, 0, 2.0f);
-    }
-    #endif
     
     return bLookingAt;
 }
