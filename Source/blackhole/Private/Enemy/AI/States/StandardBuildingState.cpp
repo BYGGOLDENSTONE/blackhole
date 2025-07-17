@@ -28,7 +28,7 @@ void UStandardBuildingState::Enter(ABaseEnemy* Enemy, UEnemyStateMachine* StateM
             TimeOutOfRange = 0.0f;
             
             // Stop any current movement
-            if (AAIController* AIController = Enemy->GetAIController())
+            if (AAIController* AIController = Cast<AAIController>(Enemy->GetController()))
             {
                 AIController->StopMovement();
             }
@@ -85,7 +85,7 @@ void UStandardBuildingState::Update(ABaseEnemy* Enemy, UEnemyStateMachine* State
         TimeOutOfRange = 0.0f;
         
         // In range, stop moving and face build location
-        if (AAIController* AIController = Enemy->GetAIController())
+        if (AAIController* AIController = Cast<AAIController>(Enemy->GetController()))
         {
             AIController->StopMovement();
             
@@ -122,7 +122,7 @@ void UStandardBuildingState::MoveTowardsBuildLocation(ABaseEnemy* Enemy, float D
 {
     if (!Enemy) return;
     
-    if (AAIController* AIController = Enemy->GetAIController())
+    if (AAIController* AIController = Cast<AAIController>(Enemy->GetController()))
     {
         // Move to a position within the build radius
         FVector Direction = BuildLocation - Enemy->GetActorLocation();
