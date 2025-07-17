@@ -362,11 +362,13 @@ void ABlackholePlayerCharacter::Move(const FInputActionValue& Value)
 	if (MovementVector.Y > 0.0f && !bWKeyPressed)
 	{
 		bWKeyPressed = true;
+		UE_LOG(LogTemp, Warning, TEXT("W key pressed - calling HandleWKeyPress"));
 		HandleWKeyPress();
 	}
 	else if (MovementVector.Y <= 0.0f && bWKeyPressed)
 	{
 		bWKeyPressed = false;
+		UE_LOG(LogTemp, Warning, TEXT("W key released - calling HandleWKeyRelease"));
 		HandleWKeyRelease();
 	}
 
@@ -882,7 +884,8 @@ void ABlackholePlayerCharacter::UpdateMovementSettings()
 	{
 		Movement->GroundFriction = GroundFriction;
 		Movement->BrakingDecelerationWalking = BrakingDeceleration;
-		Movement->MaxWalkSpeed = MaxWalkSpeed;
+		// Don't override MaxWalkSpeed here - it's managed by the walk/run system
+		// Movement->MaxWalkSpeed = MaxWalkSpeed;
 		
 		// Apply momentum preservation settings
 		Movement->BrakingDecelerationFalling = 0.0f;
@@ -893,8 +896,8 @@ void ABlackholePlayerCharacter::UpdateMovementSettings()
 		Movement->MaxAcceleration = 1200.0f;
 		Movement->MinAnalogWalkSpeed = 20.0f;
 		
-		UE_LOG(LogTemp, Warning, TEXT("Movement settings updated - Friction: %.2f, Deceleration: %.2f, MaxSpeed: %.2f"), 
-			GroundFriction, BrakingDeceleration, MaxWalkSpeed);
+		UE_LOG(LogTemp, Warning, TEXT("Movement settings updated - Friction: %.2f, Deceleration: %.2f"), 
+			GroundFriction, BrakingDeceleration);
 	}
 }
 
@@ -1140,6 +1143,11 @@ void ABlackholePlayerCharacter::HandleWKeyPress()
 {
 	float CurrentTime = GetWorld()->GetTimeSeconds();
 	
+	UE_LOG(LogTemp, Warning, TEXT("HandleWKeyPress - bWaitingForDoubleTap: %s, TimeSinceRelease: %.2f, DoubleTapWindow: %.2f"), 
+		bWaitingForDoubleTap ? TEXT("true") : TEXT("false"), 
+		CurrentTime - LastWKeyReleaseTime, 
+		DoubleTapWindow);
+	
 	// If we're waiting for a double tap and within the window
 	if (bWaitingForDoubleTap && (CurrentTime - LastWKeyReleaseTime) <= DoubleTapWindow)
 	{
@@ -1159,7 +1167,7 @@ void ABlackholePlayerCharacter::HandleWKeyPress()
 		LastWKeyPressTime = CurrentTime;
 		WKeyPressCount = 1;
 		
-		UE_LOG(LogTemp, VeryVerbose, TEXT("W key press - waiting for potential double tap"));
+		UE_LOG(LogTemp, Warning, TEXT("W key press - waiting for potential double tap"));
 	}
 }
 
@@ -1168,10 +1176,14 @@ void ABlackholePlayerCharacter::HandleWKeyRelease()
 	float CurrentTime = GetWorld()->GetTimeSeconds();
 	LastWKeyReleaseTime = CurrentTime;
 	
+	UE_LOG(LogTemp, Warning, TEXT("HandleWKeyRelease - WKeyPressCount: %d"), WKeyPressCount);
+	
 	// If this is the first press release, start waiting for double tap
 	if (WKeyPressCount == 1)
 	{
 		bWaitingForDoubleTap = true;
+		
+		UE_LOG(LogTemp, Warning, TEXT("Starting double-tap wait window (%.1f seconds)"), DoubleTapWindow);
 		
 		// Set a timer to reset double tap state after the window expires
 		FTimerHandle ResetTimer;
@@ -1185,7 +1197,7 @@ void ABlackholePlayerCharacter::ResetDoubleTapState()
 	bWaitingForDoubleTap = false;
 	WKeyPressCount = 0;
 	
-	UE_LOG(LogTemp, VeryVerbose, TEXT("Double tap state reset"));
+	UE_LOG(LogTemp, Warning, TEXT("Double tap state reset"));
 }
 
 void ABlackholePlayerCharacter::SetMovementSpeed(bool bRun)

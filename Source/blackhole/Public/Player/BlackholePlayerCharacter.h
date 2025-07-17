@@ -116,7 +116,7 @@ protected:
 	float BrakingDeceleration = 800.0f;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement Settings", meta = (DisplayName = "Max Walk Speed", ClampMin = "100.0", ClampMax = "1000.0"))
-	float MaxWalkSpeed = 600.0f;
+	float MaxWalkSpeed = 300.0f; // Default to walk speed, not run speed
 	
 	// Walk/Run System
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement Settings", meta = (DisplayName = "Walk Speed"))

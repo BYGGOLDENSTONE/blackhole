@@ -87,6 +87,8 @@ Enemy_SM:Tank/Agile/Combat/Hacker|DT_EnemyStats:CSV_config
 - ✅Walk_Run_System:W_key_walk_300|Double_tap_W_run_600|Toggle_mode
 - ✅Double_tap_detection:1_second_window|Toggle_between_walk_run
 - ✅Movement_speed_states:Walk_300_default|Run_600_on_double_tap
+- ✅Double_tap_fixes:No_false_positive_on_first_press|Reliable_after_restart
+- ✅State_tracking:Press_release_detection|Timer_cleanup|Proper_initialization
 
 ## LATEST_SESSION_CHANGES(2025-07-16)
 - ✅Velocity_indicator:Smaller|No_direction|Y-150→REMOVED
