@@ -52,11 +52,11 @@ void SetMovementSpeed(bool); // Changes movement speed
 void ResetDoubleTapState();  // Cleans up double-tap detection state
 ```
 
-### Double-Tap Detection
-- Properly tracks key press and release
-- Prevents false positives on first game start
-- Timer-based cleanup after double-tap window expires
-- State machine prevents edge cases
+### Double-Tap Detection (Simplified)
+- Simple time-based detection between W key presses
+- No complex state machine required
+- 0.1 second minimum time between presses to prevent re-triggers
+- Resets timing after successful double-tap to prevent triple-tap
 
 ### Debug Output
 Console logs show:
