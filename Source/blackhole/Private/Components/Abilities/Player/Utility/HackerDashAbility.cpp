@@ -114,28 +114,32 @@ void UHackerDashAbility::ApplyMovement(ACharacter* Character)
 	// Ground dash constraints
 	if (CachedMovement->IsMovingOnGround())
 	{
+		// Get the character's up vector (opposite of gravity)
+		FVector CharacterUp = -CachedMovement->GetGravityDirection();
+		
 		// Check if this is a forward dash (W key) by comparing with camera forward
 		bool bIsForwardDash = false;
 		if (APlayerController* PC = Cast<APlayerController>(PlayerChar->GetController()))
 		{
-			FRotator FlatRotation = PC->GetControlRotation();
-			FlatRotation.Pitch = 0;
-			FVector FlatCameraForward = FlatRotation.Vector();
-			FlatCameraForward.Normalize();
+			FRotator CameraRotation = PC->GetControlRotation();
+			FVector CameraForward = CameraRotation.Vector();
+			
+			// Project camera forward onto movement plane
+			FVector FlatCameraForward = (CameraForward - (CameraForward | CharacterUp) * CharacterUp).GetSafeNormal();
 			
 			float ForwardDot = FVector::DotProduct(DashDirection, FlatCameraForward);
 			bIsForwardDash = ForwardDot > 0.7f;
 		}
 		
-		// Only constrain to horizontal if NOT a forward dash
+		// Only constrain to movement plane if NOT a forward dash
 		if (!bIsForwardDash)
 		{
-			DashDirection.Z = 0.0f;
-			DashDirection.Normalize();
+			// Project dash direction onto the movement plane (perpendicular to character up)
+			DashDirection = (DashDirection - (DashDirection | CharacterUp) * CharacterUp).GetSafeNormal();
 		}
 		
-		// Add slight upward velocity to clear small obstacles
-		CachedMovement->Velocity.Z = 200.0f;
+		// Add slight velocity in up direction to clear small obstacles
+		CachedMovement->Velocity = CharacterUp * 200.0f;
 	}
 	
 	// Store original friction

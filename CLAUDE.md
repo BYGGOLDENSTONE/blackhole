@@ -6,7 +6,7 @@ WP:100→0|Energy→Critical|Abilities_consume|Enemies_drain|Kills_restore(10-30
 0%WP→5s_timer→use_ultimate_or_die|Ultimate→WP=100,ability_disabled|Dmg_immunity@0WP
 
 ## ABILITIES
-LMB:Slash(0)|Shift:Dash(0)|Space:Jump(0)|RMB:Firewall(15)|Q:Pulse(20)|E:Gravity(15)|R:DataSpike(25)|F:Override(30)
+LMB:Slash(0)|Shift:Dash(0)|Space:Jump(0)|RMB:Firewall(15)|Q:Pulse(20)|E:GravityPull(15)|R:DataSpike(25)|F:Override(30)|G:GravityShift(25)
 Combos:Dash+Slash=PhantomStrike(+15WP)|Jump+Slash=AerialRave(+15WP)
 
 ## ARCHITECTURE
@@ -88,6 +88,18 @@ Enemy_SM:Tank/Agile/Combat/Hacker|DT_EnemyStats:CSV_config
 - ✅Debug_trace_cleanup:Removed_door_look_debug_line|Kept_proximity_boxes
 - ✅Compilation_fixes:GetController_cast|Variable_shadowing|Multiple_files
 
+## LATEST_SESSION_CHANGES(2025-07-18)
+- ✅GravityShift_system:Change_gravity_axis|Walk_on_walls/ceiling|Ship_rotation_feel
+- ✅GravityDirectionComponent:Smooth_transitions|All_characters_affected|Custom_directions
+- ✅GravityShiftAbility:G_key|25WP_cost|Area_effect|Look_direction_option
+- ✅GravityShiftVolume:Trigger_zones|Auto_apply_gravity|Restore_on_exit
+- ✅GravityPull_improvements:Trace_aiming|50%_distance_pull|Bounce_effect|Tank_immunity
+- ✅Enemy_AI_logging:Removed_verbose_logs|Kept_critical_events|Cleaner_output
+- ✅Gravity_movement_fixes:Full_360_movement_on_walls|Camera_proper_orientation
+- ✅Jump_gravity_aware:Jumps_opposite_to_gravity|Works_on_any_surface
+- ✅Dash_gravity_aware:Dash_along_movement_plane|Proper_constraints
+- ✅Character_rotation:Auto_align_with_gravity|Smooth_transitions
+
 ## LATEST_SESSION_CHANGES(2025-07-17)
 - ✅AutomaticDoor_system:Proximity_detection|Look_at_requirement|Auto_close_on_exit
 - ✅Door_opens_up:When_player_close_AND_looking|Smooth_interpolation
@@ -147,6 +159,7 @@ StatusEffects:Components/StatusEffectComponent|AgileAbilities:StabAttack+Assassi
 Enemies:Agile/Tank/Standard/MindMelder|BuilderComp:Psi-disruptor|HeatAura+Charge:Tank
 PsiDisruptor:Actors/PsiDisruptor|PowerfulMindmeld:30s_instant_kill
 AutomaticDoor:Actors/AutomaticDoor|Proximity+Look_detection|Auto_close_on_exit
+GravitySystem:Components/GravityDirectionComponent|GravityShiftAbility:G_key|GravityShiftVolume:Trigger_zones
 
 ## FIXED_ISSUES
 Menu_input|Memory_UPROPERTY|GameMode_TSubclassOf|Include_paths|Enemy_duplication→utility
@@ -161,4 +174,14 @@ Enemy_death_cleanup|New_enemy_state_machines|Compilation_errors|API_method_updat
 Check_methods|Check_members|No_duplicates|Memory_mgmt|Cast_safety|Data_sync|Timer_mgmt
 State_flow|Combo_classify|Event_ownership|Timer_interference|Resource_protection|Death_logic
 
-IMPROVEMENT_REPORT.md=full_history|GDD.md=design_doc
+## DOCUMENTATION_STRUCTURE
+GDD.md=Complete_game_design_document(root)
+Documentation/SessionReports/=All_improvement_reports_by_date
+Documentation/TechnicalGuides/=StatusEffect|AutomaticDoor|EnemyAI_guides
+Documentation/Archives/=Historical_docs|Superseded_content
+
+## KEY_DOCS
+IMPROVEMENT_REPORT_2025_07_17_COMPLETE.md=Latest_comprehensive_changes
+STATUSEFFECT_IMPROVEMENTS_2025_07_17.md=StatusEffect_technical_reference
+ENEMY_AI_BEHAVIORS.md=All_enemy_types_and_behaviors
+AUTOMATIC_DOOR_GUIDE.md=Door_system_usage

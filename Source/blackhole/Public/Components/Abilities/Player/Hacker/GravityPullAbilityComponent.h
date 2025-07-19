@@ -31,6 +31,18 @@ public:
     // Maximum targeting angle (in degrees) from camera forward
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
     float MaxTargetingAngle = 45.0f;
+    
+    // Pull distance ratio (0.5 = pull to 50% of original distance)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability", meta = (ClampMin = "0.1", ClampMax = "0.9"))
+    float PullDistanceRatio = 0.5f;
+    
+    // Minimum distance to maintain from player
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability", meta = (ClampMin = "100.0", ClampMax = "500.0"))
+    float MinimumPullDistance = 200.0f;
+    
+    // Upward bounce force to add to the pull
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability", meta = (ClampMin = "0.0", ClampMax = "1000.0"))
+    float BounceUpwardForce = 500.0f;
 
     // Ultimate version parameters
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ultimate Gravity Pull", meta = (ClampMin = "500.0", ClampMax = "3000.0"))

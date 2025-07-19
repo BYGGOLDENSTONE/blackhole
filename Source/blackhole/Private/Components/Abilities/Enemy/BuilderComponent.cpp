@@ -112,16 +112,16 @@ void UBuilderComponent::InitiateBuild(const FVector& BuildLocation)
 			}
 		}
 		
-		UE_LOG(LogTemp, Warning, TEXT("Building started with %d builders at location %s"), 
-			ParticipatingBuilders.Num(), *BuildLocation.ToString());
+		// UE_LOG(LogTemp, Warning, TEXT("Building started with %d builders at location %s"), 
+		//	ParticipatingBuilders.Num(), *BuildLocation.ToString());
 	}
 	else
 	{
 		// Not enough builders - destroy sphere and cancel
 		DestroyBuildSphere();
 		CancelBuild();
-		UE_LOG(LogTemp, Warning, TEXT("Not enough builders to start build. Required: %d, Have: %d"), 
-			MinBuildersRequired, ParticipatingBuilders.Num());
+		// UE_LOG(LogTemp, Warning, TEXT("Not enough builders to start build. Required: %d, Have: %d"), 
+		//	MinBuildersRequired, ParticipatingBuilders.Num());
 	}
 }
 
@@ -201,7 +201,7 @@ void UBuilderComponent::CancelBuild()
 	InitialBuilderCount = 0;
 	SetComponentTickEnabled(false);
 	
-	UE_LOG(LogTemp, Warning, TEXT("Build cancelled"));
+	// UE_LOG(LogTemp, Warning, TEXT("Build cancelled"));
 }
 
 float UBuilderComponent::GetBuildProgress() const
@@ -280,8 +280,8 @@ void UBuilderComponent::UpdateBuildProgress()
 	if (ParticipatingBuilders.Num() == 0)
 	{
 		// All builders are dead - pause the build
-		UE_LOG(LogTemp, Warning, TEXT("All builders dead - pausing build at %.1f%% progress"), 
-			BuildProgress * 100.0f);
+		// UE_LOG(LogTemp, Warning, TEXT("All builders dead - pausing build at %.1f%% progress"), 
+		//	BuildProgress * 100.0f);
 		PauseBuild();
 		return;
 	}
@@ -302,8 +302,8 @@ void UBuilderComponent::UpdateBuildProgress()
 		// Update initial builder count to prevent repeated adjustments
 		InitialBuilderCount = ParticipatingBuilders.Num();
 		
-		UE_LOG(LogTemp, Warning, TEXT("Builder killed! Adjusting timer - was %.1fs remaining, now %.1fs (total build time: %.1fs)"), 
-			TimeRemaining, NewTimeRemaining, CurrentBuildTime);
+		// UE_LOG(LogTemp, Warning, TEXT("Builder killed! Adjusting timer - was %.1fs remaining, now %.1fs (total build time: %.1fs)"), 
+		//	TimeRemaining, NewTimeRemaining, CurrentBuildTime);
 	}
 	
 	// Update time spent building
@@ -317,14 +317,14 @@ void UBuilderComponent::UpdateBuildProgress()
 	
 	if (BuildProgress >= 1.0f)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Build progress reached 100%%! Calling CompleteBuild..."));
+		// UE_LOG(LogTemp, Warning, TEXT("Build progress reached 100%%! Calling CompleteBuild..."));
 		CompleteBuild();
 	}
 }
 
 void UBuilderComponent::CompleteBuild()
 {
-	UE_LOG(LogTemp, Warning, TEXT("CompleteBuild called! bIsBuildLeader = %s"), bIsBuildLeader ? TEXT("true") : TEXT("false"));
+	// UE_LOG(LogTemp, Warning, TEXT("CompleteBuild called! bIsBuildLeader = %s"), bIsBuildLeader ? TEXT("true") : TEXT("false"));
 	
 	if (!bIsBuildLeader) 
 	{
@@ -393,7 +393,7 @@ void UBuilderComponent::SpawnPsiDisruptor()
 	FVector SpawnLocation = CurrentBuildLocation + FVector(0, 0, 50); // Slight offset
 	FRotator SpawnRotation = FRotator::ZeroRotator;
 	
-	UE_LOG(LogTemp, Warning, TEXT("Attempting to spawn PsiDisruptor at %s..."), *SpawnLocation.ToString());
+	// UE_LOG(LogTemp, Warning, TEXT("Attempting to spawn PsiDisruptor at %s..."), *SpawnLocation.ToString());
 	
 	AActor* SpawnedActor = GetWorld()->SpawnActor<AActor>(PsiDisruptorClass, SpawnLocation, SpawnRotation, SpawnParams);
 	
@@ -470,8 +470,8 @@ void UBuilderComponent::PauseBuild()
 		}
 	}
 	
-	UE_LOG(LogTemp, Warning, TEXT("Build paused at %.1f%% progress (%.1fs spent, %.1fs total)"), 
-		BuildProgress * 100.0f, TimeSpentBuilding, CurrentBuildTime);
+	// UE_LOG(LogTemp, Warning, TEXT("Build paused at %.1f%% progress (%.1fs spent, %.1fs total)"), 
+	//	BuildProgress * 100.0f, TimeSpentBuilding, CurrentBuildTime);
 }
 
 void UBuilderComponent::ResumeBuild()
@@ -483,7 +483,7 @@ void UBuilderComponent::ResumeBuild()
 	// Restart the timer
 	GetWorld()->GetTimerManager().SetTimer(BuildTimerHandle, this, &UBuilderComponent::UpdateBuildProgress, 0.1f, true);
 	
-	UE_LOG(LogTemp, Warning, TEXT("Build resumed at %.1f%% progress"), BuildProgress * 100.0f);
+	// UE_LOG(LogTemp, Warning, TEXT("Build resumed at %.1f%% progress"), BuildProgress * 100.0f);
 }
 
 void UBuilderComponent::CreateBuildSphere()
@@ -534,8 +534,8 @@ void UBuilderComponent::CreateBuildSphere()
 		// Set collision to no collision (visual only)
 		BuildSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		
-		UE_LOG(LogTemp, Warning, TEXT("Created build sphere at %s with radius %.0f"), 
-			*CurrentBuildLocation.ToString(), BuildRadius);
+		// UE_LOG(LogTemp, Warning, TEXT("Created build sphere at %s with radius %.0f"), 
+		//	*CurrentBuildLocation.ToString(), BuildRadius);
 	}
 }
 
@@ -547,6 +547,6 @@ void UBuilderComponent::DestroyBuildSphere()
 		BuildSphereActor = nullptr;
 		BuildSphere = nullptr;
 		
-		UE_LOG(LogTemp, Warning, TEXT("Destroyed build sphere"));
+		// UE_LOG(LogTemp, Warning, TEXT("Destroyed build sphere"));
 	}
 }

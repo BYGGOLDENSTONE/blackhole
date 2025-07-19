@@ -410,23 +410,25 @@ bool UWallRunComponent::IsLookingAtWall(const FVector& WallNormal, EWallSide Wal
 
 FVector UWallRunComponent::CalculateWallRunDirection(const FVector& WallNormal, EWallSide WallSide) const
 {
-    if (!OwnerCharacter)
+    if (!OwnerCharacter || !MovementComponent)
     {
         return FVector::ZeroVector;
     }
     
     FVector ForwardVector = OwnerCharacter->GetActorForwardVector();
+    // Get the character's up vector based on current gravity
+    FVector CharacterUp = -MovementComponent->GetGravityDirection();
     FVector WallForward;
     
     if (WallSide == EWallSide::Right)
     {
         // Cross product: Wall Normal x Up = Forward along wall (right side)
-        WallForward = FVector::CrossProduct(WallNormal, FVector::UpVector).GetSafeNormal();
+        WallForward = FVector::CrossProduct(WallNormal, CharacterUp).GetSafeNormal();
     }
     else
     {
         // Cross product: Up x Wall Normal = Forward along wall (left side)
-        WallForward = FVector::CrossProduct(FVector::UpVector, WallNormal).GetSafeNormal();
+        WallForward = FVector::CrossProduct(CharacterUp, WallNormal).GetSafeNormal();
     }
     
     // Choose direction based on player's current movement
@@ -614,10 +616,11 @@ void UWallRunComponent::StartWallRunInternal(const FVector& WallNormal, EWallSid
     LastValidWallNormal = WallNormal;
     WallRunDirection = CalculateWallRunDirection(WallNormal, WallSide);
     
-    // Store starting height to maintain consistent level
+    // Store starting location to maintain consistent level
     if (OwnerCharacter)
     {
-        WallRunStartHeight = OwnerCharacter->GetActorLocation().Z;
+        WallRunStartLocation = OwnerCharacter->GetActorLocation();
+        WallRunStartHeight = OwnerCharacter->GetActorLocation().Z; // Keep for compatibility
     }
     
     // Calculate initial speed with momentum preservation
@@ -704,15 +707,23 @@ void UWallRunComponent::ApplyWallRunMovement(float DeltaTime)
     // NO SPEED DECAY - player maintains maximum speed always
     // CurrentWallRunSpeed remains constant throughout wall run
     
+    // Get the character's up vector based on current gravity
+    FVector CharacterUp = -MovementComponent->GetGravityDirection();
+    
     // Calculate wall run velocity - always forward along wall at same height
     FVector WallRunVelocity = WallRunDirection * CurrentWallRunSpeed;
     
-    // Maintain starting height - adjust Z velocity to keep at consistent level
-    float CurrentHeight = OwnerCharacter->GetActorLocation().Z;
-    float HeightDifference = WallRunStartHeight - CurrentHeight;
+    // Maintain starting height relative to gravity direction
+    FVector CurrentLocation = OwnerCharacter->GetActorLocation();
+    FVector StartLocation = WallRunStartLocation;
+    
+    // Project height difference onto the up vector
+    float CurrentHeightAlongUp = FVector::DotProduct(CurrentLocation, CharacterUp);
+    float StartHeightAlongUp = FVector::DotProduct(StartLocation, CharacterUp);
+    float HeightDifference = StartHeightAlongUp - CurrentHeightAlongUp;
     
     // Apply gentle correction to maintain height (not too aggressive to avoid jitter)
-    WallRunVelocity.Z = HeightDifference * 2.0f; // Multiply by 2 for gentle correction
+    WallRunVelocity += CharacterUp * (HeightDifference * 2.0f); // Multiply by 2 for gentle correction
     
     // Add slight velocity toward wall to keep player close to the wall
     FVector TowardWall = CurrentWallNormal * -50.0f; // Small push toward wall
@@ -832,6 +843,9 @@ FVector UWallRunComponent::CalculateWallJumpVelocity() const
         return FVector::ZeroVector;
     }
     
+    // Get the character's up vector based on current gravity
+    FVector CharacterUp = -MovementComponent->GetGravityDirection();
+    
     // Create strong diagonal trajectory based on wall side
     FVector AwayFromWall, DiagonalDirection;
     
@@ -839,13 +853,13 @@ FVector UWallRunComponent::CalculateWallJumpVelocity() const
     {
         // Right wall: Jump LEFT and UP and FORWARD
         AwayFromWall = -OwnerCharacter->GetActorRightVector(); // Jump left
-        DiagonalDirection = (AwayFromWall + FVector::UpVector + OwnerCharacter->GetActorForwardVector()).GetSafeNormal();
+        DiagonalDirection = (AwayFromWall + CharacterUp + OwnerCharacter->GetActorForwardVector()).GetSafeNormal();
     }
     else // Left wall
     {
         // Left wall: Jump RIGHT and UP and FORWARD  
         AwayFromWall = OwnerCharacter->GetActorRightVector(); // Jump right
-        DiagonalDirection = (AwayFromWall + FVector::UpVector + OwnerCharacter->GetActorForwardVector()).GetSafeNormal();
+        DiagonalDirection = (AwayFromWall + CharacterUp + OwnerCharacter->GetActorForwardVector()).GetSafeNormal();
     }
     
     // Strong diagonal jump with increased power

@@ -2,6 +2,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/StatusEffectComponent.h"
+#include "Components/GravityDirectionComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Systems/ThresholdManager.h"
 #include "Systems/ResourceManager.h"
@@ -27,6 +28,9 @@ ABaseEnemy::ABaseEnemy()
 	
 	// Create status effect component
 	StatusEffectComponent = CreateDefaultSubobject<UStatusEffectComponent>(TEXT("StatusEffectComponent"));
+	
+	// Create gravity direction component so enemies can handle gravity shifts
+	GravityDirectionComponent = CreateDefaultSubobject<UGravityDirectionComponent>(TEXT("GravityDirectionComponent"));
 	
 	// Tag all enemies so hack abilities can identify them
 	Tags.Add(FName("Enemy"));
@@ -74,6 +78,9 @@ ABaseEnemy::ABaseEnemy()
 		// Enable path following for smoother navigation
 		Movement->bUseRVOAvoidance = true;
 		Movement->AvoidanceWeight = 0.5f;
+		
+		// Enable custom gravity support
+		Movement->SetGravityDirection(FVector(0, 0, -1)); // Start with default gravity
 	}
 }
 
@@ -91,7 +98,7 @@ void ABaseEnemy::BeginPlay()
 	if (GetCharacterMovement())
 	{
 		DefaultWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
-		UE_LOG(LogTemp, Warning, TEXT("%s: Default walk speed set to %.0f"), *GetName(), DefaultWalkSpeed);
+		// UE_LOG(LogTemp, Warning, TEXT("%s: Default walk speed set to %.0f"), *GetName(), DefaultWalkSpeed);
 	}
 	else
 	{
@@ -103,7 +110,7 @@ void ABaseEnemy::BeginPlay()
 	{
 		if (AAIController* AIController = Cast<AAIController>(GetController()))
 		{
-			UE_LOG(LogTemp, Warning, TEXT("%s: AIController present: %s"), *GetName(), *AIController->GetName());
+			// UE_LOG(LogTemp, Warning, TEXT("%s: AIController present: %s"), *GetName(), *AIController->GetName());
 		}
 		else
 		{
@@ -134,7 +141,7 @@ void ABaseEnemy::BeginPlay()
 		if (TargetActor)
 		{
 			StateMachine->SetTarget(TargetActor);
-			UE_LOG(LogTemp, Warning, TEXT("%s: Target set for state machine in BeginPlay - %s"), *GetName(), *TargetActor->GetName());
+			// UE_LOG(LogTemp, Warning, TEXT("%s: Target set for state machine in BeginPlay - %s"), *GetName(), *TargetActor->GetName());
 		}
 		else
 		{
@@ -182,7 +189,7 @@ void ABaseEnemy::UpdateAIBehavior(float DeltaTime)
 						if (!ThresholdMgr->IsInCombat())
 						{
 							ThresholdMgr->StartCombat();
-							UE_LOG(LogTemp, Warning, TEXT("Combat Started - %s detected player!"), *GetName());
+							// UE_LOG(LogTemp, Warning, TEXT("Combat Started - %s detected player!"), *GetName());
 							
 							// Show on screen message
 							if (GEngine)
@@ -216,8 +223,8 @@ float ABaseEnemy::TakeDamage(float DamageAmount, struct FDamageEvent const& Dama
 	float OldWP = CurrentWP;
 	CurrentWP = FMath::Clamp(CurrentWP - DamageAmount, 0.0f, MaxWP);
 	
-	UE_LOG(LogTemp, Warning, TEXT("%s took %.1f damage, WP: %.1f/%.1f"), 
-		*GetName(), DamageAmount, CurrentWP, MaxWP);
+	// UE_LOG(LogTemp, Warning, TEXT("%s took %.1f damage, WP: %.1f/%.1f"), 
+	//	*GetName(), DamageAmount, CurrentWP, MaxWP);
 	
 	// Check for death
 	if (CurrentWP <= 0.0f && OldWP > 0.0f)
@@ -246,7 +253,7 @@ void ABaseEnemy::OnDeath()
 			if (UResourceManager* ResourceMgr = GameInstance->GetSubsystem<UResourceManager>())
 			{
 				ResourceMgr->AddWillPower(WPRewardOnKill);
-				UE_LOG(LogTemp, Warning, TEXT("%s killed: Player gained +%.1f WP"), *GetName(), WPRewardOnKill);
+				// UE_LOG(LogTemp, Warning, TEXT("%s killed: Player gained +%.1f WP"), *GetName(), WPRewardOnKill);
 			}
 		}
 	}
@@ -364,7 +371,7 @@ void ABaseEnemy::LoadStatsFromDataTable()
 {
 	if (!EnemyStatsDataTable || StatsRowName.IsNone())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("%s: No data table or row name configured"), *GetName());
+		// UE_LOG(LogTemp, Warning, TEXT("%s: No data table or row name configured"), *GetName());
 		return;
 	}
 	

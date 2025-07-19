@@ -10,7 +10,7 @@ void UAgileChaseState::Enter(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine
     // Don't call parent - we handle everything custom
     TimeInState = 0.0f;
     
-    UE_LOG(LogTemp, Warning, TEXT("Agile Enemy: Entering CUSTOM chase state - will maintain distance"));
+    // UE_LOG(LogTemp, Warning, TEXT("Agile Enemy: Entering CUSTOM chase state - will maintain distance"));
 }
 
 void UAgileChaseState::Update(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine, float DeltaTime)

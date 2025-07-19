@@ -4,11 +4,9 @@
 **Language**: C++ with Blueprint integration  
 **Date**: 2025-07-16
 
-> **📚 Note**: For detailed ability information, see [ABILITIES_DOCUMENTATION.md](ABILITIES_DOCUMENTATION.md)
+> **📚 Note**: For technical documentation, see Documentation/TechnicalGuides/
 > 
-> **🔧 Note**: For future Forge path implementation, see [FORGE_PATH_FUTURE_IMPLEMENTATION.md](FORGE_PATH_FUTURE_IMPLEMENTATION.md)
->
-> **📊 Note**: For code quality audit results, see [AUDIT_REPORT.md](AUDIT_REPORT.md)
+> **📊 Note**: For session reports and changes, see Documentation/SessionReports/
 
 ## 🎮 Game Overview
 

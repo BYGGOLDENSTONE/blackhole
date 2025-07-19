@@ -13,17 +13,17 @@ UEnemyStateBase::UEnemyStateBase()
 void UEnemyStateBase::Enter(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine)
 {
     TimeInState = 0.0f;
-    UE_LOG(LogTemp, Warning, TEXT("%s: Entered %s state"), 
-        Enemy ? *Enemy->GetName() : TEXT("Unknown"), 
-        *UEnum::GetValueAsString(GetStateType()));
+    // UE_LOG(LogTemp, Warning, TEXT("%s: Entered %s state"), 
+    //     Enemy ? *Enemy->GetName() : TEXT("Unknown"), 
+    //     *UEnum::GetValueAsString(GetStateType()));
 }
 
 void UEnemyStateBase::Exit(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine)
 {
-    UE_LOG(LogTemp, Warning, TEXT("%s: Exited %s state (Duration: %.2fs)"), 
-        Enemy ? *Enemy->GetName() : TEXT("Unknown"), 
-        *UEnum::GetValueAsString(GetStateType()),
-        TimeInState);
+    // UE_LOG(LogTemp, Warning, TEXT("%s: Exited %s state (Duration: %.2fs)"), 
+    //     Enemy ? *Enemy->GetName() : TEXT("Unknown"), 
+    //     *UEnum::GetValueAsString(GetStateType()),
+    //     TimeInState);
 }
 
 void UEnemyStateBase::Update(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine, float DeltaTime)
@@ -59,8 +59,8 @@ bool UEnemyStateBase::IsPlayerInRange(ABaseEnemy* Enemy, float Range) const
     bool bInRange = Distance <= Range;
     
     // Always log range check results
-    UE_LOG(LogTemp, Verbose, TEXT("%s: IsPlayerInRange - Distance: %.0f, Range: %.0f, InRange: %s"),
-        *Enemy->GetName(), Distance, Range, bInRange ? TEXT("YES") : TEXT("NO"));
+    // UE_LOG(LogTemp, Verbose, TEXT("%s: IsPlayerInRange - Distance: %.0f, Range: %.0f, InRange: %s"),
+    //     *Enemy->GetName(), Distance, Range, bInRange ? TEXT("YES") : TEXT("NO"));
     
     // Debug message removed - player range check
     
@@ -142,12 +142,12 @@ void UEnemyStateBase::RotateTowardsTarget(ABaseEnemy* Enemy, UEnemyStateMachine*
     float YawDiff = FMath::Abs(FMath::FindDeltaAngleDegrees(CurrentRotation.Yaw, DesiredRotation.Yaw));
     if (YawDiff > 1.0f) // Only log if there's meaningful rotation needed
     {
-        UE_LOG(LogTemp, VeryVerbose, TEXT("%s: Rotating - Current: %.1f, Desired: %.1f, New: %.1f, Speed: %.1f"),
-            *Enemy->GetName(),
-            CurrentRotation.Yaw,
-            DesiredRotation.Yaw,
-            NewRotation.Yaw,
-            RotationSpeed);
+        // UE_LOG(LogTemp, VeryVerbose, TEXT("%s: Rotating - Current: %.1f, Desired: %.1f, New: %.1f, Speed: %.1f"),
+        //     *Enemy->GetName(),
+        //     CurrentRotation.Yaw,
+        //     DesiredRotation.Yaw,
+        //     NewRotation.Yaw,
+        //     RotationSpeed);
     }
     
     Enemy->SetActorRotation(NewRotation);

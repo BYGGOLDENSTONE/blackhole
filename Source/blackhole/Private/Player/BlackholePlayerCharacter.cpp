@@ -20,6 +20,7 @@
 // #include "Components/Abilities/Player/SystemFreezeAbilityComponent.h" // Removed
 #include "Components/Abilities/Player/Basic/KillAbilityComponent.h"
 #include "Components/Abilities/Player/Hacker/GravityPullAbilityComponent.h"
+#include "Components/Abilities/Player/Hacker/GravityShiftAbilityComponent.h"
 #include "Components/Abilities/Player/Utility/HackerDashAbility.h"
 #include "Components/Abilities/Player/Utility/HackerJumpAbility.h"
 #include "Components/Abilities/Player/Hacker/PulseHackAbility.h"
@@ -33,6 +34,7 @@
 #include "Components/Abilities/AbilityComponent.h"
 #include "Components/Movement/WallRunComponent.h"
 #include "Components/StatusEffectComponent.h"
+#include "Components/GravityDirectionComponent.h"
 #include "Config/GameplayConfig.h"
 #include "Engine/World.h"
 
@@ -69,6 +71,10 @@ ABlackholePlayerCharacter::ABlackholePlayerCharacter()
 	SpringArmComponent->SetupAttachment(RootComponent);
 	SpringArmComponent->TargetArmLength = CameraArmLength; // Use editable property
 	SpringArmComponent->bUsePawnControlRotation = true;
+	// Enable these for proper gravity handling
+	SpringArmComponent->bInheritPitch = true;
+	SpringArmComponent->bInheritYaw = true;
+	SpringArmComponent->bInheritRoll = false; // Don't inherit roll to keep camera level
 	
 	// Offset camera to the left and up for over-the-shoulder view
 	SpringArmComponent->SocketOffset = FVector(0.0f, CameraOffsetY, CameraOffsetZ); // Use editable properties
@@ -97,6 +103,8 @@ ABlackholePlayerCharacter::ABlackholePlayerCharacter()
 	// SystemFreezeAbility removed
 	KillAbility = CreateDefaultSubobject<UKillAbilityComponent>(TEXT("KillAbility"));
 	GravityPullAbility = CreateDefaultSubobject<UGravityPullAbilityComponent>(TEXT("GravityPullAbility"));
+	GravityShiftAbility = CreateDefaultSubobject<UGravityShiftAbilityComponent>(TEXT("GravityShiftAbility"));
+	GravityDirectionComponent = CreateDefaultSubobject<UGravityDirectionComponent>(TEXT("GravityDirectionComponent"));
 
 	// Create utility abilities
 	HackerDashAbility = CreateDefaultSubobject<UHackerDashAbility>(TEXT("HackerDashAbility"));
@@ -175,6 +183,11 @@ void ABlackholePlayerCharacter::BeginPlay()
 		ResourceMgr->OnWPDepleted.AddDynamic(this, &ABlackholePlayerCharacter::OnWPDepleted);
 	}
 	
+	// Bind to gravity direction changes
+	if (GravityDirectionComponent)
+	{
+		GravityDirectionComponent->OnGravityDirectionChanged.AddDynamic(this, &ABlackholePlayerCharacter::OnGravityDirectionChanged);
+	}
 	
 }
 
@@ -217,6 +230,11 @@ void ABlackholePlayerCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason
 		ResourceMgr->OnWPDepleted.RemoveDynamic(this, &ABlackholePlayerCharacter::OnWPDepleted);
 	}
 	
+	if (GravityDirectionComponent)
+	{
+		GravityDirectionComponent->OnGravityDirectionChanged.RemoveDynamic(this, &ABlackholePlayerCharacter::OnGravityDirectionChanged);
+	}
+	
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -224,7 +242,28 @@ void ABlackholePlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	
-	// Death is now handled by event from IntegrityComponent
+	// Continuously update camera position during gravity transitions
+	if (SpringArmComponent && !bIsFirstPerson && GetCharacterMovement())
+	{
+		// Get current gravity direction
+		FVector CurrentGravityDirection = GetCharacterMovement()->GetGravityDirection();
+		FVector CurrentUpVector = -CurrentGravityDirection;
+		
+		// Default offsets in character space (assuming standard gravity)
+		FVector DefaultSocketOffset(0.0f, CameraOffsetY, CameraOffsetZ);
+		FVector DefaultTargetOffset(0.0f, 0.0f, CameraTargetOffsetZ);
+		
+		// Transform offsets based on current gravity
+		FQuat RotationFromStandardUp = FQuat::FindBetweenNormals(FVector::UpVector, CurrentUpVector);
+		
+		// Apply the rotation to the offsets
+		FVector NewSocketOffset = RotationFromStandardUp.RotateVector(DefaultSocketOffset);
+		FVector NewTargetOffset = RotationFromStandardUp.RotateVector(DefaultTargetOffset);
+		
+		// Smoothly interpolate to new offsets
+		SpringArmComponent->SocketOffset = FMath::VInterpTo(SpringArmComponent->SocketOffset, NewSocketOffset, DeltaTime, 5.0f);
+		SpringArmComponent->TargetOffset = FMath::VInterpTo(SpringArmComponent->TargetOffset, NewTargetOffset, DeltaTime, 5.0f);
+	}
 	
 }
 
@@ -335,6 +374,7 @@ void ABlackholePlayerCharacter::SetupPlayerInputComponent(UInputComponent* Playe
 		EnhancedInputComponent->BindAction(AbilitySlot4Action, ETriggerEvent::Triggered, this, &ABlackholePlayerCharacter::UseAbilitySlot4);
 		EnhancedInputComponent->BindAction(AbilitySlot5Action, ETriggerEvent::Triggered, this, &ABlackholePlayerCharacter::UseAbilitySlot5);
 		EnhancedInputComponent->BindAction(AbilitySlot6Action, ETriggerEvent::Triggered, this, &ABlackholePlayerCharacter::UseAbilitySlot6);
+		EnhancedInputComponent->BindAction(AbilitySlot7Action, ETriggerEvent::Triggered, this, &ABlackholePlayerCharacter::UseAbilitySlot7);
 	}
 }
 
@@ -348,21 +388,32 @@ void ABlackholePlayerCharacter::Move(const FInputActionValue& Value)
 	
 	// input is a Vector2D
 	FVector2D MovementVector = Value.Get<FVector2D>();
-	if (Controller != nullptr)
+	if (Controller != nullptr && GetCharacterMovement())
 	{
-		// find out which way is forward
-		const FRotator Rotation = Controller->GetControlRotation();
-		const FRotator YawRotation(0, Rotation.Yaw, 0);
-
-		// get forward vector
-		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-	
-		// get right vector 
-		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+		// Get the character's up vector (opposite of gravity)
+		FVector CharacterUp = -GetCharacterMovement()->GetGravityDirection();
+		
+		// Get camera forward and right vectors
+		const FRotator CameraRotation = Controller->GetControlRotation();
+		FVector CameraForward = FRotationMatrix(CameraRotation).GetUnitAxis(EAxis::X);
+		FVector CameraRight = FRotationMatrix(CameraRotation).GetUnitAxis(EAxis::Y);
+		
+		// Project camera vectors onto the movement plane (perpendicular to character up)
+		CameraForward = (CameraForward - (CameraForward | CharacterUp) * CharacterUp).GetSafeNormal();
+		CameraRight = (CameraRight - (CameraRight | CharacterUp) * CharacterUp).GetSafeNormal();
+		
+		// If forward vector is zero (looking straight up/down), use character's forward
+		if (CameraForward.IsZero())
+		{
+			CameraForward = GetActorForwardVector();
+		}
+		
+		// Ensure right vector is perpendicular to forward and up
+		CameraRight = FVector::CrossProduct(CharacterUp, CameraForward).GetSafeNormal();
 
 		// add movement 
-		AddMovementInput(ForwardDirection, MovementVector.Y);
-		AddMovementInput(RightDirection, MovementVector.X);
+		AddMovementInput(CameraForward, MovementVector.Y);
+		AddMovementInput(CameraRight, MovementVector.X);
 		
 		// Note: Wall run component will override velocity when active
 		// We still need to process input so HasForwardInput() works correctly
@@ -376,7 +427,8 @@ void ABlackholePlayerCharacter::Look(const FInputActionValue& Value)
 
 	if (Controller != nullptr)
 	{
-		// add yaw and pitch input to controller
+		// Always use standard input - the spring arm and character movement
+		// components should handle gravity-relative orientation automatically
 		AddControllerYawInput(LookAxisVector.X);
 		AddControllerPitchInput(LookAxisVector.Y);
 	}
@@ -834,6 +886,15 @@ void ABlackholePlayerCharacter::UseAbilitySlot6()
 	}
 }
 
+void ABlackholePlayerCharacter::UseAbilitySlot7()
+{
+	// G key - Gravity Shift
+	if (IsValid(GravityShiftAbility) && GravityShiftAbility->CanExecute())
+	{
+		GravityShiftAbility->Execute();
+	}
+}
+
 
 void ABlackholePlayerCharacter::UpdateCameraSettings()
 {
@@ -1112,6 +1173,57 @@ bool ABlackholePlayerCharacter::IsStaggered() const
 		return StatusEffectComponent->IsStaggered();
 	}
 	return false;
+}
+
+void ABlackholePlayerCharacter::OnGravityDirectionChanged(FVector NewGravityDirection)
+{
+	// Update character rotation settings for new gravity
+	if (GetCharacterMovement())
+	{
+		// Temporarily use controller yaw when gravity is non-standard
+		bool bIsStandardGravity = NewGravityDirection.Equals(FVector(0, 0, -1), 0.01f);
+		
+		if (!bIsStandardGravity)
+		{
+			// For non-standard gravity, we need different rotation handling
+			GetCharacterMovement()->bOrientRotationToMovement = true;
+			GetCharacterMovement()->bUseControllerDesiredRotation = false;
+		}
+		else
+		{
+			// Standard gravity - normal settings
+			GetCharacterMovement()->bOrientRotationToMovement = true;
+			GetCharacterMovement()->bUseControllerDesiredRotation = false;
+		}
+	}
+	
+	// CRITICAL: Adjust camera spring arm position based on new gravity
+	if (SpringArmComponent && !bIsFirstPerson)
+	{
+		// Get the new up vector (opposite of gravity)
+		FVector NewUpVector = -NewGravityDirection;
+		
+		// Default offsets in character space (assuming standard gravity)
+		FVector DefaultSocketOffset(0.0f, CameraOffsetY, CameraOffsetZ);
+		FVector DefaultTargetOffset(0.0f, 0.0f, CameraTargetOffsetZ);
+		
+		// Transform offsets based on gravity direction
+		// We need to rotate the offsets from standard up (0,0,1) to the new up vector
+		FQuat RotationFromStandardUp = FQuat::FindBetweenNormals(FVector::UpVector, NewUpVector);
+		
+		// Apply the rotation to the offsets
+		FVector NewSocketOffset = RotationFromStandardUp.RotateVector(DefaultSocketOffset);
+		FVector NewTargetOffset = RotationFromStandardUp.RotateVector(DefaultTargetOffset);
+		
+		// Set the new offsets
+		SpringArmComponent->SocketOffset = NewSocketOffset;
+		SpringArmComponent->TargetOffset = NewTargetOffset;
+		
+		UE_LOG(LogTemp, Log, TEXT("Camera spring arm adjusted for gravity: SocketOffset=%s, TargetOffset=%s"), 
+			*NewSocketOffset.ToString(), *NewTargetOffset.ToString());
+	}
+	
+	UE_LOG(LogTemp, Log, TEXT("Gravity direction changed to: %s"), *NewGravityDirection.ToString());
 }
 
 

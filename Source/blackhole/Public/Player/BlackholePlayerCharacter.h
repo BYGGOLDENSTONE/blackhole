@@ -76,6 +76,10 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	
+	// Handle gravity direction changes
+	UFUNCTION()
+	void OnGravityDirectionChanged(FVector NewGravityDirection);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	USpringArmComponent* SpringArmComponent;
@@ -138,6 +142,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
 	UGravityPullAbilityComponent* GravityPullAbility;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
+	class UGravityShiftAbilityComponent* GravityShiftAbility;
 
 	// Utility Abilities
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Abilities")
@@ -172,6 +179,10 @@ protected:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combos")
 	UDashWallRunCombo* DashWallRunCombo;
+	
+	// Gravity component
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
+	class UGravityDirectionComponent* GravityDirectionComponent;
 
 	// Enhanced Input
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
@@ -230,6 +241,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* AbilitySlot6Action;  // F key
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* AbilitySlot7Action;  // G key
 
 	// Input functions
 	void Move(const FInputActionValue& Value);
@@ -250,6 +264,7 @@ protected:
 	void UseAbilitySlot4();  // E
 	void UseAbilitySlot5();  // R
 	void UseAbilitySlot6();  // F
+	void UseAbilitySlot7();  // G - Gravity Shift
 
 	UPROPERTY(BlueprintReadOnly, Category = "Camera")
 	bool bIsFirstPerson;

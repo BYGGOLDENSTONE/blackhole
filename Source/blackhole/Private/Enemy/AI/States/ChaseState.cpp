@@ -80,7 +80,7 @@ void UChaseState::Update(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine, fl
         FVector CurrentVelocity = Enemy->GetCharacterMovement()->Velocity;
         if (CurrentVelocity.IsNearlyZero())
         {
-            UE_LOG(LogTemp, Warning, TEXT("%s: WARNING - Velocity is zero in chase state!"), *Enemy->GetName());
+            // UE_LOG(LogTemp, Warning, TEXT("%s: WARNING - Velocity is zero in chase state!"), *Enemy->GetName());
         }
     }
 }
@@ -122,19 +122,19 @@ void UChaseState::UpdateChaseMovement(ABaseEnemy* Enemy, UEnemyStateMachine* Sta
     MoveRequest.SetAcceptanceRadius(Params.AttackRange * 0.8f);
     MoveRequest.SetUsePathfinding(true);
     
-    UE_LOG(LogTemp, Warning, TEXT("%s: MoveTo called - Target: %s, Location: %s, AcceptRadius: %.0f"),
-        *Enemy->GetName(),
-        *Target->GetName(),
-        *TargetLocation.ToString(),
-        Params.AttackRange * 0.8f);
+    // UE_LOG(LogTemp, Warning, TEXT("%s: MoveTo called - Target: %s, Location: %s, AcceptRadius: %.0f"),
+    //     *Enemy->GetName(),
+    //     *Target->GetName(),
+    //     *TargetLocation.ToString(),
+    //     Params.AttackRange * 0.8f);
     
     FPathFollowingRequestResult Result = AIController->MoveTo(MoveRequest);
     
-    UE_LOG(LogTemp, Warning, TEXT("%s: MoveTo result: %s"),
-        *Enemy->GetName(),
-        Result.Code == EPathFollowingRequestResult::RequestSuccessful ? TEXT("Success") :
-        Result.Code == EPathFollowingRequestResult::AlreadyAtGoal ? TEXT("Already at goal") :
-        Result.Code == EPathFollowingRequestResult::Failed ? TEXT("Failed") : TEXT("Unknown"));
+    // UE_LOG(LogTemp, Warning, TEXT("%s: MoveTo result: %s"),
+    //     *Enemy->GetName(),
+    //     Result.Code == EPathFollowingRequestResult::RequestSuccessful ? TEXT("Success") :
+    //     Result.Code == EPathFollowingRequestResult::AlreadyAtGoal ? TEXT("Already at goal") :
+    //     Result.Code == EPathFollowingRequestResult::Failed ? TEXT("Failed") : TEXT("Unknown"));
     
     // Additional debug for failed movement
     if (Result.Code == EPathFollowingRequestResult::Failed)
@@ -155,9 +155,9 @@ void UChaseState::UpdateChaseMovement(ABaseEnemy* Enemy, UEnemyStateMachine* Sta
                 FVector(500.0f, 500.0f, 500.0f) // Search extent
             );
             
-            UE_LOG(LogTemp, Warning, TEXT("%s: Target on NavMesh: %s"), 
-                *Enemy->GetName(), 
-                bOnNavMesh ? TEXT("Yes") : TEXT("No"));
+            // UE_LOG(LogTemp, Warning, TEXT("%s: Target on NavMesh: %s"), 
+            //     *Enemy->GetName(), 
+            //     bOnNavMesh ? TEXT("Yes") : TEXT("No"));
         }
     }
     

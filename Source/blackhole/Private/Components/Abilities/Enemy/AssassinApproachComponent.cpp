@@ -111,7 +111,7 @@ void UAssassinApproachComponent::ExecuteDashBehind()
 		Movement->StopMovementImmediately();
 		Movement->AddImpulse(DashDirection * DashForce, true);
 		
-		UE_LOG(LogTemp, Warning, TEXT("AssassinApproach: Dashing %.0f units behind target"), DashDistance);
+		// UE_LOG(LogTemp, Warning, TEXT("AssassinApproach: Dashing %.0f units behind target"), DashDistance);
 	}
 	
 	// Schedule backstab attack
@@ -161,7 +161,7 @@ void UAssassinApproachComponent::ExecuteBackstab()
 		if (Distance <= StabAttackComponent->AttackRange)
 		{
 			Player->ApplyStagger(BackstabStaggerDuration);
-			UE_LOG(LogTemp, Warning, TEXT("AssassinApproach: Backstab successful! Applied %.1fs stagger"), BackstabStaggerDuration);
+			// UE_LOG(LogTemp, Warning, TEXT("AssassinApproach: Backstab successful! Applied %.1fs stagger"), BackstabStaggerDuration);
 		}
 	}
 	

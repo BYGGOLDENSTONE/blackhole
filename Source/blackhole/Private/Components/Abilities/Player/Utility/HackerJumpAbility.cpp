@@ -123,11 +123,15 @@ void UHackerJumpAbility::ApplyMovement(ACharacter* Character)
 		CurrentJumpCount++;
 		TimeSinceLastJump = 0.0f; // Reset jump timer
 		
-		// Reset Z velocity for clean double jump
-		CachedMovement->Velocity.Z = 0.0f;
+		// Get the up direction (opposite of gravity)
+		FVector UpDirection = -CachedMovement->GetGravityDirection();
 		
-		// Apply jump velocity
-		CachedMovement->Velocity.Z = JumpVelocity;
+		// Remove velocity component in the up direction for clean double jump
+		float CurrentUpVelocity = CachedMovement->Velocity | UpDirection;
+		CachedMovement->Velocity -= CurrentUpVelocity * UpDirection;
+		
+		// Apply jump velocity in the up direction
+		CachedMovement->Velocity += UpDirection * JumpVelocity;
 		
 		// Notify the movement component
 		CachedMovement->SetMovementMode(MOVE_Falling);
@@ -138,11 +142,11 @@ void UHackerJumpAbility::ApplyMovement(ACharacter* Character)
 		#if WITH_EDITOR
 		// Debug visualization
 		FVector CharLocation = Character->GetActorLocation();
-		DrawDebugLine(GetWorld(), CharLocation, CharLocation + FVector(0, 0, JumpVelocity), FColor::Cyan, false, 1.0f, 0, 3.0f);
+		DrawDebugLine(GetWorld(), CharLocation, CharLocation + (UpDirection * JumpVelocity), FColor::Cyan, false, 1.0f, 0, 3.0f);
 		
 		// Show jump count
 		FString JumpText = FString::Printf(TEXT("Jump %d/%d"), CurrentJumpCount, MaxJumpCount);
-		DrawDebugString(GetWorld(), CharLocation + FVector(0, 0, 100), JumpText, nullptr, FColor::White, 1.0f);
+		DrawDebugString(GetWorld(), CharLocation + (UpDirection * 100), JumpText, nullptr, FColor::White, 1.0f);
 		#endif
 	}
 	else

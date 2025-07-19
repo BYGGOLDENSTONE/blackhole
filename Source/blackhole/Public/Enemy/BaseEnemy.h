@@ -8,6 +8,7 @@ class UStaticMeshComponent;
 class ABlackholePlayerCharacter;
 class UEnemyStateMachine;
 class UStatusEffectComponent;
+class UGravityDirectionComponent;
 
 UCLASS()
 class BLACKHOLE_API ABaseEnemy : public ACharacter
@@ -31,6 +32,10 @@ protected:
 	// Status effect component for managing states
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")
 	UStatusEffectComponent* StatusEffectComponent;
+	
+	// Gravity direction component for handling gravity shifts
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
+	UGravityDirectionComponent* GravityDirectionComponent;
 
 	// Enemy health is now tracked as WP (same as player)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attributes")

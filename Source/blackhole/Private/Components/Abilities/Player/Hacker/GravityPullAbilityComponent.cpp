@@ -10,6 +10,7 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "Engine/EngineTypes.h"
 #include "Actors/PsiDisruptor.h"
+#include "Enemy/TankEnemy.h"
 
 UGravityPullAbilityComponent::UGravityPullAbilityComponent()
 {
@@ -21,7 +22,7 @@ UGravityPullAbilityComponent::UGravityPullAbilityComponent()
     
     // Default force values (will be applied as impulse)
     LaunchForceMultiplier = 1.0f;
-    BaseLaunchForce = 50000.0f;  // Impulse needs to be higher since mass is accounted for by physics
+    BaseLaunchForce = 2500.0f;  // Good force for enemy pull
     
     // Ensure this is NOT a basic ability
     bIsBasicAbility = false;
@@ -47,39 +48,94 @@ void UGravityPullAbilityComponent::Execute()
     }
 
     // Normal (non-ultimate) execution continues here
-    // Find best hackable target
-    AActor* Target = FindBestHackableTarget();
-    if (!Target) 
-    {
-        UE_LOG(LogTemp, Warning, TEXT("GravityPull: No valid target found"));
-        return;
-    }
-
-    // Get hackable component
-    UHackableComponent* HackableComp = Target->FindComponentByClass<UHackableComponent>();
-    if (!HackableComp || !HackableComp->CanBeHacked())
-    {
-        UE_LOG(LogTemp, Warning, TEXT("GravityPull: Target is not hackable"));
-        return;
-    }
-
-    // Calculate final launch force
-    // Don't multiply by object mass - the physics engine already accounts for mass
-    float FinalLaunchForce = BaseLaunchForce * LaunchForceMultiplier;
-
-    // Get player location
     AActor* Owner = GetOwner();
-    if (!Owner)
+    if (!Owner) return;
+
+    // Get camera location and direction for trace
+    FVector CameraLocation;
+    FVector CameraDirection;
+    GetCameraLocationAndDirection(CameraLocation, CameraDirection);
+
+    // Perform line trace to find target
+    FHitResult HitResult;
+    FCollisionQueryParams QueryParams;
+    QueryParams.AddIgnoredActor(Owner);
+    QueryParams.bTraceComplex = false;
+
+    FVector TraceEnd = CameraLocation + (CameraDirection * Range);
+    
+    bool bHit = GetWorld()->LineTraceSingleByChannel(
+        HitResult,
+        CameraLocation,
+        TraceEnd,
+        ECC_Pawn,
+        QueryParams
+    );
+
+    // Debug visualization
+    #if WITH_EDITOR
+    DrawDebugLine(GetWorld(), CameraLocation, TraceEnd, FColor::Cyan, false, 1.0f, 0, 2.0f);
+    #endif
+
+    if (!bHit || !HitResult.GetActor())
     {
-        UE_LOG(LogTemp, Warning, TEXT("GravityPull: No owner"));
+        UE_LOG(LogTemp, Warning, TEXT("GravityPull: No target hit by trace"));
         return;
     }
+
+    AActor* Target = HitResult.GetActor();
+
+    // Check if it's an enemy
+    ACharacter* TargetCharacter = Cast<ACharacter>(Target);
+    if (!TargetCharacter || !Target->ActorHasTag("Enemy"))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("GravityPull: Target is not an enemy"));
+        return;
+    }
+
+    // Check if it's a Tank enemy - they are immune
+    if (Target->IsA<ATankEnemy>())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("GravityPull: Tank enemies are immune to Gravity Pull"));
+        return;
+    }
+
+    // Calculate current distance
     FVector PlayerLocation = Owner->GetActorLocation();
+    float CurrentDistance = FVector::Dist(PlayerLocation, Target->GetActorLocation());
+    
+    // Calculate target position using configurable ratio
+    float TargetDistance = CurrentDistance * PullDistanceRatio;
+    
+    // Ensure minimum distance
+    if (TargetDistance < MinimumPullDistance)
+    {
+        TargetDistance = MinimumPullDistance;
+    }
 
-    // Launch the object (it will determine direction based on player location)
-    HackableComp->OnHacked(FinalLaunchForce, PlayerLocation);
+    // Calculate the target position
+    FVector DirectionToPlayer = (PlayerLocation - Target->GetActorLocation()).GetSafeNormal();
+    FVector TargetPosition = PlayerLocation - (DirectionToPlayer * TargetDistance);
 
-    UE_LOG(LogTemp, Warning, TEXT("GravityPull: Launched %s"), *Target->GetName());
+    // Calculate pull force needed to reach target position
+    FVector PullDirection = (TargetPosition - Target->GetActorLocation()).GetSafeNormal();
+    float PullForce = BaseLaunchForce * LaunchForceMultiplier;
+    
+    // Add upward bounce component
+    FVector FinalPullVelocity = PullDirection * PullForce;
+    FinalPullVelocity.Z += BounceUpwardForce;
+
+    // Apply the pull force with bounce
+    TargetCharacter->LaunchCharacter(FinalPullVelocity, true, true);
+
+    // Visual feedback
+    #if WITH_EDITOR
+    DrawDebugSphere(GetWorld(), TargetPosition, 50.0f, 12, FColor::Green, false, 2.0f);
+    DrawDebugLine(GetWorld(), Target->GetActorLocation(), TargetPosition, FColor::Green, false, 2.0f, 0, 3.0f);
+    #endif
+
+    UE_LOG(LogTemp, Warning, TEXT("GravityPull: Pulled %s from %.1f to target distance %.1f"), 
+        *Target->GetName(), CurrentDistance, TargetDistance);
 }
 
 bool UGravityPullAbilityComponent::CanExecute() const
@@ -90,82 +146,9 @@ bool UGravityPullAbilityComponent::CanExecute() const
 
 AActor* UGravityPullAbilityComponent::FindBestHackableTarget() const
 {
-    AActor* Owner = GetOwner();
-    if (!Owner) return nullptr;
-
-    FVector CameraLocation;
-    FVector CameraDirection;
-    GetCameraLocationAndDirection(CameraLocation, CameraDirection);
-
-    // Find all actors with hackable component in range
-    TArray<AActor*> FoundActors;
-    TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
-    ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
-    ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_WorldDynamic));
-
-    UKismetSystemLibrary::SphereOverlapActors(
-        GetWorld(),
-        Owner->GetActorLocation(),
-        Range,
-        ObjectTypes,
-        nullptr,
-        TArray<AActor*>(),
-        FoundActors
-    );
-
-    AActor* BestTarget = nullptr;
-    float BestScore = -1.0f;
-
-    for (AActor* Actor : FoundActors)
-    {
-        if (!Actor || Actor == Owner) continue;
-
-        // Check if actor has hackable component
-        UHackableComponent* HackableComp = Actor->FindComponentByClass<UHackableComponent>();
-        if (!HackableComp || !HackableComp->CanBeHacked()) continue;
-
-        // Check line of sight
-        FHitResult HitResult;
-        FCollisionQueryParams QueryParams;
-        QueryParams.AddIgnoredActor(Owner);
-
-        bool bHit = GetWorld()->LineTraceSingleByChannel(
-            HitResult,
-            CameraLocation,
-            Actor->GetActorLocation(),
-            ECC_Visibility,
-            QueryParams
-        );
-
-        if (bHit && HitResult.GetActor() != Actor) continue;
-
-        // Check if within targeting angle
-        FVector ToTarget = (Actor->GetActorLocation() - CameraLocation).GetSafeNormal();
-        if (!IsWithinTargetingAngle(CameraDirection, ToTarget)) continue;
-
-        // Calculate score based on distance and angle
-        float Distance = FVector::Dist(CameraLocation, Actor->GetActorLocation());
-        float AngleDot = FVector::DotProduct(CameraDirection, ToTarget);
-        float Score = AngleDot * (1.0f - (Distance / Range));
-
-        if (Score > BestScore)
-        {
-            BestScore = Score;
-            BestTarget = Actor;
-        }
-    }
-
-    // Highlight the target
-    if (BestTarget)
-    {
-        UHackableComponent* HackableComp = BestTarget->FindComponentByClass<UHackableComponent>();
-        if (HackableComp)
-        {
-            HackableComp->OnTargeted();
-        }
-    }
-
-    return BestTarget;
+    // This function is deprecated - we now use trace-based targeting
+    // Keeping for backward compatibility but it's not used
+    return nullptr;
 }
 
 
@@ -193,11 +176,9 @@ void UGravityPullAbilityComponent::GetCameraLocationAndDirection(FVector& OutLoc
 
 bool UGravityPullAbilityComponent::IsWithinTargetingAngle(const FVector& CameraDirection, const FVector& ToTarget) const
 {
-    float DotProduct = FVector::DotProduct(CameraDirection, ToTarget);
-    float AngleRadians = FMath::Acos(DotProduct);
-    float AngleDegrees = FMath::RadiansToDegrees(AngleRadians);
-    
-    return AngleDegrees <= MaxTargetingAngle;
+    // This function is deprecated - we now use trace-based targeting
+    // Keeping for backward compatibility
+    return true;
 }
 
 void UGravityPullAbilityComponent::ExecuteUltimate()
@@ -285,14 +266,23 @@ void UGravityPullAbilityComponent::ExecuteUltimate()
         
         if (!bIsEnemy && !bIsPhysicsObject) continue;
         
+        // Skip Tank enemies - they are immune
+        if (Actor->IsA<ATankEnemy>())
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Singularity: Tank enemy %s is immune to pull"), *Actor->GetName());
+            continue;
+        }
+        
         // Calculate pull direction (towards singularity)
         FVector PullDirection = (SingularityPoint - Actor->GetActorLocation()).GetSafeNormal();
         
         // Apply pull force
         if (ACharacter* Character = Cast<ACharacter>(Actor))
         {
-            // For characters, use launch
-            Character->LaunchCharacter(PullDirection * UltimatePullForce, true, true);
+            // For characters, use launch with bounce
+            FVector LaunchVelocity = PullDirection * UltimatePullForce;
+            LaunchVelocity.Z += BounceUpwardForce * 0.7f; // Slightly less bounce for ultimate
+            Character->LaunchCharacter(LaunchVelocity, true, true);
             EntitiesPulled++;
             
             UE_LOG(LogTemp, Warning, TEXT("Singularity pulled character %s!"), *Actor->GetName());

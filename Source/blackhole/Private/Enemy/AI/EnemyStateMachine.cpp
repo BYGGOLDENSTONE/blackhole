@@ -28,7 +28,7 @@ void UEnemyStateMachine::BeginPlay()
         return;
     }
     
-    UE_LOG(LogTemp, Warning, TEXT("%s StateMachine: BeginPlay - Owner set"), *OwnerEnemy->GetName());
+    // UE_LOG(LogTemp, Warning, TEXT("%s StateMachine: BeginPlay - Owner set"), *OwnerEnemy->GetName());
     
     // Don't initialize here - let derived classes do it after setting parameters
     // InitializeStates();
@@ -37,7 +37,7 @@ void UEnemyStateMachine::BeginPlay()
     if (GetWorld())
     {
         GetWorld()->GetTimerManager().SetTimer(LineOfSightTimer, this, &UEnemyStateMachine::CheckLineOfSight, 0.2f, true);
-        UE_LOG(LogTemp, Warning, TEXT("%s StateMachine: Line of sight timer started"), *OwnerEnemy->GetName());
+        // UE_LOG(LogTemp, Warning, TEXT("%s StateMachine: Line of sight timer started"), *OwnerEnemy->GetName());
     }
     
     // Don't enter initial state here - do it after states are created
@@ -132,7 +132,7 @@ void UEnemyStateMachine::TickComponent(float DeltaTime, ELevelTick TickType, FAc
         if (AActor* PlayerActor = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0))
         {
             SetTarget(PlayerActor);
-            UE_LOG(LogTemp, Warning, TEXT("%s: Auto-acquired player target in TickComponent"), *GetName());
+            // UE_LOG(LogTemp, Warning, TEXT("%s: Auto-acquired player target in TickComponent"), *GetName());
         }
     }
     
@@ -158,17 +158,17 @@ void UEnemyStateMachine::InitializeStates()
 
 void UEnemyStateMachine::Initialize()
 {
-    UE_LOG(LogTemp, Warning, TEXT("%s: Initializing state machine"), *GetName());
+    // UE_LOG(LogTemp, Warning, TEXT("%s: Initializing state machine"), *GetName());
     
     // This should be called by derived classes after they've set up their parameters
     InitializeStates();
     
-    UE_LOG(LogTemp, Warning, TEXT("%s: %d states registered"), *GetName(), States.Num());
+    // UE_LOG(LogTemp, Warning, TEXT("%s: %d states registered"), *GetName(), States.Num());
     
     // Log target status
     if (Target)
     {
-        UE_LOG(LogTemp, Warning, TEXT("%s: Target is set: %s"), *GetName(), *Target->GetName());
+        // UE_LOG(LogTemp, Warning, TEXT("%s: Target is set: %s"), *GetName(), *Target->GetName());
     }
     else
     {
@@ -178,9 +178,9 @@ void UEnemyStateMachine::Initialize()
     // Now enter the initial state
     if (States.Contains(CurrentState))
     {
-        UE_LOG(LogTemp, Warning, TEXT("%s: Entering initial state %s"), 
-            *GetName(), 
-            *UEnum::GetValueAsString(CurrentState));
+        // UE_LOG(LogTemp, Warning, TEXT("%s: Entering initial state %s"), 
+        //     *GetName(), 
+        //     *UEnum::GetValueAsString(CurrentState));
         EnterState(CurrentState);
         
         // Verify we have a valid state object
@@ -188,7 +188,7 @@ void UEnemyStateMachine::Initialize()
         {
             bIsInitialized = true;
             SetComponentTickEnabled(true); // Enable tick only after successful initialization
-            UE_LOG(LogTemp, Warning, TEXT("%s: State machine initialization complete - tick enabled"), *GetName());
+            // UE_LOG(LogTemp, Warning, TEXT("%s: State machine initialization complete - tick enabled"), *GetName());
         }
         else
         {
@@ -234,10 +234,10 @@ void UEnemyStateMachine::RegisterState(EEnemyState StateType, UEnemyStateBase* S
     StateObject->AddToRoot(); // Prevent garbage collection
     States.Add(StateType, StateObject);
     
-    UE_LOG(LogTemp, Warning, TEXT("%s: Registered state %s (Object: %s)"), 
-        *GetName(), 
-        *UEnum::GetValueAsString(StateType),
-        *StateObject->GetName());
+    // UE_LOG(LogTemp, Warning, TEXT("%s: Registered state %s (Object: %s)"), 
+    //     *GetName(), 
+    //     *UEnum::GetValueAsString(StateType),
+    //     *StateObject->GetName());
 }
 
 void UEnemyStateMachine::ChangeState(EEnemyState NewState)
@@ -309,10 +309,10 @@ void UEnemyStateMachine::EnterState(EEnemyState NewState)
         CurrentStateObject = *StatePtr;
         CurrentStateObject->Enter(OwnerEnemy, this);
         
-        UE_LOG(LogTemp, Verbose, TEXT("%s: Entered state %s - CurrentStateObject set to %s"),
-            OwnerEnemy ? *OwnerEnemy->GetName() : TEXT("NoOwner"),
-            *UEnum::GetValueAsString(NewState),
-            *CurrentStateObject->GetName());
+        // UE_LOG(LogTemp, Verbose, TEXT("%s: Entered state %s - CurrentStateObject set to %s"),
+        //     OwnerEnemy ? *OwnerEnemy->GetName() : TEXT("NoOwner"),
+        //     *UEnum::GetValueAsString(NewState),
+        //     *CurrentStateObject->GetName());
     }
     else
     {
@@ -347,23 +347,23 @@ void UEnemyStateMachine::SetTarget(AActor* NewTarget)
     if (Target)
     {
         UpdateLastKnownTargetLocation();
-        UE_LOG(LogTemp, Warning, TEXT("%s StateMachine: Target set to %s"), 
-            OwnerEnemy ? *OwnerEnemy->GetName() : TEXT("NoOwner"), 
-            *Target->GetName());
+        // UE_LOG(LogTemp, Warning, TEXT("%s StateMachine: Target set to %s"), 
+        //     OwnerEnemy ? *OwnerEnemy->GetName() : TEXT("NoOwner"), 
+        //     *Target->GetName());
             
         // If we're already initialized but had no target, we might be stuck in Idle
         // Force a state update
         if (CurrentStateObject && CurrentState == EEnemyState::Idle)
         {
-            UE_LOG(LogTemp, Warning, TEXT("%s StateMachine: Forcing idle state update after target set"), 
-                *OwnerEnemy->GetName());
+            // UE_LOG(LogTemp, Warning, TEXT("%s StateMachine: Forcing idle state update after target set"), 
+            //     *OwnerEnemy->GetName());
             // No need to change state, just let the next update handle it
         }
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("%s StateMachine: Target cleared"), 
-            OwnerEnemy ? *OwnerEnemy->GetName() : TEXT("NoOwner"));
+        // UE_LOG(LogTemp, Warning, TEXT("%s StateMachine: Target cleared"), 
+        //     OwnerEnemy ? *OwnerEnemy->GetName() : TEXT("NoOwner"));
     }
 }
 
@@ -433,11 +433,11 @@ void UEnemyStateMachine::CheckLineOfSight()
         static int LOSCounter = 0;
         if (LOSCounter++ % 5 == 0) // Log every second (5 * 0.2s)
         {
-            UE_LOG(LogTemp, Warning, TEXT("%s: Line of sight to %s: %s (Distance: %.0f)"),
-                *OwnerEnemy->GetName(), 
-                *Target->GetName(),
-                bHasLineOfSight ? TEXT("YES") : TEXT("NO"),
-                FVector::Dist(Start, SuccessfulTargetPos));
+            // UE_LOG(LogTemp, Warning, TEXT("%s: Line of sight to %s: %s (Distance: %.0f)"),
+            //     *OwnerEnemy->GetName(), 
+            //     *Target->GetName(),
+            //     bHasLineOfSight ? TEXT("YES") : TEXT("NO"),
+            //     FVector::Dist(Start, SuccessfulTargetPos));
         }
         
         // Debug text

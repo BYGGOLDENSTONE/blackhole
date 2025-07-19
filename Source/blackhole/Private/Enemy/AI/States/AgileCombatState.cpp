@@ -21,7 +21,7 @@ void UAgileCombatState::Enter(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachin
     bHasExecutedBackstab = false;
     TimeInCurrentPhase = 0.0f;
     
-    UE_LOG(LogTemp, Warning, TEXT("Agile Enemy: Entering combat - starting assassin approach"));
+    // UE_LOG(LogTemp, Warning, TEXT("Agile Enemy: Entering combat - starting assassin approach"));
 }
 
 void UAgileCombatState::Exit(ABaseEnemy* Enemy, UEnemyStateMachine* StateMachine)
@@ -157,7 +157,7 @@ void UAgileCombatState::ExecuteDashAttack(ABaseEnemy* Enemy, UEnemyStateMachine*
         // Fast dash through and past the player
         Movement->AddImpulse(DirectionToTarget * DashForce, true);
         
-        UE_LOG(LogTemp, Warning, TEXT("Assassin Approach: Dashing %.0f units to get behind player"), DashDistance);
+        // UE_LOG(LogTemp, Warning, TEXT("Assassin Approach: Dashing %.0f units to get behind player"), DashDistance);
         
         // Schedule attack at end of dash
         if (Enemy->GetWorld())
@@ -205,10 +205,10 @@ void UAgileCombatState::ExecuteDashAttack(ABaseEnemy* Enemy, UEnemyStateMachine*
                         {
                             float StaggerDuration = AgileEnemy ? AgileEnemy->BackstabStaggerDuration : 1.5f;
                             Player->ApplyStagger(StaggerDuration);
-                            UE_LOG(LogTemp, Warning, TEXT("Agile Backstab: Applied %.1fs stagger to player"), StaggerDuration);
+                            // UE_LOG(LogTemp, Warning, TEXT("Agile Backstab: Applied %.1fs stagger to player"), StaggerDuration);
                         }
                         
-                        UE_LOG(LogTemp, Warning, TEXT("Agile DashAttack: Executed backstab! Base: %.0f -> Backstab: %.0f damage (x%.1f)"), OriginalDamage, OriginalDamage * DamageMultiplier, DamageMultiplier);
+                        // UE_LOG(LogTemp, Warning, TEXT("Agile DashAttack: Executed backstab! Base: %.0f -> Backstab: %.0f damage (x%.1f)"), OriginalDamage, OriginalDamage * DamageMultiplier, DamageMultiplier);
                     }
                 }
             }, 0.3f, false);
@@ -253,7 +253,7 @@ void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMac
                 float DashCD = Agile ? Agile->DashCooldown : 3.0f;
                 StartAbilityCooldown(Enemy, TEXT("DashAttack"), DashCD);
                 
-                UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Executing Assassin Approach from %.0f units!"), DistanceToTarget);
+                // UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Executing Assassin Approach from %.0f units!"), DistanceToTarget);
             }
             else if (!bDashOnCooldown && DistanceToTarget > 600.0f)
             {
@@ -306,7 +306,7 @@ void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMac
                 TimeInCurrentPhase = 0.0f;
                 bHasExecutedBackstab = true;
                 
-                UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Backstab complete, retreating!"));
+                // UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Backstab complete, retreating!"));
             }
             break;
         }
@@ -329,7 +329,7 @@ void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMac
                     Enemy->GetCharacterMovement()->MaxWalkSpeed = Agile->MovementSpeed;
                 }
                 
-                UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: %.1f second retreat complete, maintaining position"), RetreatTime);
+                // UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: %.1f second retreat complete, maintaining position"), RetreatTime);
             }
             else
             {
@@ -374,11 +374,11 @@ void UAgileCombatState::UpdateAssassinBehavior(ABaseEnemy* Enemy, UEnemyStateMac
                 
                 if (bForceAttack)
                 {
-                    UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Forcing attack after %.1f seconds!"), MaxMaintainTime);
+                    // UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Forcing attack after %.1f seconds!"), MaxMaintainTime);
                 }
                 else
                 {
-                    UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Dash ready, beginning new approach"));
+                    // UE_LOG(LogTemp, Warning, TEXT("Agile Assassin: Dash ready, beginning new approach"));
                 }
             }
             else

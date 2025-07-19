@@ -27,7 +27,7 @@ void ABlackholeAIController::OnPossess(APawn* InPawn)
     // Configure movement for possessed enemy
     if (ABaseEnemy* Enemy = Cast<ABaseEnemy>(InPawn))
     {
-        UE_LOG(LogTemp, Warning, TEXT("AIController possessed enemy: %s"), *Enemy->GetName());
+        // UE_LOG(LogTemp, Warning, TEXT("AIController possessed enemy: %s"), *Enemy->GetName());
     }
 }
 
@@ -49,16 +49,16 @@ void ABlackholeAIController::ConfigureMovement()
             MovementComp->RotationRate = FRotator(0.0f, 360.0f, 0.0f);
             
             // Log current movement settings
-            UE_LOG(LogTemp, Warning, TEXT("%s AIController: Movement configured - MaxWalkSpeed: %.0f, MovementMode: %d"),
-                *Enemy->GetName(),
-                MovementComp->MaxWalkSpeed,
-                (int32)MovementComp->MovementMode);
+            // UE_LOG(LogTemp, Warning, TEXT("%s AIController: Movement configured - MaxWalkSpeed: %.0f, MovementMode: %d"),
+            //     *Enemy->GetName(),
+            //     MovementComp->MaxWalkSpeed,
+            //     (int32)MovementComp->MovementMode);
             
             // Ensure movement is enabled
             if (MovementComp->MovementMode != MOVE_Walking)
             {
                 MovementComp->SetMovementMode(MOVE_Walking);
-                UE_LOG(LogTemp, Warning, TEXT("%s AIController: Setting movement mode to Walking"), *Enemy->GetName());
+                // UE_LOG(LogTemp, Warning, TEXT("%s AIController: Setting movement mode to Walking"), *Enemy->GetName());
             }
         }
         else

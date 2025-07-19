@@ -8,35 +8,35 @@
 
 void UAgileEnemyStateMachine::BeginPlay()
 {
-    UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: BeginPlay started"), 
-        GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
+    // UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: BeginPlay started"), 
+    //     GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
     
     Super::BeginPlay();
     
-    UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: Setting up parameters"), 
-        GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
+    // UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: Setting up parameters"), 
+    //     GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
     SetupAgileParameters();
     
     // Initialize immediately - BaseEnemy has already set the target in its BeginPlay
-    UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: Calling Initialize immediately"), 
-        GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
+    // UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: Calling Initialize immediately"), 
+    //     GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
     Initialize();
     
-    UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: BeginPlay complete"), 
-        GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
+    // UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: BeginPlay complete"), 
+    //     GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
 }
 
 void UAgileEnemyStateMachine::InitializeStates()
 {
-    UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: InitializeStates called"), 
-        GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
+    // UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: InitializeStates called"), 
+    //     GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
     CreateDefaultStates();
 }
 
 void UAgileEnemyStateMachine::CreateDefaultStates()
 {
-    UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: CreateDefaultStates started"), 
-        GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
+    // UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: CreateDefaultStates started"), 
+    //     GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
     
     // Create states
     UIdleState* IdleState = NewObject<UIdleState>(this, UIdleState::StaticClass());
@@ -45,8 +45,8 @@ void UAgileEnemyStateMachine::CreateDefaultStates()
     UAgileCombatState* CombatState = NewObject<UAgileCombatState>(this, UAgileCombatState::StaticClass());
     // No retreat state for agile enemies - they never retreat
     
-    UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: States created, now registering"), 
-        GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
+    // UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: States created, now registering"), 
+    //     GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
     
     // Register states
     RegisterState(EEnemyState::Idle, IdleState);
@@ -55,8 +55,8 @@ void UAgileEnemyStateMachine::CreateDefaultStates()
     RegisterState(EEnemyState::Combat, CombatState);
     // No retreat state registered - agile enemies fight to the death
     
-    UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: All states registered"), 
-        GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
+    // UE_LOG(LogTemp, Warning, TEXT("%s AgileStateMachine: All states registered"), 
+    //     GetOwner() ? *GetOwner()->GetName() : TEXT("NoOwner"));
     
     // Agile enemies don't use defensive state - they dodge instead
 }

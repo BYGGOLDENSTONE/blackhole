@@ -209,6 +209,7 @@ protected:
     FVector WallRunDirection = FVector::ZeroVector;
     float CurrentWallRunSpeed = 0.0f;
     float WallRunStartHeight = 0.0f; // Store starting height to maintain consistent level
+    FVector WallRunStartLocation = FVector::ZeroVector; // Store starting location for gravity-aware height maintenance
 
     // Cached components
     UPROPERTY()
